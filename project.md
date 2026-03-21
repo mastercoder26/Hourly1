@@ -159,7 +159,7 @@ Register org (EIN lookup → mission → logo → submit for review)
 | ORM | Prisma | Type-safe DB queries, great migration tooling |
 | Auth | Clerk | Handles school email, social login, under-18 flows, JWTs |
 | Storage | Supabase Storage | Profile photos, org logos, generated PDFs |
-| Maps | Mapbox SDK | Location search, geofencing, offline tile support |
+| Maps | Apple MapKit (react-native-maps / MapKit JS) | Location search, geofencing, native map display without API key on iOS. MapKit JS for web. |
 | QR | expo-camera + react-native-qrcode-svg | Offline QR generation and scanning |
 | Push Notifications | Expo Push + Firebase Cloud Messaging | Cross-platform push, scheduling via Bull queue |
 | PDF Generation | react-pdf (client) / Puppeteer (server) | Certificates and impact reports |
@@ -224,12 +224,12 @@ Build the 4-step onboarding flow with a progress bar. Steps: (1) sign-in screen 
 **Deliverable:** `apps/mobile/app/onboarding/` — step components + progress bar
 
 #### Chunk 2 — Opportunity Feed (Frontend)
-Build the home feed with hardcoded mock opportunity cards. Each card shows: org name, role title, cause pill badge (colored), distance, date/time, hours, spots remaining (urgency color if < 5). Swipeable (swipe right = save, left = dismiss). Sticky filter bar at top: distance slider, cause multi-select, date picker, credit-eligible toggle. Map toggle switches to Mapbox view with pins. Pull to refresh (instant with mocks). Empty state with illustration.
+Build the home feed with hardcoded mock opportunity cards. Each card shows: org name, role title, cause pill badge (colored), distance, date/time, hours, spots remaining (urgency color if < 5). Swipeable (swipe right = save, left = dismiss). Sticky filter bar at top: distance slider, cause multi-select, date picker, credit-eligible toggle. Map toggle switches to Apple map view with pins (using react-native-maps). Pull to refresh (instant with mocks). Empty state with illustration.
 
 **Deliverable:** `apps/mobile/app/(tabs)/index.tsx`, `components/OpportunityCard.tsx`, `components/FilterBar.tsx`
 
 #### Chunk 3 — Opportunity Detail + Apply (Frontend)
-Tapping a card opens the detail screen. Shows: org name + star rating (1–5 with breakdown), role description, shift date/time, static Mapbox map preview, spots remaining, age requirement, what-to-bring checklist (copyable), cause tags, credit-eligible badge with tooltip, 3 most recent volunteer reviews. Sticky bottom bar: "Apply — 1 tap" + "Save for later" ghost button. Tapping apply opens a bottom sheet (not a new screen) with shift summary + confirm button. Confirm shows animated checkmark success state.
+Tapping a card opens the detail screen. Shows: org name + star rating (1–5 with breakdown), role description, shift date/time, static Apple Map preview (react-native-maps), spots remaining, age requirement, what-to-bring checklist (copyable), cause tags, credit-eligible badge with tooltip, 3 most recent volunteer reviews. Sticky bottom bar: "Apply — 1 tap" + "Save for later" ghost button. Tapping apply opens a bottom sheet (not a new screen) with shift summary + confirm button. Confirm shows animated checkmark success state.
 
 **Deliverable:** `apps/mobile/app/opportunity/[id].tsx`, `components/ApplySheet.tsx`
 
@@ -413,12 +413,12 @@ Each chunk below is self-contained and can be handed to Claude, Cursor, or Copil
 > **Deliverable:** `app/onboarding/` folder with step components
 
 ### Chunk 3 — Opportunity Feed & Search
-> Build the home feed screen for Hourly (React Native/Expo SDK 55). Use React Query to fetch from `GET /opportunities?lat=&lng=&causes=&dateFrom=&creditEligible=`. Render swipeable cards (react-native-gesture-handler): org name, role title, cause tag pill, distance, date/time, hours, spots remaining (urgency orange if < 5, red if = 1). Sticky filter bar: distance slider, cause multi-select chips, date range picker, credit-eligible toggle. Map toggle switches to Mapbox map view with pins. Swipe right = save, swipe left = dismiss. Pull to refresh. Empty state with an illustration and "Try adjusting your filters" prompt. Teal accent. TypeScript. Include a mock data file for Phase 1 development.
+> Build the home feed screen for Hourly (React Native/Expo SDK 55). Use React Query to fetch from `GET /opportunities?lat=&lng=&causes=&dateFrom=&creditEligible=`. Render swipeable cards (react-native-gesture-handler): org name, role title, cause tag pill, distance, date/time, hours, spots remaining (urgency orange if < 5, red if = 1). Sticky filter bar: distance slider, cause multi-select chips, date range picker, credit-eligible toggle. Map toggle switches to Apple Map view with pins (via react-native-maps). Swipe right = save, swipe left = dismiss. Pull to refresh. Empty state with an illustration and "Try adjusting your filters" prompt. Teal accent. TypeScript. Include a mock data file for Phase 1 development.
 >
 > **Deliverable:** `app/(tabs)/index.tsx`, `components/OpportunityCard.tsx`, `components/FilterBar.tsx`
 
 ### Chunk 4 — Opportunity Detail & Apply
-> Build the opportunity detail screen for Hourly (React Native). Receives an opportunity ID from Expo Router params, fetches `GET /opportunities/:id`. Display: org name + rating (1–5 with sub-scores: communication, impact, organization), role description, shift date/time, Mapbox static map preview (tap to open full map), spots remaining, age requirement, what-to-bring checklist with "Copy all" button, cause tags, credit-eligible badge with a tooltip explanation, 3 most recent volunteer reviews (quoted text + star rating). Sticky bottom bar: "Apply — 1 tap" + "Save for later" ghost button. Apply opens a bottom sheet (react-native-bottom-sheet) with shift summary + animated confirm button. On confirm: `POST /applications`. Success: animated green checkmark. Error: toast with retry option. TypeScript. Jest test for apply flow.
+> Build the opportunity detail screen for Hourly (React Native). Receives an opportunity ID from Expo Router params, fetches `GET /opportunities/:id`. Display: org name + rating (1–5 with sub-scores: communication, impact, organization), role description, shift date/time, static Apple Map preview via react-native-maps (tap to open full map), spots remaining, age requirement, what-to-bring checklist with "Copy all" button, cause tags, credit-eligible badge with a tooltip explanation, 3 most recent volunteer reviews (quoted text + star rating). Sticky bottom bar: "Apply — 1 tap" + "Save for later" ghost button. Apply opens a bottom sheet (react-native-bottom-sheet) with shift summary + animated confirm button. On confirm: `POST /applications`. Success: animated green checkmark. Error: toast with retry option. TypeScript. Jest test for apply flow.
 >
 > **Deliverable:** `app/opportunity/[id].tsx`, `components/ApplySheet.tsx`
 
@@ -433,7 +433,7 @@ Each chunk below is self-contained and can be handed to Claude, Cursor, or Copil
 > **Deliverable:** `app/(tabs)/portfolio.tsx`, `components/HoursChart.tsx`, `components/BadgeGrid.tsx`
 
 ### Chunk 7 — Org Dashboard & Role Creation
-> Build the org dashboard and role creation flow for Hourly (React Native). Purple (#534AB7) accent. Dashboard: active listings with applicant count + spots-filled progress bar, upcoming shifts in the next 7 days, quick stats (volunteers this month, total hours, retention rate). "Post a role" → multi-step form: (1) title + cause tags (multi-select chips), (2) date/time picker with recurring option (weekly/biweekly/monthly — generates multiple opportunity records), (3) location (address autocomplete via Mapbox Geocoding API, map pin confirmation), (4) spots count + age minimum + what-to-bring list (add/remove items), (5) credit-eligible toggle with tooltip + preview screen showing exactly what students will see. Draft auto-saves to AsyncStorage every 30s. "Use last event" pre-fills from `GET /orgs/:id/opportunities?limit=1`. Publish: `POST /opportunities`. TypeScript. Jest test for multi-step form state.
+> Build the org dashboard and role creation flow for Hourly (React Native). Purple (#534AB7) accent. Dashboard: active listings with applicant count + spots-filled progress bar, upcoming shifts in the next 7 days, quick stats (volunteers this month, total hours, retention rate). "Post a role" → multi-step form: (1) title + cause tags (multi-select chips), (2) date/time picker with recurring option (weekly/biweekly/monthly — generates multiple opportunity records), (3) location (address autocomplete via Apple CLGeocoder/MapKit or similar API, map pin confirmation via react-native-maps), (4) spots count + age minimum + what-to-bring list (add/remove items), (5) credit-eligible toggle with tooltip + preview screen showing exactly what students will see. Draft auto-saves to AsyncStorage every 30s. "Use last event" pre-fills from `GET /orgs/:id/opportunities?limit=1`. Publish: `POST /opportunities`. TypeScript. Jest test for multi-step form state.
 >
 > **Deliverable:** `app/org/dashboard.tsx`, `app/org/create-role.tsx`
 
