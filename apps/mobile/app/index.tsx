@@ -1,6 +1,7 @@
 // Welcome Screen — "Welcome to Hourly" landing page
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Dimensions, ViewStyle } from 'react-native';
+import { View, StyleSheet, Pressable, Dimensions, ViewStyle } from 'react-native';
+import { Text } from '@/components/Themed';;
 import { useRouter } from 'expo-router';
 import Animated, {
   useSharedValue,

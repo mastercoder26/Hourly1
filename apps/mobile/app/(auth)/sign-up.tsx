@@ -1,6 +1,7 @@
 // Auth — Sign Up Screen
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Pressable, ScrollView } from 'react-native';
+import { View, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Pressable, ScrollView } from 'react-native';
+import { Text } from '@/components/Themed';;
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { PillButton } from '../../components/ui/PillButton';

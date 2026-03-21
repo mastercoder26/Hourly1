@@ -1,6 +1,7 @@
 // Onboarding Step 2 — School confirmation (intermediate step)
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@/components/Themed';;
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { ProgressBar } from '../../components/ui/ProgressBar';

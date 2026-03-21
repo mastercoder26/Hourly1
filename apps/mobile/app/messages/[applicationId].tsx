@@ -1,6 +1,7 @@
 // Messages screen — in-app messaging
 import React from 'react';
-import { View, StyleSheet, Pressable, Text } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { Text } from '@/components/Themed';;
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { MessageThread } from '../../components/MessageThread';

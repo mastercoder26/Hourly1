@@ -1,8 +1,10 @@
 // Opportunity Feed — main student home screen
 import React, { useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, RefreshControl } from 'react-native';
+import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
+import { Text } from '@/components/Themed';;
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { Colors } from '../../constants/colors';
+import { Colors } from '@/constants/colors';
+import { Feather } from '@expo/vector-icons';
 import { OpportunityCard } from '../../components/OpportunityCard';
 import { FilterBar, Filters } from '../../components/FilterBar';
 import { mockOpportunities } from '../../mocks/opportunities';
@@ -57,7 +59,7 @@ export default function FeedScreen() {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🔍</Text>
+            <Feather name="search" size={48} color={Colors.dark.textSecondary} style={{ marginBottom: 12 }} />
             <Text style={styles.emptyTitle}>No opportunities found</Text>
             <Text style={styles.emptySubtitle}>Try adjusting your filters</Text>
           </View>
@@ -113,9 +115,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 80,
     gap: 12,
-  },
-  emptyEmoji: {
-    fontSize: 48,
   },
   emptyTitle: {
     fontSize: 18,

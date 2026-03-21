@@ -1,7 +1,8 @@
 // Org Tabs Layout — bottom tab navigator (purple accent)
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@/components/Themed';;
 import { Colors } from '../../constants/colors';
 
 function TabIcon({ name, focused, emoji }: { name: string; focused: boolean; emoji: string }) {

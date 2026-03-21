@@ -1,6 +1,7 @@
 // Create Role — multi-step form for posting volunteer opportunities
 import React, { useState } from 'react';
-import { View, Text, TextInput, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { View, TextInput, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { Text } from '@/components/Themed';;
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';

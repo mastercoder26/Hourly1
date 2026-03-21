@@ -1,6 +1,7 @@
 // Onboarding Step 4 — Availability Selection
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { Text } from '@/components/Themed';;
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { ProgressBar } from '../../components/ui/ProgressBar';

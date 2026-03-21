@@ -1,6 +1,7 @@
 // Onboarding Complete — animated success screen
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@/components/Themed';;
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Animated, {
   useSharedValue,

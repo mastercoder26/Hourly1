@@ -1,6 +1,7 @@
 // Onboarding Step 1 — School & Grade Selection
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, TextInput, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { Text } from '@/components/Themed';;
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { ProgressBar } from '../../components/ui/ProgressBar';

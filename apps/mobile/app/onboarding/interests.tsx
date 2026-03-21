@@ -1,6 +1,7 @@
 // Onboarding Step 3 — Interest/Cause Selection (up to 5 bubbles)
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { Text } from '@/components/Themed';;
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';

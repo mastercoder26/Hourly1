@@ -1,6 +1,7 @@
 // QR Scanner — org-side camera scanner
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { Text } from '@/components/Themed';;
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';

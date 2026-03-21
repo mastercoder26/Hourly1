@@ -1,6 +1,7 @@
 // Events tab — org's list of posted events
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { Text } from '@/components/Themed';;
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';
