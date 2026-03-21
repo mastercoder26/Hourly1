@@ -7,7 +7,7 @@ function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
   );
 }
 
-export default function TabLayout() {
+export default function OrgTabLayout() {
   return (
     <Tabs
       screenOptions={{
@@ -20,7 +20,7 @@ export default function TabLayout() {
           paddingBottom: 24,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: '#1D9E75',
+        tabBarActiveTintColor: '#534AB7',
         tabBarInactiveTintColor: '#888888',
         tabBarLabelStyle: {
           fontSize: 11,
@@ -31,32 +31,31 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Feed',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🔍" focused={focused} />,
+          title: 'Dashboard',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="📊" focused={focused} />,
         }}
       />
       <Tabs.Screen
-        name="checkin"
+        name="post"
         options={{
-          title: 'Check-in',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="📱" focused={focused} />,
+          title: 'Post Role',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="➕" focused={focused} />,
         }}
       />
       <Tabs.Screen
-        name="hours"
+        name="applicants"
         options={{
-          title: 'Hours',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="⏱" focused={focused} />,
+          title: 'Applicants',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="👥" focused={focused} />,
         }}
       />
       <Tabs.Screen
-        name="portfolio"
+        name="scanner"
         options={{
-          title: 'Portfolio',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🏅" focused={focused} />,
+          title: 'Scanner',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="📷" focused={focused} />,
         }}
       />
-      <Tabs.Screen name="explore" options={{ href: null }} />
     </Tabs>
   );
 }

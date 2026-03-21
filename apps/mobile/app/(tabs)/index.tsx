@@ -1,4 +1,4 @@
-import { View, FlatList, Dimensions } from 'react-native';
+import { View, FlatList, Dimensions, SafeAreaView } from 'react-native';
 import { useState } from 'react';
 import { mockOpportunities } from '../../mocks/opportunities';
 import { OpportunityCard } from '../../components/OpportunityCard';
@@ -10,8 +10,8 @@ export default function FeedScreen() {
   const [isMapView, setIsMapView] = useState(false);
 
   return (
-    <View className="flex-1 bg-offWhite dark:bg-black pt-12">
-      <View className="px-4 pb-4">
+    <SafeAreaView className="flex-1 bg-offWhite dark:bg-black">
+      <View className="px-4 py-4">
         <TextValueLarge>Find a role</TextValueLarge>
       </View>
       <FilterBar onToggleMap={() => setIsMapView(!isMapView)} />
@@ -49,6 +49,6 @@ export default function FeedScreen() {
           }
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }

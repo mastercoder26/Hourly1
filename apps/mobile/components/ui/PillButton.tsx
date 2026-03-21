@@ -1,7 +1,8 @@
 import { TouchableOpacity, Text, TouchableOpacityProps } from 'react-native';
 
 interface PillButtonProps extends TouchableOpacityProps {
-  label: string;
+  label?: string;
+  title?: string;
   variant?: 'primary' | 'secondary' | 'ghost';
   size?: 'default' | 'small' | 'large';
   className?: string;
@@ -10,12 +11,14 @@ interface PillButtonProps extends TouchableOpacityProps {
 
 export function PillButton({
   label,
+  title,
   variant = 'secondary',
   size = 'default',
   className = '',
   textClassName = '',
   ...props
 }: PillButtonProps) {
+  const buttonLabel = label ?? title ?? '';
   let bgClass = 'bg-grayBorder';
   let labelClass = 'text-textPrimary';
   let paddingClass = 'px-6 py-3';
@@ -48,7 +51,7 @@ export function PillButton({
       {...props}
     >
       <Text className={`font-medium ${textSizeClass} ${labelClass} ${textClassName}`}>
-        {label}
+        {buttonLabel}
       </Text>
     </TouchableOpacity>
   );
