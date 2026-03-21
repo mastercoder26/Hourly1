@@ -1,88 +1,202 @@
-import { View, TouchableOpacity, Text } from 'react-native';
-import { useRouter } from 'expo-router';
-import { TextValueLarge, TextRegular, TextSub } from '../../components/ui/Typography';
+// Onboarding Step 4 — Availability Selection
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Colors } from '../../constants/colors';
+import { ProgressBar } from '../../components/ui/ProgressBar';
 import { PillButton } from '../../components/ui/PillButton';
-import { useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DayOfWeek } from '../../types';
 
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const LENGTHS = ['1-2 hours', '2-4 hours', 'Half day', 'Whole day'];
+const DAYS: DayOfWeek[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const SHIFT_LENGTHS = [1, 2, 3, 4, 5, 6];
 
 export default function AvailabilityStep() {
   const router = useRouter();
-  const [selectedDays, setSelectedDays] = useState<string[]>([]);
-  const [selectedLength, setSelectedLength] = useState<string>('');
+  const { role } = useLocalSearchParams<{ role?: string }>();
+  const isOrg = role === 'organizer';
+  const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>([]);
+  const [shiftLength, setShiftLength] = useState(3);
 
-  const toggleDay = (day: string) => {
-    if (selectedDays.includes(day)) {
-      setSelectedDays(selectedDays.filter(d => d !== day));
-    } else {
-      setSelectedDays([...selectedDays, day]);
-    }
+  const toggleDay = (day: DayOfWeek) => {
+    setSelectedDays(prev =>
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
+    );
   };
 
-  const handleFinish = async () => {
-    await AsyncStorage.setItem('onboarding_availability', JSON.stringify({ days: selectedDays, length: selectedLength }));
-    // Future: API syncing here
-    // Redirect to home/feed when done
-    router.replace('/(tabs)');
-  };
+  const accentColor = isOrg ? Colors.purple : Colors.teal;
 
-  const handleSkip = () => {
-    router.replace('/(tabs)');
+  const handleComplete = () => {
+    router.push(`/onboarding/complete?role=${role || 'student'}`);
   };
 
   return (
-    <View className="flex-1 justify-between p-8 pt-12">
-      <View>
-        <TextValueLarge className="mb-2">When are you free?</TextValueLarge>
-        <TextRegular className="text-textMuted mb-8">
-          This helps the matching algorithm find roles that fit your schedule.
-        </TextRegular>
-        
-        <TextSub className="mb-3 ml-2">Days of the week</TextSub>
-        <View className="flex-row flex-wrap gap-3 mb-8">
-          {DAYS.map(day => (
-            <TouchableOpacity 
-              key={day}
-              onPress={() => toggleDay(day)}
-              className={`px-4 py-2.5 rounded-pill border ${
-                selectedDays.includes(day) 
-                  ? 'bg-teal border-teal' 
-                  : 'bg-transparent border-grayBorder'
-              }`}
-            >
-              <Text className={`font-medium ${selectedDays.includes(day) ? 'text-white' : 'text-textPrimary'}`}>
-                {day}
-              </Text>
-            </TouchableOpacity>
-          ))}
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <ProgressBar steps={4} currentStep={3} accent={isOrg ? 'purple' : 'teal'} />
+        <PillButton variant="ghost" size="small" onPress={handleComplete}>
+          Skip for now
+        </PillButton>
+      </View>
+
+      <View style={styles.content}>
+        <Text style={styles.stepLabel}>Step 4 of 4</Text>
+        <Text style={styles.title}>When are you available?</Text>
+        <Text style={styles.subtitle}>
+          We'll prioritize opportunities that fit your schedule
+        </Text>
+
+        {/* Day selection */}
+        <Text style={styles.sectionLabel}>Days of the week</Text>
+        <View style={styles.dayGrid}>
+          {DAYS.map(day => {
+            const isSelected = selectedDays.includes(day);
+            return (
+              <Pressable
+                key={day}
+                onPress={() => toggleDay(day)}
+                style={[
+                  styles.dayChip,
+                  isSelected && { backgroundColor: accentColor + '25', borderColor: accentColor },
+                ]}
+              >
+                <Text style={[styles.dayText, isSelected && { color: accentColor }]}>
+                  {day}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
-        <TextSub className="mb-3 ml-2">Preferred Shift Length</TextSub>
-        <View className="flex-row flex-wrap gap-3">
-            {LENGTHS.map(len => (
-              <TouchableOpacity 
-                key={len}
-                onPress={() => setSelectedLength(len)}
-                className={`px-5 py-3 rounded-pill border w-[48%] items-center ${
-                  selectedLength === len 
-                    ? 'bg-purple border-purple' 
-                    : 'bg-transparent border-grayBorder'
-                }`}
+        {/* Shift length */}
+        <Text style={[styles.sectionLabel, { marginTop: 32 }]}>Preferred shift length</Text>
+        <View style={styles.shiftRow}>
+          {SHIFT_LENGTHS.map(hours => {
+            const isSelected = shiftLength === hours;
+            return (
+              <Pressable
+                key={hours}
+                onPress={() => setShiftLength(hours)}
+                style={[
+                  styles.shiftChip,
+                  isSelected && { backgroundColor: accentColor, borderColor: accentColor },
+                ]}
               >
-                <Text className={`font-medium ${selectedLength === len ? 'text-white' : 'text-textPrimary'}`}>
-                  {len}
+                <Text style={[styles.shiftText, isSelected && { color: '#FFFFFF' }]}>
+                  {hours}h
                 </Text>
-              </TouchableOpacity>
-            ))}
+              </Pressable>
+            );
+          })}
         </View>
       </View>
 
-      <View className="gap-4">
-        <PillButton label="Complete Setup" variant="primary" onPress={handleFinish} />
-        <PillButton label="Skip for now" variant="ghost" onPress={handleSkip} />
+      <View style={styles.footer}>
+        <View style={styles.footerButtons}>
+          <PillButton variant="ghost" size="medium" onPress={() => router.back()} style={{ flex: 1 }}>
+            Back
+          </PillButton>
+          <PillButton
+            variant="primary"
+            accent={isOrg ? 'purple' : 'teal'}
+            size="large"
+            onPress={handleComplete}
+            style={{ flex: 2 }}
+          >
+            Finish setup
+          </PillButton>
+        </View>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.base,
+    paddingTop: 60,
+  },
+  header: {
+    paddingHorizontal: 24,
+    gap: 16,
+    marginBottom: 8,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+  },
+  stepLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.dark.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '500',
+    color: Colors.dark.textPrimary,
+    letterSpacing: -0.3,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: Colors.dark.textSecondary,
+    marginBottom: 32,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.dark.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 14,
+  },
+  dayGrid: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  dayChip: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.element,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  dayText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.dark.textSecondary,
+  },
+  shiftRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  shiftChip: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.element,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  shiftText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: Colors.dark.textSecondary,
+  },
+  footer: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    paddingTop: 16,
+  },
+  footerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+});

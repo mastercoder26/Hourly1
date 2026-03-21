@@ -1,58 +1,124 @@
-import { TouchableOpacity, Text, TouchableOpacityProps } from 'react-native';
+// Pill Button — rounded action buttons matching React App.js style
+import React from 'react';
+import { Pressable, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { Colors } from '../../constants/colors';
 
-interface PillButtonProps extends TouchableOpacityProps {
-  label?: string;
-  title?: string;
-  variant?: 'primary' | 'secondary' | 'ghost';
-  size?: 'default' | 'small' | 'large';
-  className?: string;
-  textClassName?: string;
+interface PillButtonProps {
+  children: React.ReactNode;
+  onPress?: () => void;
+  variant?: 'default' | 'primary' | 'secondary' | 'ghost';
+  size?: 'small' | 'medium' | 'large';
+  accent?: 'teal' | 'purple';
+  fullWidth?: boolean;
+  disabled?: boolean;
+  style?: ViewStyle;
+  textStyle?: TextStyle;
 }
 
 export function PillButton({
-  label,
-  title,
-  variant = 'secondary',
-  size = 'default',
-  className = '',
-  textClassName = '',
-  ...props
+  children,
+  onPress,
+  variant = 'default',
+  size = 'medium',
+  accent = 'teal',
+  fullWidth = false,
+  disabled = false,
+  style,
+  textStyle,
 }: PillButtonProps) {
-  const buttonLabel = label ?? title ?? '';
-  let bgClass = 'bg-grayBorder';
-  let labelClass = 'text-textPrimary';
-  let paddingClass = 'px-6 py-3';
-  let textSizeClass = 'text-[15px]';
-
-  if (size === 'small') {
-    paddingClass = 'px-4 py-2';
-    textSizeClass = 'text-[13px]';
-  } else if (size === 'large') {
-    paddingClass = 'px-8 py-4';
-    textSizeClass = 'text-[17px]';
-  }
-
-  if (variant === 'primary') {
-    bgClass = 'bg-teal';
-    labelClass = 'text-white';
-  } else if (variant === 'ghost') {
-    bgClass = 'bg-transparent border border-grayBorder';
-    labelClass = 'text-textMuted';
-  } else {
-    // secondary
-    bgClass = 'bg-[#2C2C2E]';
-    labelClass = 'text-white';
-  }
+  const accentColor = accent === 'teal' ? Colors.teal : Colors.purple;
 
   return (
-    <TouchableOpacity
-      className={`rounded-pill flex-row items-center justify-center ${paddingClass} ${bgClass} ${className}`}
-      activeOpacity={0.8}
-      {...props}
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => [
+        styles.base,
+        styles[size],
+        variant === 'default' && styles.default,
+        variant === 'primary' && { backgroundColor: accentColor },
+        variant === 'secondary' && styles.secondary,
+        variant === 'ghost' && styles.ghost,
+        fullWidth && styles.fullWidth,
+        pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+        disabled && styles.disabled,
+        style,
+      ]}
     >
-      <Text className={`font-medium ${textSizeClass} ${labelClass} ${textClassName}`}>
-        {buttonLabel}
+      <Text
+        style={[
+          styles.text,
+          styles[`${size}Text`],
+          variant === 'default' && styles.defaultText,
+          variant === 'primary' && styles.primaryText,
+          variant === 'secondary' && { color: accentColor },
+          variant === 'ghost' && { color: Colors.dark.textSecondary },
+          disabled && styles.disabledText,
+          textStyle,
+        ]}
+      >
+        {children}
       </Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  base: {
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  small: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  medium: {
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+  },
+  large: {
+    paddingHorizontal: 28,
+    paddingVertical: 18,
+  },
+  default: {
+    backgroundColor: Colors.dark.element,
+  },
+  secondary: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: Colors.dark.element,
+  },
+  ghost: {
+    backgroundColor: 'transparent',
+  },
+  fullWidth: {
+    width: '100%',
+  },
+  disabled: {
+    opacity: 0.4,
+  },
+  text: {
+    fontWeight: '500',
+  },
+  smallText: {
+    fontSize: 13,
+  },
+  mediumText: {
+    fontSize: 15,
+  },
+  largeText: {
+    fontSize: 17,
+  },
+  defaultText: {
+    color: Colors.dark.textSecondary,
+  },
+  primaryText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  disabledText: {
+    color: Colors.dark.textTertiary,
+  },
+});

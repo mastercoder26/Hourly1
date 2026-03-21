@@ -1,89 +1,132 @@
-import { View, TextInput, TouchableOpacity, Text } from 'react-native';
-import { useRouter } from 'expo-router';
-import { TextValueLarge, TextRegular, TextSub } from '../../components/ui/Typography';
+// Onboarding Step 2 — School confirmation (intermediate step)
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Colors } from '../../constants/colors';
+import { ProgressBar } from '../../components/ui/ProgressBar';
 import { PillButton } from '../../components/ui/PillButton';
-import { Card } from '../../components/ui/Card';
-import { useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const GRADES = ['9th', '10th', '11th', '12th', 'College', 'Other'];
 
 export default function SchoolStep() {
   const router = useRouter();
-  const [zipCode, setZipCode] = useState('');
-  const [school, setSchool] = useState('');
-  const [grade, setGrade] = useState('');
-
-  const handleNext = async () => {
-    try {
-      await AsyncStorage.setItem('onboarding_school', JSON.stringify({ zipCode, school, grade }));
-    } catch (e) {
-      console.error('Failed to save to storage', e);
-    }
-    router.push('/onboarding/interests');
-  };
-
-  const handleSkip = () => {
-    router.push('/onboarding/interests');
-  };
+  const { role } = useLocalSearchParams<{ role?: string }>();
+  const isOrg = role === 'organizer';
 
   return (
-    <View className="flex-1 justify-between p-8 pt-12">
-      <View>
-        <TextValueLarge className="mb-2">Your School</TextValueLarge>
-        <TextRegular className="text-textMuted mb-8">
-          This helps us match you with local opportunities and counselor tracking.
-        </TextRegular>
-        
-        <Card className="gap-6 mb-6 p-6">
-          <View>
-            <TextSub className="mb-2">ZIP Code</TextSub>
-            <TextInput 
-              className="bg-offWhite dark:bg-[#2C2C2E] text-textPrimary px-4 py-3 rounded-small font-medium"
-              placeholder="e.g. 90210"
-              placeholderTextColor="#888888"
-              keyboardType="number-pad"
-              value={zipCode}
-              onChangeText={setZipCode}
-            />
-          </View>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <ProgressBar steps={4} currentStep={1} accent={isOrg ? 'purple' : 'teal'} />
+        <PillButton variant="ghost" size="small" onPress={() => router.push(`/onboarding/interests?role=${role || 'student'}`)}>
+          Skip for now
+        </PillButton>
+      </View>
 
-          <View>
-            <TextSub className="mb-2">School Name</TextSub>
-            <TextInput 
-              className="bg-offWhite dark:bg-[#2C2C2E] text-textPrimary px-4 py-3 rounded-small font-medium"
-              placeholder="High School or College"
-              placeholderTextColor="#888888"
-              value={school}
-              onChangeText={setSchool}
-            />
-          </View>
-        </Card>
+      <View style={styles.content}>
+        <Text style={styles.stepLabel}>Step 2 of 4</Text>
+        <Text style={styles.title}>
+          {isOrg ? 'Where are you located?' : 'Confirm your school'}
+        </Text>
+        <Text style={styles.subtitle}>
+          {isOrg
+            ? 'Help volunteers find opportunities near them'
+            : 'We\'ll use this to find nearby opportunities'}
+        </Text>
 
-        <TextSub className="mb-3 ml-2">Grade Level</TextSub>
-        <View className="flex-row flex-wrap gap-3">
-          {GRADES.map(g => (
-            <TouchableOpacity 
-              key={g}
-              onPress={() => setGrade(g)}
-              className={`px-5 py-2.5 rounded-pill border ${
-                grade === g 
-                  ? 'bg-teal border-teal' 
-                  : 'bg-transparent border-grayBorder'
-              }`}
-            >
-              <Text className={`font-medium ${grade === g ? 'text-white' : 'text-textPrimary'}`}>
-                {g}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        {/* Mock school cards */}
+        <View style={styles.schoolCard}>
+          <Text style={styles.schoolEmoji}>🏫</Text>
+          <View>
+            <Text style={styles.schoolName}>Austin High School</Text>
+            <Text style={styles.schoolAddress}>1715 W Cesar Chavez St, Austin, TX 78703</Text>
+          </View>
         </View>
       </View>
 
-      <View className="gap-4">
-        <PillButton label="Next" variant="primary" onPress={handleNext} />
-        <PillButton label="Skip for now" variant="ghost" onPress={handleSkip} />
+      <View style={styles.footer}>
+        <View style={styles.footerButtons}>
+          <PillButton variant="ghost" size="medium" onPress={() => router.back()} style={{ flex: 1 }}>
+            Back
+          </PillButton>
+          <PillButton
+            variant="primary"
+            accent={isOrg ? 'purple' : 'teal'}
+            size="large"
+            onPress={() => router.push(`/onboarding/interests?role=${role || 'student'}`)}
+            style={{ flex: 2 }}
+          >
+            Continue
+          </PillButton>
+        </View>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.base,
+    paddingTop: 60,
+  },
+  header: {
+    paddingHorizontal: 24,
+    gap: 16,
+    marginBottom: 8,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+  },
+  stepLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.dark.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '500',
+    color: Colors.dark.textPrimary,
+    letterSpacing: -0.3,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: Colors.dark.textSecondary,
+    marginBottom: 32,
+  },
+  schoolCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    backgroundColor: Colors.dark.card,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1.5,
+    borderColor: Colors.teal,
+  },
+  schoolEmoji: {
+    fontSize: 32,
+  },
+  schoolName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: Colors.dark.textPrimary,
+    marginBottom: 4,
+  },
+  schoolAddress: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+  },
+  footer: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    paddingTop: 16,
+  },
+  footerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+});

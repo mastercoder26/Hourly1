@@ -1,33 +1,43 @@
-import "../global.css";
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+// Root Layout — configures navigation and theme
+import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { StyleSheet } from 'react-native';
+import { Colors } from '../constants/colors';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="auth" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(org-tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        <Stack.Screen name="opportunity/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="active-shift" options={{ headerShown: false }} />
-        <Stack.Screen name="org/applicants/[opportunityId]" options={{ headerShown: false }} />
-        <Stack.Screen name="org/create-role" options={{ headerShown: false }} />
+    <GestureHandlerRootView style={styles.root}>
+      <StatusBar style="light" />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: Colors.dark.base },
+          animation: 'slide_from_right',
+        }}
+      >
+        <Stack.Screen name="index" />
+        <Stack.Screen name="(auth)/sign-in" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="(auth)/sign-up" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="onboarding" />
+        <Stack.Screen name="(student-tabs)" />
+        <Stack.Screen name="(org-tabs)" />
+        <Stack.Screen name="opportunity/[id]" />
+        <Stack.Screen name="shift/checkin" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="shift/active" />
+        <Stack.Screen name="org/create-role" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="org/scanner" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="org/applicants/[opportunityId]" />
+        <Stack.Screen name="messages/[applicationId]" options={{ presentation: 'modal' }} />
       </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: Colors.dark.base,
+  },
+});

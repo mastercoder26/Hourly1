@@ -1,33 +1,100 @@
+// HoursChart — bar chart showing hours by cause
 import React from 'react';
-import { View } from 'react-native';
-import { Card, TextRegular, TextCaption } from './ui';
+import { View, Text, StyleSheet } from 'react-native';
+import { Colors } from '../constants/colors';
+import { CauseTag, AttendanceRecord } from '../types';
+import { mockOpportunities } from '../mocks/opportunities';
 
-export default function HoursChart() {
-  const data = [
-    { cause: 'Environment', hours: 25, color: 'bg-green-500' },
-    { cause: 'Education', hours: 14, color: 'bg-blue-500' },
-    { cause: 'Food Poverty', hours: 8, color: 'bg-orange-500' },
-  ];
+interface HoursChartProps {
+  attendance: AttendanceRecord[];
+}
 
-  const total = data.reduce((acc, curr) => acc + curr.hours, 0);
+export function HoursChart({ attendance }: HoursChartProps) {
+  // Calculate hours by cause
+  const hoursByCause: Record<string, number> = {};
+  
+  attendance.forEach(record => {
+    if (record.verificationStatus === 'VERIFIED') {
+      const opp = mockOpportunities.find(o => o.id === record.opportunityId);
+      if (opp) {
+        opp.causeTags.forEach(tag => {
+          hoursByCause[tag] = (hoursByCause[tag] || 0) + record.hoursLogged;
+        });
+      }
+    }
+  });
+
+  const entries = Object.entries(hoursByCause).sort((a, b) => b[1] - a[1]);
+  const maxHours = Math.max(...entries.map(([, h]) => h), 1);
+
+  if (entries.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.emptyText}>No verified hours yet</Text>
+      </View>
+    );
+  }
 
   return (
-    <Card className="p-4 bg-white dark:bg-zinc-900 mt-4 rounded-3xl">
-      <TextRegular className="mb-4 font-bold">Hours by Cause</TextRegular>
-      {data.map((d, i) => {
-        const pct = (d.hours / total) * 100;
-        return (
-          <View key={i} className="mb-3">
-            <View className="flex-row justify-between mb-1">
-              <TextCaption>{d.cause}</TextCaption>
-              <TextCaption className="font-semibold">{d.hours}h</TextCaption>
-            </View>
-            <View className="w-full h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-              <View className={`h-full ${d.color} rounded-full`} style={{ width: `${pct}%` }} />
-            </View>
+    <View style={styles.container}>
+      {entries.map(([cause, hours]) => (
+        <View key={cause} style={styles.row}>
+          <Text style={styles.causeLabel}>{cause}</Text>
+          <View style={styles.barContainer}>
+            <View
+              style={[
+                styles.bar,
+                {
+                  width: `${(hours / maxHours) * 100}%`,
+                  backgroundColor: Colors.causeTags[cause] || Colors.teal,
+                },
+              ]}
+            />
           </View>
-        );
-      })}
-    </Card>
+          <Text style={styles.hoursLabel}>{hours}h</Text>
+        </View>
+      ))}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    gap: 14,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  causeLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.dark.textSecondary,
+    width: 90,
+  },
+  barContainer: {
+    flex: 1,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.dark.element,
+    overflow: 'hidden',
+  },
+  bar: {
+    height: '100%',
+    borderRadius: 5,
+  },
+  hoursLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.dark.textPrimary,
+    width: 40,
+    textAlign: 'right',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+});

@@ -1,0 +1,40 @@
+# Hourly App — Phase 1 Frontend Build
+
+## Planning
+- [x] Read project.md and React App.js design reference
+- [x] Read Google Maps Platform MCP instructions
+- [x] Write implementation plan
+- [x] Get user approval on plan
+
+## Phase 0 — Project Setup
+- [x] Initialize Expo React Native app with TypeScript + Expo Router
+- [x] Install dependencies (react-native-maps, reanimated, bottom-sheet, etc.)
+- [x] Set up design system (colors, typography, card styles)
+- [x] Create TypeScript types and mock data
+
+## Phase 1 — Student Screens
+- [x] Welcome/Landing screen with animations
+- [x] Auth screens (sign-in, sign-up)
+- [x] Student onboarding flow (4 steps + completion)
+- [/] Opportunity feed with mock cards
+- [/] Opportunity detail view with Google Maps
+- [ ] Apply bottom sheet
+- [ ] QR check-in + shift timer screens
+- [/] Hours tracker + portfolio screen
+
+## Phase 1 — Organizer Screens
+- [ ] Org dashboard
+- [ ] Role creation multi-step form
+- [ ] Applicant management screen
+- [ ] QR scanner screen
+
+## Components
+- [x] Card, PillBadge, PillButton, ProgressBar
+- [x] OpportunityCard, FilterBar
+- [x] MapPreview, HoursChart, BadgeGrid, MessageThread
+- [ ] Bottom tab navigation layouts
+
+## Finalize
+- [ ] Verify TypeScript compilation
+- [ ] Test web rendering
+- [ ] Create feature branch and push to GitHub

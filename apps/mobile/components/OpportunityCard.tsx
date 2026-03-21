@@ -1,59 +1,246 @@
-import { View, Text, TouchableOpacity } from 'react-native';
-import { Opportunity } from '../mocks/opportunities';
-import { Card } from './ui/Card';
-import { TextValueLarge, TextRegular, TextSub } from './ui/Typography';
+// OpportunityCard — main feed card component
+import React from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Opportunity } from '../types';
+import { Colors, CardStyle } from '../constants/colors';
+import { PillBadge } from './ui/PillBadge';
 
-export function OpportunityCard({ item }: { item: Opportunity }) {
+interface OpportunityCardProps {
+  opportunity: Opportunity;
+}
+
+export function OpportunityCard({ opportunity }: OpportunityCardProps) {
   const router = useRouter();
+  const spotsLeft = opportunity.totalSpots - opportunity.filledSpots;
+  const isUrgent = spotsLeft <= 5;
+  const isCritical = spotsLeft <= 1;
 
-  const isUrgent = item.spotsRemaining < 5;
-  const isCritical = item.spotsRemaining === 1;
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
 
   return (
-    <TouchableOpacity 
-      activeOpacity={0.9} 
-      onPress={() => router.push(`/opportunity/${item.id}` as any)}
-      className="mb-4"
+    <Pressable
+      onPress={() => router.push(`/opportunity/${opportunity.id}`)}
+      style={({ pressed }) => [
+        styles.card,
+        pressed && styles.cardPressed,
+      ]}
     >
-      <Card className="gap-3">
-        <View className="flex-row justify-between items-start">
-          <View className="flex-1 pr-2">
-            <TextSub className="text-teal mb-1">{item.orgName}</TextSub>
-            <TextValueLarge className="text-[22px] leading-7">{item.roleTitle}</TextValueLarge>
+      {/* Header row */}
+      <View style={styles.header}>
+        <View style={styles.orgInfo}>
+          <View style={styles.orgLogo}>
+            <Text style={styles.orgLogoText}>{opportunity.orgLogo}</Text>
           </View>
-          <View className={`px-3 py-1 rounded-pill ${
-            item.cause === 'Environment' ? 'bg-green-100 dark:bg-green-900/30' : 
-            item.cause === 'Food' ? 'bg-orange-100 dark:bg-orange-900/30' : 
-            'bg-purple-100 dark:bg-purple-900/30'
-          }`}>
-            <Text className="text-xs font-medium dark:text-gray-200">{item.cause}</Text>
+          <View>
+            <View style={styles.orgNameRow}>
+              <Text style={styles.orgName}>{opportunity.orgName}</Text>
+              {opportunity.orgVerified && (
+                <Text style={styles.verifiedBadge}>✓</Text>
+              )}
+            </View>
+            <Text style={styles.orgRating}>★ {opportunity.rating.toFixed(1)}</Text>
           </View>
         </View>
+        {opportunity.creditEligible && (
+          <View style={styles.creditBadge}>
+            <Text style={styles.creditBadgeText}>Credit</Text>
+          </View>
+        )}
+      </View>
 
-        <View className="flex-row items-center gap-4 mt-2">
-          <TextRegular className="text-textMuted">{item.dateTime}</TextRegular>
-          <View className="w-1 h-1 rounded-full bg-grayBorder" />
-          <TextRegular className="text-textMuted">{item.distance} mi</TextRegular>
-          <View className="w-1 h-1 rounded-full bg-grayBorder" />
-          <TextRegular className="text-textMuted">{item.hours} hrs</TextRegular>
-        </View>
+      {/* Title */}
+      <Text style={styles.title}>{opportunity.title}</Text>
 
-        <View className="flex-row justify-between items-center mt-4">
-          <View className="flex-row gap-2">
-             {item.creditEligible && (
-              <View className="bg-[#534AB715] px-2 py-1 rounded-sm">
-                <Text className="text-[10px] uppercase font-bold text-purple">Eligible</Text>
-              </View>
-             )}
-          </View>
-          <TextRegular className={`font-medium ${
-            isCritical ? 'text-red-500' : isUrgent ? 'text-orange-500' : 'text-textPrimary'
-          }`}>
-            {item.spotsRemaining} spot{item.spotsRemaining !== 1 ? 's' : ''} left
-          </TextRegular>
+      {/* Cause tags */}
+      <View style={styles.tags}>
+        {opportunity.causeTags.map(tag => (
+          <PillBadge key={tag} label={tag} causeTag={tag} />
+        ))}
+      </View>
+
+      {/* Details row */}
+      <View style={styles.details}>
+        <View style={styles.detailItem}>
+          <Text style={styles.detailIcon}>📅</Text>
+          <Text style={styles.detailText}>{formatDate(opportunity.date)}</Text>
         </View>
-      </Card>
-    </TouchableOpacity>
+        <View style={styles.detailItem}>
+          <Text style={styles.detailIcon}>🕐</Text>
+          <Text style={styles.detailText}>{opportunity.startTime} – {opportunity.endTime}</Text>
+        </View>
+        <View style={styles.detailItem}>
+          <Text style={styles.detailIcon}>📍</Text>
+          <Text style={styles.detailText}>{opportunity.distance?.toFixed(1)} mi</Text>
+        </View>
+      </View>
+
+      {/* Footer: spots + hours */}
+      <View style={styles.footer}>
+        <View style={styles.spotsContainer}>
+          <View style={styles.spotsBar}>
+            <View
+              style={[
+                styles.spotsFill,
+                {
+                  width: `${(opportunity.filledSpots / opportunity.totalSpots) * 100}%`,
+                  backgroundColor: isCritical
+                    ? Colors.urgencyRed
+                    : isUrgent
+                    ? Colors.urgencyOrange
+                    : Colors.teal,
+                },
+              ]}
+            />
+          </View>
+          <Text
+            style={[
+              styles.spotsText,
+              isCritical && { color: Colors.urgencyRed },
+              isUrgent && !isCritical && { color: Colors.urgencyOrange },
+            ]}
+          >
+            {spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left
+          </Text>
+        </View>
+        <Text style={styles.hours}>{opportunity.durationHours}h</Text>
+      </View>
+    </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.dark.card,
+    borderRadius: CardStyle.borderRadius,
+    padding: CardStyle.paddingSmall,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  cardPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.985 }],
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  orgInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  orgLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.element,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orgLogoText: {
+    fontSize: 18,
+  },
+  orgNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  orgName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.dark.textPrimary,
+  },
+  verifiedBadge: {
+    fontSize: 12,
+    color: Colors.teal,
+    fontWeight: '600',
+  },
+  orgRating: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    marginTop: 2,
+  },
+  creditBadge: {
+    backgroundColor: Colors.tealSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  creditBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.teal,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: Colors.dark.textPrimary,
+    marginBottom: 12,
+    lineHeight: 24,
+  },
+  tags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  details: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    marginBottom: 16,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  detailIcon: {
+    fontSize: 14,
+  },
+  detailText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    fontWeight: '400',
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  spotsContainer: {
+    flex: 1,
+    marginRight: 16,
+  },
+  spotsBar: {
+    height: 4,
+    backgroundColor: Colors.dark.element,
+    borderRadius: 2,
+    marginBottom: 6,
+    overflow: 'hidden',
+  },
+  spotsFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  spotsText: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    fontWeight: '500',
+  },
+  hours: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: Colors.teal,
+  },
+});

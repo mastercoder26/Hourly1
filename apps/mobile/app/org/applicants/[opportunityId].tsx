@@ -1,62 +1,82 @@
+// Applicant Management — per-opportunity applicant list
 import React from 'react';
-import { View, ScrollView } from 'react-native';
-import { Surface, Typography, PillButton } from '../../../components/ui';
+import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Colors } from '../../../constants/colors';
+import { Card } from '../../../components/ui/Card';
+import { PillBadge } from '../../../components/ui/PillBadge';
+import { PillButton } from '../../../components/ui/PillButton';
+import { mockApplicants } from '../../../mocks/data';
+import { getOpportunityById } from '../../../mocks/opportunities';
 
-export default function ApplicantManagementScreen() {
-  const { opportunityId } = useLocalSearchParams();
+export default function ApplicantManagement() {
+  const { opportunityId } = useLocalSearchParams<{ opportunityId: string }>();
   const router = useRouter();
+  const opp = getOpportunityById(opportunityId || '');
 
-  const applicants = [
-    { name: 'Sarah Jenkins', grade: '10th', hours: 42.5, status: 'approved' },
-    { name: 'Michael Chen', grade: '11th', hours: 15.0, status: 'pending' },
-    { name: 'Elena Rodriguez', grade: '12th', hours: 120.0, status: 'pending' },
-  ];
+  const statusGroups = {
+    PENDING: mockApplicants.filter(a => a.status === 'PENDING'),
+    APPROVED: mockApplicants.filter(a => a.status === 'APPROVED'),
+    WAITLISTED: mockApplicants.filter(a => a.status === 'WAITLISTED'),
+    DECLINED: mockApplicants.filter(a => a.status === 'DECLINED'),
+  };
+
+  const statusColors = { PENDING: Colors.warning, APPROVED: Colors.success, WAITLISTED: Colors.purple, DECLINED: Colors.error };
 
   return (
-    <ScrollView className="flex-1 bg-white dark:bg-zinc-950 p-6">
-      <View className="mt-12 mb-6 flex-row justify-between items-center">
-        <View>
-          <Typography variant="body" className="text-zinc-500 mb-1">Seedling Planter</Typography>
-          <Typography variant="h2" className="text-zinc-900 dark:text-zinc-50">Applicants</Typography>
-        </View>
-        <Typography variant="caption" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-3 py-1 rounded-full">4 Spots Left</Typography>
-      </View>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Text style={styles.backText}>← Back</Text>
+      </Pressable>
+      <Text style={styles.title}>{opp?.title || 'Applicants'}</Text>
+      <Text style={styles.subtitle}>{mockApplicants.length} applicants total</Text>
 
-      {applicants.map((a, i) => (
-        <Surface key={i} className="p-4 bg-zinc-50 dark:bg-zinc-900 rounded-3xl mb-4 border border-zinc-200 dark:border-zinc-800">
-          <View className="flex-row justify-between items-center mb-4">
-            <View className="flex-row items-center flex-1">
-              <View className="w-12 h-12 rounded-full bg-purple-100 dark:bg-zinc-800 items-center justify-center mr-3">
-                <Typography variant="body" className="text-purple-700 dark:text-purple-400 font-bold">{a.name.charAt(0)}</Typography>
-              </View>
-              <View>
-                <Typography variant="body" className="font-semibold text-zinc-900 dark:text-zinc-50">{a.name}</Typography>
-                <Typography variant="caption" className="text-zinc-500">{a.grade} Grade • {a.hours} Hrs logged</Typography>
-              </View>
-            </View>
-            {a.status === 'approved' && (
-              <Typography variant="caption" className="text-green-600 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded">Approved</Typography>
-            )}
+      {Object.entries(statusGroups).map(([status, applicants]) => {
+        if (applicants.length === 0) return null;
+        return (
+          <View key={status}>
+            <Text style={styles.section}>{status} ({applicants.length})</Text>
+            {applicants.map(a => (
+              <Card key={a.id} style={styles.applicantCard}>
+                <View style={styles.row}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>{a.firstName[0]}{a.lastName[0]}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.name}>{a.firstName} {a.lastName}</Text>
+                    <Text style={styles.details}>Grade {a.grade} • {a.totalHours}h total{a.rating ? ` • ★ ${a.rating}` : ''}</Text>
+                  </View>
+                  <PillBadge label={status} color={statusColors[status as keyof typeof statusColors]} />
+                </View>
+                {status === 'PENDING' && (
+                  <View style={styles.actions}>
+                    <PillButton variant="primary" accent="purple" size="small" style={{ flex: 1 }}>Approve</PillButton>
+                    <PillButton variant="default" size="small" style={{ flex: 1 }}>Decline</PillButton>
+                    <PillButton variant="ghost" size="small">💬</PillButton>
+                  </View>
+                )}
+              </Card>
+            ))}
           </View>
-          
-          {a.status === 'pending' && (
-            <View className="flex-row space-x-2 gap-2 mt-2">
-              <PillButton size="small" title="Approve" onPress={() => {}} style={{ backgroundColor: '#1D9E75' }} className="flex-1" />
-              <PillButton size="small" title="Decline" onPress={() => {}} variant="secondary" className="flex-1" />
-            </View>
-          )}
-        </Surface>
-      ))}
-
-      <View className="mt-8 mb-12">
-        <PillButton 
-          title="Done" 
-          onPress={() => router.back()} 
-          variant="secondary"
-          className="w-full"
-        />
-      </View>
+        );
+      })}
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.dark.base },
+  content: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 40, gap: 12 },
+  backButton: { alignSelf: 'flex-start', paddingVertical: 8, paddingRight: 16 },
+  backText: { fontSize: 16, color: Colors.purple, fontWeight: '500' },
+  title: { fontSize: 24, fontWeight: '500', color: Colors.dark.textPrimary, letterSpacing: -0.3 },
+  subtitle: { fontSize: 14, color: Colors.dark.textSecondary },
+  section: { fontSize: 13, fontWeight: '500', color: Colors.dark.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 12 },
+  applicantCard: { padding: 16, borderRadius: 20, gap: 14, marginTop: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.purpleSoft, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 15, fontWeight: '600', color: Colors.purple },
+  name: { fontSize: 15, fontWeight: '500', color: Colors.dark.textPrimary },
+  details: { fontSize: 12, color: Colors.dark.textSecondary, marginTop: 2 },
+  actions: { flexDirection: 'row', gap: 8 },
+});
