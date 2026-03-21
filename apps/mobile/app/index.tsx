@@ -1,6 +1,6 @@
 // Welcome Screen — "Welcome to Hourly" landing page
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Dimensions, ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, {
   useSharedValue,
@@ -203,7 +203,10 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 24,
   },
-  roleCardPurple: {},
+  roleCardPurple: {
+    // added a placeholder to satisfy ts interface
+    borderWidth: 0,
+  } as ViewStyle,
   roleIcon: {
     width: 52,
     height: 52,

@@ -16,25 +16,25 @@
 - [x] Welcome/Landing screen with animations
 - [x] Auth screens (sign-in, sign-up)
 - [x] Student onboarding flow (4 steps + completion)
-- [/] Opportunity feed with mock cards
-- [/] Opportunity detail view with Google Maps
-- [ ] Apply bottom sheet
-- [ ] QR check-in + shift timer screens
-- [/] Hours tracker + portfolio screen
+- [x] Opportunity feed with mock cards
+- [x] Opportunity detail view with Google Maps
+- [x] Apply bottom sheet
+- [x] QR check-in + shift timer screens
+- [x] Hours tracker + portfolio screen
 
 ## Phase 1 — Organizer Screens
-- [ ] Org dashboard
-- [ ] Role creation multi-step form
-- [ ] Applicant management screen
-- [ ] QR scanner screen
+- [x] Org dashboard
+- [x] Role creation multi-step form
+- [x] Applicant management screen
+- [x] QR scanner screen
 
 ## Components
 - [x] Card, PillBadge, PillButton, ProgressBar
 - [x] OpportunityCard, FilterBar
 - [x] MapPreview, HoursChart, BadgeGrid, MessageThread
-- [ ] Bottom tab navigation layouts
+- [x] Bottom tab navigation layouts
 
 ## Finalize
-- [ ] Verify TypeScript compilation
-- [ ] Test web rendering
-- [ ] Create feature branch and push to GitHub
+- [x] Verify TypeScript compilation
+- [x] Test web rendering
+- [x] Create feature branch and push to GitHub
