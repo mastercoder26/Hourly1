@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, ScrollView, Alert } from 'react-native';
-import { Surface, Typography, PillButton } from '../components/ui';
+import { Card, TextValueLarge, TextRegular, TextCaption, PillButton } from '../components/ui';
 import { useRouter } from 'expo-router';
 
 export default function ActiveShiftScreen() {
@@ -62,13 +62,13 @@ export default function ActiveShiftScreen() {
   return (
     <ScrollView className="flex-1 bg-white dark:bg-zinc-950 p-6">
       <View className="flex-1 items-center justify-center mt-12 pb-12">
-        <Typography variant="h2" className="text-center mb-2 text-zinc-900 dark:text-zinc-50">Active Shift</Typography>
-        <Typography variant="body" className="text-center mb-10 text-teal-600 dark:text-teal-400 max-w-sm font-medium">City Roots Farm</Typography>
+        <TextValueLarge className="text-center mb-2 text-zinc-900 dark:text-zinc-50">Active Shift</TextValueLarge>
+        <TextRegular className="text-center mb-10 text-teal-600 dark:text-teal-400 max-w-sm font-medium">City Roots Farm</TextRegular>
 
-        <Surface className="p-8 items-center bg-zinc-50 dark:bg-zinc-900 shadow-md border border-zinc-200 dark:border-zinc-800 rounded-3xl w-full max-w-sm mb-12">
+        <Card className="p-8 items-center bg-zinc-50 dark:bg-zinc-900 shadow-md border border-zinc-200 dark:border-zinc-800 rounded-3xl w-full max-w-sm mb-12">
           
-          <Typography variant="caption" className="text-zinc-500 dark:text-zinc-400 mb-1">Time Elapsed</Typography>
-          <Typography variant="h1" className="text-zinc-900 dark:text-zinc-50 mb-8 font-mono">{formatTime(elapsedMins)}</Typography>
+          <TextCaption className="text-zinc-500 dark:text-zinc-400 mb-1">Time Elapsed</TextCaption>
+          <TextValueLarge className="text-zinc-900 dark:text-zinc-50 mb-8 font-mono">{formatTime(elapsedMins)}</TextValueLarge>
 
           {/* Progress Bar Container */}
           <View className="w-full h-4 bg-zinc-200 dark:bg-zinc-800 rounded-full mb-4 overflow-hidden">
@@ -80,22 +80,22 @@ export default function ActiveShiftScreen() {
           </View>
           
           <View className="w-full flex-row justify-between mb-4">
-            <Typography variant="caption" className="text-zinc-500 dark:text-zinc-400">0h 0m</Typography>
-            <Typography variant="caption" className="text-zinc-500 dark:text-zinc-400 font-medium">Goal: {formatTime(shiftDurationMins)}</Typography>
+            <TextCaption className="text-zinc-500 dark:text-zinc-400">0h 0m</TextCaption>
+            <TextCaption className="text-zinc-500 dark:text-zinc-400 font-medium">Goal: {formatTime(shiftDurationMins)}</TextCaption>
           </View>
-        </Surface>
+        </Card>
 
         <View className="w-full max-w-sm">
           {isDone ? (
             <PillButton 
-              title="Finish & Log Hours" 
+              label="Finish & Log Hours" 
               onPress={handleFinish}
               variant="primary"
               className="w-full shadow-lg shadow-teal-500/20"
             />
           ) : (
             <PillButton 
-              title="Check Out Early" 
+              label="Check Out Early" 
               onPress={handleCheckOut}
               variant="secondary"
               className="w-full"

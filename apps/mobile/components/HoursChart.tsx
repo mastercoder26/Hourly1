@@ -1,6 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
-import { Surface, Typography } from '../../components/ui';
+import { Card, TextRegular, TextCaption } from './ui';
 
 export default function HoursChart() {
   const data = [
@@ -12,15 +12,15 @@ export default function HoursChart() {
   const total = data.reduce((acc, curr) => acc + curr.hours, 0);
 
   return (
-    <Surface className="p-4 bg-white dark:bg-zinc-900 mt-4 rounded-3xl">
-      <Typography variant="h3" className="mb-4">Hours by Cause</Typography>
+    <Card className="p-4 bg-white dark:bg-zinc-900 mt-4 rounded-3xl">
+      <TextRegular className="mb-4 font-bold">Hours by Cause</TextRegular>
       {data.map((d, i) => {
         const pct = (d.hours / total) * 100;
         return (
           <View key={i} className="mb-3">
             <View className="flex-row justify-between mb-1">
-              <Typography variant="caption">{d.cause}</Typography>
-              <Typography variant="caption" className="font-semibold">{d.hours}h</Typography>
+              <TextCaption>{d.cause}</TextCaption>
+              <TextCaption className="font-semibold">{d.hours}h</TextCaption>
             </View>
             <View className="w-full h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
               <View className={`h-full ${d.color} rounded-full`} style={{ width: `${pct}%` }} />
@@ -28,6 +28,6 @@ export default function HoursChart() {
           </View>
         );
       })}
-    </Surface>
+    </Card>
   );
 }

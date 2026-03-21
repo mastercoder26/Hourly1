@@ -8,7 +8,7 @@ import { Opportunity } from '../mocks/opportunities';
 interface ApplySheetProps {
   opportunity: Opportunity;
   onConfirm: () => void;
-  innerRef: React.RefObject<BottomSheet>;
+  innerRef: React.RefObject<BottomSheet | null>;
 }
 
 export function ApplySheet({ opportunity, onConfirm, innerRef }: ApplySheetProps) {

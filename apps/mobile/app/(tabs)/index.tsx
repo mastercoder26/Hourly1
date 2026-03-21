@@ -4,7 +4,7 @@ import { mockOpportunities } from '../../mocks/opportunities';
 import { OpportunityCard } from '../../components/OpportunityCard';
 import { FilterBar } from '../../components/FilterBar';
 import { TextValueLarge, TextRegular } from '../../components/ui/Typography';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker } from '../../components/MapView';
 
 export default function FeedScreen() {
   const [isMapView, setIsMapView] = useState(false);

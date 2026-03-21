@@ -3,6 +3,7 @@ import { TouchableOpacity, Text, TouchableOpacityProps } from 'react-native';
 interface PillButtonProps extends TouchableOpacityProps {
   label: string;
   variant?: 'primary' | 'secondary' | 'ghost';
+  size?: 'default' | 'small' | 'large';
   className?: string;
   textClassName?: string;
 }
@@ -10,12 +11,23 @@ interface PillButtonProps extends TouchableOpacityProps {
 export function PillButton({
   label,
   variant = 'secondary',
+  size = 'default',
   className = '',
   textClassName = '',
   ...props
 }: PillButtonProps) {
   let bgClass = 'bg-grayBorder';
   let labelClass = 'text-textPrimary';
+  let paddingClass = 'px-6 py-3';
+  let textSizeClass = 'text-[15px]';
+
+  if (size === 'small') {
+    paddingClass = 'px-4 py-2';
+    textSizeClass = 'text-[13px]';
+  } else if (size === 'large') {
+    paddingClass = 'px-8 py-4';
+    textSizeClass = 'text-[17px]';
+  }
 
   if (variant === 'primary') {
     bgClass = 'bg-teal';
@@ -31,11 +43,11 @@ export function PillButton({
 
   return (
     <TouchableOpacity
-      className={`rounded-pill px-6 py-3 flex-row items-center justify-center ${bgClass} ${className}`}
+      className={`rounded-pill flex-row items-center justify-center ${paddingClass} ${bgClass} ${className}`}
       activeOpacity={0.8}
       {...props}
     >
-      <Text className={`font-medium text-[15px] ${labelClass} ${textClassName}`}>
+      <Text className={`font-medium ${textSizeClass} ${labelClass} ${textClassName}`}>
         {label}
       </Text>
     </TouchableOpacity>

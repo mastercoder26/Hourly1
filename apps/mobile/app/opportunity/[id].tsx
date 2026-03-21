@@ -4,7 +4,7 @@ import { mockOpportunities } from '../../mocks/opportunities';
 import { TextValueLarge, TextRegular, TextSub } from '../../components/ui/Typography';
 import { PillButton } from '../../components/ui/PillButton';
 import { Card } from '../../components/ui/Card';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker } from '../../components/MapView';
 import { ApplySheet } from '../../components/ApplySheet';
 import { useRef, useState } from 'react';
 import BottomSheet from '@gorhom/bottom-sheet';
