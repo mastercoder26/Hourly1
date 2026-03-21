@@ -4,7 +4,6 @@ import { mockOpportunities } from '../../mocks/opportunities';
 import { TextValueLarge, TextRegular, TextSub } from '../../components/ui/Typography';
 import { PillButton } from '../../components/ui/PillButton';
 import { Card } from '../../components/ui/Card';
-import MapView, { Marker } from 'react-native-maps';
 import { ApplySheet } from '../../components/ApplySheet';
 import { useRef, useState } from 'react';
 import BottomSheet from '@gorhom/bottom-sheet';
@@ -79,20 +78,10 @@ export default function OpportunityDetail() {
         </Card>
 
         <TextSub className="mb-3">Location</TextSub>
-        <View className="h-48 w-full rounded-card overflow-hidden mb-6 border-[0.5px] border-grayBorder">
-          <MapView 
-            style={{ flex: 1 }}
-            scrollEnabled={false}
-            zoomEnabled={false}
-            initialRegion={{
-              latitude: opp.latitude,
-              longitude: opp.longitude,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            }}
-          >
-            <Marker coordinate={{ latitude: opp.latitude, longitude: opp.longitude }} />
-          </MapView>
+        <View className="h-48 w-full rounded-card overflow-hidden mb-6 border-[0.5px] border-grayBorder items-center justify-center px-4">
+          <TextRegular className="text-textMuted text-center">
+            {opp.distance}km away
+          </TextRegular>
         </View>
 
         <TextSub className="mb-3">What to Bring</TextSub>

@@ -1,10 +1,9 @@
-import { View, FlatList, Dimensions } from 'react-native';
+import { View, FlatList } from 'react-native';
 import { useState } from 'react';
 import { mockOpportunities } from '../../mocks/opportunities';
 import { OpportunityCard } from '../../components/OpportunityCard';
 import { FilterBar } from '../../components/FilterBar';
 import { TextValueLarge, TextRegular } from '../../components/ui/Typography';
-import MapView, { Marker } from 'react-native-maps';
 
 export default function FeedScreen() {
   const [isMapView, setIsMapView] = useState(false);
@@ -17,24 +16,11 @@ export default function FeedScreen() {
       <FilterBar onToggleMap={() => setIsMapView(!isMapView)} />
 
       {isMapView ? (
-        <MapView 
-          style={{ flex: 1, width: Dimensions.get('window').width }}
-          initialRegion={{
-            latitude: 37.7749,
-            longitude: -122.4194,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-          }}
-        >
-          {mockOpportunities.map(opp => (
-            <Marker
-              key={opp.id}
-              coordinate={{ latitude: opp.latitude, longitude: opp.longitude }}
-              title={opp.roleTitle}
-              description={opp.orgName}
-            />
-          ))}
-        </MapView>
+        <View className="flex-1 items-center justify-center px-4">
+          <TextRegular className="text-textMuted text-center">
+            Map view is currently unavailable.
+          </TextRegular>
+        </View>
       ) : (
         <FlatList
           data={mockOpportunities}

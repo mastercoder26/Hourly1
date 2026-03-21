@@ -1,6 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
-import { Surface, Typography } from '../../components/ui';
+import { Surface, Typography } from './ui';
 
 export default function HoursChart() {
   const data = [

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, ScrollView } from 'react-native';
-import { Surface, Typography, PillButton } from '../../components/ui';
+import { Surface, Typography, PillButton } from './ui';
 
 export default function BadgeGrid() {
   const badges = [
