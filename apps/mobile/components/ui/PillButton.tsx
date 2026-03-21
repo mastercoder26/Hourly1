@@ -1,7 +1,7 @@
 // Pill Button — rounded action buttons matching React App.js style
 import React from 'react';
 import { Pressable, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { Colors } from '../../constants/colors';
+import { Colors } from '@/constants/colors';
 
 interface PillButtonProps {
   children: React.ReactNode;

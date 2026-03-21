@@ -1,7 +1,7 @@
 // Card component — floating dark card inspired by React App.js
 import React from 'react';
 import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
-import { Colors, CardStyle } from '../../constants/colors';
+import { Colors, CardStyle } from '@/constants/colors';
 
 interface CardProps {
   children: React.ReactNode;
