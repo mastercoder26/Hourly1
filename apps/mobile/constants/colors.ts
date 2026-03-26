@@ -5,10 +5,10 @@ const tintColorLight = '#2f95dc';
 const tintColorDark = '#fff';
 
 export const Colors = {
-  teal: '#00BFA5',    // Brand accent 1
-  tealSoft: 'rgba(0, 191, 165, 0.15)',
-  purple: '#B388FF',  // Brand accent 2
-  purpleSoft: 'rgba(179, 136, 255, 0.15)',
+  teal: '#4CAF50',    // Swapping teal for accent green
+  tealSoft: 'rgba(76, 175, 80, 0.15)',
+  purple: '#FFFFFF',  // Swapping purple for white secondary
+  purpleSoft: 'rgba(255, 255, 255, 0.15)',
   warning: '#FFC107',
   urgencyOrange: '#FF9800',
   urgencyRed: '#F44336',

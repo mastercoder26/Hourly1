@@ -1,10 +1,11 @@
 // Onboarding Step 3 — Interest/Cause Selection (up to 5 bubbles)
 import React, { useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { Text } from '@/components/Themed';;
+import { Text } from '@/components/Themed';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeIn, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
+import { Typography } from '../../constants/typography';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { PillButton } from '../../components/ui/PillButton';
 import { CauseTag } from '../../types';
@@ -36,65 +37,67 @@ export default function InterestsStep() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <Animated.View style={styles.header} entering={FadeIn.delay(100)}>
         <ProgressBar steps={4} currentStep={2} accent={isOrg ? 'purple' : 'teal'} />
         <PillButton variant="ghost" size="small" onPress={() => router.push(`/onboarding/availability?role=${role || 'student'}`)}>
           Skip for now
         </PillButton>
-      </View>
+      </Animated.View>
 
       <View style={styles.content}>
-        <Text style={styles.stepLabel}>Step 3 of 4</Text>
-        <Text style={styles.title}>
-          {isOrg ? 'What causes does your org serve?' : 'What causes are you passionate about?'}
-        </Text>
-        <Text style={styles.subtitle}>
-          Choose up to 5 • {selected.length}/5 selected
-        </Text>
+        <Animated.View entering={FadeInDown.springify().damping(18).mass(0.8).delay(200)}>
+          <Text style={styles.stepLabel}>Step 3 of 4</Text>
+          <Text style={styles.title}>
+            {isOrg ? 'What causes does your org serve?' : 'What causes are you passionate about?'}
+          </Text>
+          <Text style={styles.subtitle}>
+            Choose up to 5 • {selected.length}/5 selected
+          </Text>
+        </Animated.View>
 
         <View style={styles.bubbleGrid}>
-          {CAUSES.map(({ tag, emoji }) => {
+          {CAUSES.map(({ tag, emoji }, index) => {
             const isSelected = selected.includes(tag);
             return (
-              <Pressable
-                key={tag}
-                onPress={() => toggle(tag)}
-                style={[
-                  styles.bubble,
-                  isSelected && {
-                    backgroundColor: Colors.causeTags[tag] + '25',
-                    borderColor: Colors.causeTags[tag],
-                  },
-                ]}
-              >
-                <Text style={styles.bubbleEmoji}>{emoji}</Text>
-                <Text
+              <Animated.View key={tag} entering={FadeInDown.springify().damping(18).mass(0.8).delay(350 + (index * 50))}>
+                <Pressable
+                  onPress={() => toggle(tag)}
                   style={[
-                    styles.bubbleText,
-                    isSelected && { color: Colors.causeTags[tag] },
+                    styles.bubble,
+                    isSelected && {
+                      backgroundColor: Colors.causeTags[tag] + '25',
+                      borderColor: Colors.causeTags[tag],
+                    },
                   ]}
                 >
-                  {tag}
-                </Text>
-                {isSelected && (
-                  <View style={[styles.checkmark, { backgroundColor: Colors.causeTags[tag] }]}>
-                    <Text style={styles.checkmarkText}>✓</Text>
-                  </View>
-                )}
-              </Pressable>
+                  <Text style={styles.bubbleEmoji}>{emoji}</Text>
+                  <Text
+                    style={[
+                      styles.bubbleText,
+                      isSelected && { color: Colors.causeTags[tag] },
+                    ]}
+                  >
+                    {tag}
+                  </Text>
+                  {isSelected && (
+                    <View style={[styles.checkmark, { backgroundColor: Colors.causeTags[tag] }]}>
+                      <Text style={styles.checkmarkText}>✓</Text>
+                    </View>
+                  )}
+                </Pressable>
+              </Animated.View>
             );
           })}
         </View>
       </View>
 
-      <View style={styles.footer}>
+      <Animated.View style={styles.footer} entering={FadeInDown.springify().damping(18).mass(0.8).delay(600)}>
         <View style={styles.footerButtons}>
           <PillButton variant="ghost" size="medium" onPress={() => router.back()} style={{ flex: 1 }}>
             Back
           </PillButton>
           <PillButton
             variant="primary"
-            accent={isOrg ? 'purple' : 'teal'}
             size="large"
             onPress={() => router.push(`/onboarding/availability?role=${role || 'student'}`)}
             style={{ flex: 2 }}
@@ -102,7 +105,7 @@ export default function InterestsStep() {
             Continue
           </PillButton>
         </View>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -124,22 +127,25 @@ const styles = StyleSheet.create({
     paddingTop: 32,
   },
   stepLabel: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontFamily: Typography.sub.fontFamily,
+    fontSize: Typography.sub.fontSize,
+    fontWeight: Typography.sub.fontWeight as any,
     color: Colors.dark.textTertiary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 12,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '500',
+    fontFamily: Typography.title.fontFamily,
+    fontSize: Typography.title.fontSize,
+    fontWeight: Typography.title.fontWeight,
     color: Colors.dark.textPrimary,
-    letterSpacing: -0.3,
+    letterSpacing: Typography.title.letterSpacing,
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 15,
+    fontFamily: Typography.body.fontFamily,
+    fontSize: Typography.body.fontSize,
     color: Colors.dark.textSecondary,
     marginBottom: 32,
   },
@@ -164,8 +170,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   bubbleText: {
-    fontSize: 15,
-    fontWeight: '500',
+    fontFamily: Typography.label.fontFamily,
+    fontSize: Typography.label.fontSize,
+    fontWeight: Typography.label.fontWeight,
     color: Colors.dark.textSecondary,
   },
   checkmark: {
@@ -177,9 +184,10 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   checkmarkText: {
-    fontSize: 12,
+    fontFamily: Typography.caption.fontFamily,
+    fontSize: Typography.caption.fontSize,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#000000',
   },
   footer: {
     paddingHorizontal: 24,
