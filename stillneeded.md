@@ -39,25 +39,20 @@ This repository now contains placeholder-ready configs/files for the remaining p
 
 ```bash
 # DB (local/dev)
-cd /home/runner/work/Hourly1/Hourly1/packages/db
-npm run prisma:generate
-npm run prisma:migrate:dev
-npm run prisma:validate
+(cd packages/db && npm run prisma:generate)
+(cd packages/db && npm run prisma:migrate:dev)
+(cd packages/db && npm run prisma:validate)
 
 # API build
-cd /home/runner/work/Hourly1/Hourly1/packages/api
-npm run build
+(cd packages/api && npm run build)
 
 # Mobile typecheck
-cd /home/runner/work/Hourly1/Hourly1/apps/mobile
-npx tsc --noEmit
+(cd apps/mobile && npx tsc --noEmit)
 
 # Web export (optional)
-cd /home/runner/work/Hourly1/Hourly1/apps/mobile
-npx expo export --platform web
+(cd apps/mobile && npx expo export --platform web)
 
 # EAS (after login + real credentials)
-cd /home/runner/work/Hourly1/Hourly1/apps/mobile
-eas build --platform ios --profile production
-eas submit --platform ios --latest
+(cd apps/mobile && eas build --platform ios --profile production)
+(cd apps/mobile && eas submit --platform ios --latest)
 ```
