@@ -50,7 +50,8 @@
       ]
     ],
     "extra": {
-      "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+      "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY",
+      "privacyPolicyUrl": "https://YOUR_DOMAIN/privacy"
     },
     "experiments": {
       "typedRoutes": true
