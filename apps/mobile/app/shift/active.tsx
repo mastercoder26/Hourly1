@@ -1,6 +1,7 @@
 // Active Shift — timer and progress during shift
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
+import { Text } from '@/components/Themed';;
 import { useRouter } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';

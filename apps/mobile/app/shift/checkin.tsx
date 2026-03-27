@@ -1,6 +1,7 @@
 // Check-In Screen — QR code display for student
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { Text } from '@/components/Themed';;
 import { useRouter } from 'expo-router';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';

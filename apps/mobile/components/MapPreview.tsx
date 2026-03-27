@@ -1,7 +1,9 @@
 // MapPreview — Google Maps integration for opportunity detail view
 import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
-import { Colors, CardStyle } from '../constants/colors';
+import { View, StyleSheet, Platform } from 'react-native';
+import { Text } from '@/components/Themed';;
+import { Colors, CardStyle } from '@/constants/colors';
+import { Feather } from '@expo/vector-icons';
 
 interface MapPreviewProps {
   latitude: number;
@@ -54,7 +56,7 @@ function NativeMap({ latitude, longitude, title, userLatitude, userLongitude, he
 function MapFallback({ latitude, longitude, address, height }: { latitude: number; longitude: number; address?: string; height?: number }) {
   return (
     <View style={[styles.fallback, { height }]}>
-      <Text style={styles.fallbackIcon}>📍</Text>
+      <Feather name="map-pin" size={32} color={Colors.dark.textSecondary} />
       <Text style={styles.fallbackTitle}>{address || 'View on map'}</Text>
       <Text style={styles.fallbackCoords}>
         {latitude.toFixed(4)}, {longitude.toFixed(4)}
@@ -88,7 +90,7 @@ export function MapPreview({
       />
       {address && (
         <View style={styles.addressContainer}>
-          <Text style={styles.addressIcon}>📍</Text>
+          <Feather name="map-pin" size={14} color={Colors.dark.textSecondary} />
           <Text style={styles.addressText}>{address}</Text>
         </View>
       )}
@@ -122,9 +124,6 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: Colors.dark.card,
   },
-  addressIcon: {
-    fontSize: 14,
-  },
   addressText: {
     fontSize: 13,
     color: Colors.dark.textSecondary,
@@ -136,9 +135,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-  },
-  fallbackIcon: {
-    fontSize: 32,
   },
   fallbackTitle: {
     fontSize: 14,

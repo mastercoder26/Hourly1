@@ -1,8 +1,11 @@
 // Auth — Sign In Screen
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
+import { View, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
+import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
+import { Typography } from '../../constants/typography';
 import { PillButton } from '../../components/ui/PillButton';
 
 export default function SignInScreen() {
@@ -22,14 +25,18 @@ export default function SignInScreen() {
     >
       <View style={styles.content}>
         {/* Close button */}
-        <Pressable onPress={() => router.back()} style={styles.closeButton}>
-          <Text style={styles.closeText}>✕</Text>
-        </Pressable>
+        <Animated.View entering={FadeIn.delay(100)}>
+          <Pressable onPress={() => router.back()} style={styles.closeButton}>
+            <Text style={styles.closeText}>✕</Text>
+          </Pressable>
+        </Animated.View>
 
-        <Text style={styles.title}>Sign in</Text>
-        <Text style={styles.subtitle}>Welcome back to Hourly</Text>
+        <Animated.View entering={FadeInDown.springify().damping(18).mass(0.8).delay(200)}>
+          <Text style={styles.title}>Sign in</Text>
+          <Text style={styles.subtitle}>Welcome back to Hourly</Text>
+        </Animated.View>
 
-        <View style={styles.form}>
+        <Animated.View style={styles.form} entering={FadeInDown.springify().damping(18).mass(0.8).delay(350)}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email</Text>
             <TextInput
@@ -56,15 +63,14 @@ export default function SignInScreen() {
             />
           </View>
 
-          <PillButton variant="ghost" size="small" style={{ alignSelf: 'flex-end' }}>
-            Forgot password?
+          <PillButton variant="ghost" size="small" style={{ alignSelf: 'flex-end', paddingRight: 0 }}>
+            <Text style={{ ...Typography.label, color: Colors.dark.textSecondary }}>Forgot password?</Text>
           </PillButton>
-        </View>
+        </Animated.View>
 
-        <View style={styles.actions}>
+        <Animated.View style={styles.actions} entering={FadeInDown.springify().damping(18).mass(0.8).delay(500)}>
           <PillButton
             variant="primary"
-            accent="teal"
             fullWidth
             size="large"
             onPress={handleSignIn}
@@ -95,7 +101,7 @@ export default function SignInScreen() {
           >
             Continue as guest
           </PillButton>
-        </View>
+        </Animated.View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -125,47 +131,54 @@ const styles = StyleSheet.create({
     color: Colors.dark.textPrimary,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '500',
+    fontFamily: Typography.valueLarge.fontFamily,
+    fontSize: Typography.valueLarge.fontSize,
+    fontWeight: Typography.valueLarge.fontWeight,
+    letterSpacing: Typography.valueLarge.letterSpacing,
+    lineHeight: Typography.valueLarge.lineHeight,
     color: Colors.dark.textPrimary,
-    letterSpacing: -0.5,
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 15,
+    fontFamily: Typography.body.fontFamily,
+    fontSize: Typography.body.fontSize,
     color: Colors.dark.textSecondary,
     marginBottom: 40,
   },
   form: {
-    gap: 20,
+    gap: 24,
     marginBottom: 32,
   },
   inputGroup: {
-    gap: 8,
+    gap: 12,
   },
   label: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: Colors.dark.textSecondary,
+    fontFamily: Typography.sub.fontFamily,
+    fontSize: Typography.sub.fontSize,
+    fontWeight: Typography.sub.fontWeight as any,
+    letterSpacing: Typography.sub.letterSpacing,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: Colors.dark.textSecondary,
   },
   input: {
+    fontFamily: Typography.body.fontFamily,
     backgroundColor: Colors.dark.element,
-    borderRadius: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
     fontSize: 16,
     color: Colors.dark.textPrimary,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   actions: {
-    gap: 14,
+    gap: 16,
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    paddingVertical: 4,
+    paddingVertical: 8,
   },
   dividerLine: {
     flex: 1,
@@ -173,7 +186,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.element,
   },
   dividerText: {
-    fontSize: 13,
+    fontFamily: Typography.sub.fontFamily,
+    fontSize: Typography.sub.fontSize,
+    letterSpacing: Typography.sub.letterSpacing,
+    textTransform: 'uppercase',
     color: Colors.dark.textTertiary,
   },
 });

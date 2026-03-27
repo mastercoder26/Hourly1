@@ -1,6 +1,7 @@
 // HoursChart — bar chart showing hours by cause
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@/components/Themed';;
 import { Colors } from '../constants/colors';
 import { CauseTag, AttendanceRecord } from '../types';
 import { mockOpportunities } from '../mocks/opportunities';

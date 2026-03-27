@@ -1,7 +1,8 @@
 // Pill Button — rounded action buttons matching React App.js style
 import React from 'react';
-import { Pressable, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { Colors } from '../../constants/colors';
+import { Pressable, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { Text } from '@/components/Themed';;
+import { Colors } from '@/constants/colors';
 
 interface PillButtonProps {
   children: React.ReactNode;
@@ -20,14 +21,11 @@ export function PillButton({
   onPress,
   variant = 'default',
   size = 'medium',
-  accent = 'teal',
   fullWidth = false,
   disabled = false,
   style,
   textStyle,
 }: PillButtonProps) {
-  const accentColor = accent === 'teal' ? Colors.teal : Colors.purple;
-
   return (
     <Pressable
       onPress={onPress}
@@ -36,7 +34,7 @@ export function PillButton({
         styles.base,
         styles[size],
         variant === 'default' && styles.default,
-        variant === 'primary' && { backgroundColor: accentColor },
+        variant === 'primary' && styles.primary,
         variant === 'secondary' && styles.secondary,
         variant === 'ghost' && styles.ghost,
         fullWidth && styles.fullWidth,
@@ -51,8 +49,8 @@ export function PillButton({
           styles[`${size}Text`],
           variant === 'default' && styles.defaultText,
           variant === 'primary' && styles.primaryText,
-          variant === 'secondary' && { color: accentColor },
-          variant === 'ghost' && { color: Colors.dark.textSecondary },
+          variant === 'secondary' && styles.secondaryText,
+          variant === 'ghost' && styles.ghostText,
           disabled && styles.disabledText,
           textStyle,
         ]}
@@ -71,24 +69,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   small: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   medium: {
     paddingHorizontal: 24,
-    paddingVertical: 14,
+    paddingVertical: 12,
   },
   large: {
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
     paddingVertical: 18,
   },
   default: {
     backgroundColor: Colors.dark.element,
   },
+  primary: {
+    backgroundColor: Colors.dark.textPrimary,
+  },
   secondary: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: Colors.dark.element,
+    backgroundColor: Colors.dark.element,
   },
   ghost: {
     backgroundColor: 'transparent',
@@ -109,14 +108,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   largeText: {
-    fontSize: 17,
+    fontSize: 16,
   },
   defaultText: {
     color: Colors.dark.textSecondary,
   },
   primaryText: {
-    color: '#FFFFFF',
+    color: Colors.dark.base,
     fontWeight: '600',
+  },
+  secondaryText: {
+    color: Colors.dark.textPrimary,
+  },
+  ghostText: {
+    color: Colors.dark.textSecondary,
   },
   disabledText: {
     color: Colors.dark.textTertiary,

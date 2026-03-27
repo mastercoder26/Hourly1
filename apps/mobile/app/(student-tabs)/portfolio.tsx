@@ -1,6 +1,7 @@
 // Portfolio — hours tracker, badge grid, past shifts
 import React, { useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { Text } from '@/components/Themed';;
 import Animated, {
   useSharedValue,
   useAnimatedStyle,

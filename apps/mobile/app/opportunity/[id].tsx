@@ -1,14 +1,16 @@
 // Opportunity Detail — full detail view with map, reviews, and apply
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
+import { Text } from '@/components/Themed';;
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { FadeIn, FadeInDown, useSharedValue, useAnimatedStyle, withSpring, withSequence, withDelay, withTiming } from 'react-native-reanimated';
-import { Colors, CardStyle } from '../../constants/colors';
+import { Colors, CardStyle } from '@/constants/colors';
 import { Card } from '../../components/ui/Card';
 import { PillBadge } from '../../components/ui/PillBadge';
 import { PillButton } from '../../components/ui/PillButton';
 import { MapPreview } from '../../components/MapPreview';
 import { getOpportunityById } from '../../mocks/opportunities';
+import { Feather } from '@expo/vector-icons';
 
 export default function OpportunityDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -51,7 +53,8 @@ export default function OpportunityDetailScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Back button */}
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backText}>← Back</Text>
+          <Feather name="arrow-left" size={20} color={Colors.teal} />
+          <Text style={styles.backText}>Back</Text>
         </Pressable>
 
         {/* Org header */}
@@ -62,7 +65,7 @@ export default function OpportunityDetailScreen() {
           <View style={{ flex: 1 }}>
             <View style={styles.orgNameRow}>
               <Text style={styles.orgName}>{opportunity.orgName}</Text>
-              {opportunity.orgVerified && <Text style={styles.verifiedIcon}>✓</Text>}
+              {opportunity.orgVerified && <Feather name="check-circle" size={14} color={Colors.teal} />}
             </View>
             <View style={styles.ratingRow}>
               <Text style={styles.ratingStars}>{'★'.repeat(Math.round(opportunity.rating))}</Text>
@@ -88,7 +91,7 @@ export default function OpportunityDetailScreen() {
         <Animated.View entering={FadeInDown.delay(300).duration(400)}>
           <Card style={styles.detailsCard}>
             <View style={styles.detailRow}>
-              <Text style={styles.detailIcon}>📅</Text>
+              <Feather name="calendar" size={20} color={Colors.dark.textSecondary} style={styles.detailIcon} />
               <View>
                 <Text style={styles.detailLabel}>Date</Text>
                 <Text style={styles.detailValue}>{formatDate(opportunity.date)}</Text>
@@ -96,7 +99,7 @@ export default function OpportunityDetailScreen() {
             </View>
             <View style={styles.detailDivider} />
             <View style={styles.detailRow}>
-              <Text style={styles.detailIcon}>🕐</Text>
+              <Feather name="clock" size={20} color={Colors.dark.textSecondary} style={styles.detailIcon} />
               <View>
                 <Text style={styles.detailLabel}>Time</Text>
                 <Text style={styles.detailValue}>{opportunity.startTime} – {opportunity.endTime} ({opportunity.durationHours}h)</Text>
@@ -104,7 +107,7 @@ export default function OpportunityDetailScreen() {
             </View>
             <View style={styles.detailDivider} />
             <View style={styles.detailRow}>
-              <Text style={styles.detailIcon}>👥</Text>
+              <Feather name="users" size={20} color={Colors.dark.textSecondary} style={styles.detailIcon} />
               <View>
                 <Text style={styles.detailLabel}>Spots</Text>
                 <Text style={[styles.detailValue, spotsLeft <= 3 && { color: Colors.urgencyOrange }]}>
@@ -116,7 +119,7 @@ export default function OpportunityDetailScreen() {
               <>
                 <View style={styles.detailDivider} />
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailIcon}>🎂</Text>
+                  <Feather name="user-check" size={20} color={Colors.dark.textSecondary} style={styles.detailIcon} />
                   <View>
                     <Text style={styles.detailLabel}>Minimum age</Text>
                     <Text style={styles.detailValue}>{opportunity.ageMinimum}+</Text>
@@ -152,7 +155,7 @@ export default function OpportunityDetailScreen() {
             <Card style={styles.checklistCard}>
               {opportunity.whatToBring.map((item, i) => (
                 <View key={i} style={styles.checklistRow}>
-                  <Text style={styles.checklistCheck}>☐</Text>
+                  <Feather name="circle" size={18} color={Colors.dark.textSecondary} />
                   <Text style={styles.checklistItem}>{item}</Text>
                 </View>
               ))}
@@ -209,7 +212,7 @@ export default function OpportunityDetailScreen() {
       {applied && (
         <View style={styles.successOverlay}>
           <Animated.View style={[styles.successCircle, successStyle]}>
-            <Text style={styles.successCheck}>✓</Text>
+            <Feather name="check" size={48} color={Colors.teal} style={styles.successCheck} />
           </Animated.View>
           <Text style={styles.successTitle}>Application sent!</Text>
           <Text style={styles.successSubtitle}>You'll be notified when the org responds</Text>
@@ -265,6 +268,9 @@ const styles = StyleSheet.create({
   },
   backButton: {
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     paddingVertical: 8,
     paddingRight: 16,
   },
@@ -298,11 +304,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '500',
     color: Colors.dark.textPrimary,
-  },
-  verifiedIcon: {
-    fontSize: 14,
-    color: Colors.teal,
-    fontWeight: '700',
   },
   ratingRow: {
     flexDirection: 'row',
@@ -348,7 +349,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 24,
   },
   detailIcon: {
-    fontSize: 20,
     width: 28,
     textAlign: 'center',
   },
@@ -384,10 +384,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-  },
-  checklistCheck: {
-    fontSize: 18,
-    color: Colors.dark.textSecondary,
   },
   checklistItem: {
     fontSize: 15,
@@ -516,8 +512,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   successCheck: {
-    fontSize: 48,
-    color: Colors.teal,
     fontWeight: '300',
   },
   successTitle: {

@@ -1,10 +1,12 @@
 // OpportunityCard — main feed card component
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { Text } from '@/components/Themed';;
 import { useRouter } from 'expo-router';
 import { Opportunity } from '../types';
-import { Colors, CardStyle } from '../constants/colors';
+import { Colors, CardStyle } from '@/constants/colors';
 import { PillBadge } from './ui/PillBadge';
+import { Feather } from '@expo/vector-icons';
 
 interface OpportunityCardProps {
   opportunity: Opportunity;
@@ -39,7 +41,7 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
             <View style={styles.orgNameRow}>
               <Text style={styles.orgName}>{opportunity.orgName}</Text>
               {opportunity.orgVerified && (
-                <Text style={styles.verifiedBadge}>✓</Text>
+                <Feather name="check-circle" size={12} color={Colors.teal} />
               )}
             </View>
             <Text style={styles.orgRating}>★ {opportunity.rating.toFixed(1)}</Text>
@@ -65,15 +67,15 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
       {/* Details row */}
       <View style={styles.details}>
         <View style={styles.detailItem}>
-          <Text style={styles.detailIcon}>📅</Text>
+          <Feather name="calendar" size={14} color={Colors.dark.textSecondary} />
           <Text style={styles.detailText}>{formatDate(opportunity.date)}</Text>
         </View>
         <View style={styles.detailItem}>
-          <Text style={styles.detailIcon}>🕐</Text>
+          <Feather name="clock" size={14} color={Colors.dark.textSecondary} />
           <Text style={styles.detailText}>{opportunity.startTime} – {opportunity.endTime}</Text>
         </View>
         <View style={styles.detailItem}>
-          <Text style={styles.detailIcon}>📍</Text>
+          <Feather name="map-pin" size={14} color={Colors.dark.textSecondary} />
           <Text style={styles.detailText}>{opportunity.distance?.toFixed(1)} mi</Text>
         </View>
       </View>
@@ -160,11 +162,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: Colors.dark.textPrimary,
   },
-  verifiedBadge: {
-    fontSize: 12,
-    color: Colors.teal,
-    fontWeight: '600',
-  },
   orgRating: {
     fontSize: 12,
     color: Colors.dark.textSecondary,
@@ -204,9 +201,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-  },
-  detailIcon: {
-    fontSize: 14,
   },
   detailText: {
     fontSize: 13,

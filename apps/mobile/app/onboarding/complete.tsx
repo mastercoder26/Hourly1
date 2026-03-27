@@ -1,6 +1,7 @@
 // Onboarding Complete — animated success screen
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@/components/Themed';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Animated, {
   useSharedValue,
@@ -10,29 +11,27 @@ import Animated, {
   withTiming,
   withSequence,
   Easing,
+  FadeInDown,
 } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
+import { Typography } from '../../constants/typography';
 import { PillButton } from '../../components/ui/PillButton';
 
 export default function OnboardingComplete() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
   const isOrg = role === 'organizer';
-  const accentColor = isOrg ? Colors.purple : Colors.teal;
+  const accentColor = Colors.dark.textPrimary; // Premium black and white
 
   const checkScale = useSharedValue(0);
   const textOpacity = useSharedValue(0);
-  const textTransY = useSharedValue(20);
-  const buttonOpacity = useSharedValue(0);
-
+  const textTransY = useSharedValue(40);
+  
   useEffect(() => {
-    checkScale.value = withDelay(200, withSequence(
-      withSpring(1.3, { damping: 6, stiffness: 300 }),
-      withSpring(1, { damping: 10, stiffness: 200 })
-    ));
-    textOpacity.value = withDelay(600, withTiming(1, { duration: 500 }));
-    textTransY.value = withDelay(600, withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) }));
-    buttonOpacity.value = withDelay(1000, withTiming(1, { duration: 500 }));
+    // Elegant heavy spring
+    checkScale.value = withDelay(200, withSpring(1, { damping: 18, mass: 0.8 }));
+    textOpacity.value = withDelay(400, withTiming(1, { duration: 600 }));
+    textTransY.value = withDelay(400, withSpring(0, { damping: 18, mass: 0.8 }));
   }, []);
 
   const checkStyle = useAnimatedStyle(() => ({
@@ -42,10 +41,6 @@ export default function OnboardingComplete() {
   const textStyle = useAnimatedStyle(() => ({
     opacity: textOpacity.value,
     transform: [{ translateY: textTransY.value }],
-  }));
-
-  const buttonStyle = useAnimatedStyle(() => ({
-    opacity: buttonOpacity.value,
   }));
 
   const handleContinue = () => {
@@ -64,7 +59,7 @@ export default function OnboardingComplete() {
         </Animated.View>
 
         <Animated.View style={textStyle}>
-          <Text style={styles.title}>You're all set!</Text>
+          <Text style={styles.title}>You're all set</Text>
           <Text style={styles.subtitle}>
             {isOrg
               ? 'Your dashboard is ready. Start posting volunteer opportunities.'
@@ -73,10 +68,9 @@ export default function OnboardingComplete() {
         </Animated.View>
       </View>
 
-      <Animated.View style={[styles.footer, buttonStyle]}>
+      <Animated.View style={styles.footer} entering={FadeInDown.springify().damping(18).mass(0.8).delay(600)}>
         <PillButton
           variant="primary"
-          accent={isOrg ? 'purple' : 'teal'}
           fullWidth
           size="large"
           onPress={handleContinue}
@@ -103,25 +97,28 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    borderWidth: 3,
+    borderWidth: 2, // slightly thinner for premium look
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 32,
+    backgroundColor: Colors.dark.card,
   },
   checkmark: {
     fontSize: 48,
     color: Colors.dark.textPrimary,
-    fontWeight: '300',
+    fontWeight: '300', // Lightweight look
   },
   title: {
-    fontSize: 28,
-    fontWeight: '500',
+    fontFamily: Typography.valueHuge.fontFamily,
+    fontSize: Typography.title.fontSize,
+    fontWeight: Typography.valueHuge.fontWeight,
     color: Colors.dark.textPrimary,
     textAlign: 'center',
     marginBottom: 12,
   },
   subtitle: {
-    fontSize: 16,
+    fontFamily: Typography.body.fontFamily,
+    fontSize: Typography.body.fontSize,
     color: Colors.dark.textSecondary,
     textAlign: 'center',
     lineHeight: 24,

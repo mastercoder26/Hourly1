@@ -1,6 +1,7 @@
 // MessageThread — in-app messaging UI
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, FlatList, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, TextInput, StyleSheet, FlatList, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
+import { Text } from '@/components/Themed';;
 import { Colors } from '../constants/colors';
 import { Message } from '../types';
 
