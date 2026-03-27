@@ -10,4 +10,390 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  STUDENT
+  ORGANIZER
+}
+
+enum OrgMemberRole {
+  COORDINATOR
+  EVENT_MANAGER
+  VIEWER
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  WAITLISTED
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  DISPUTED
+}
+
+enum CertificateType {
+  SHIFT
+  MILESTONE
+}
+
+enum NotificationType {
+  APPLICATION_UPDATE
+  SHIFT_REMINDER
+  HOURS_VERIFIED
+  NEW_RECOMMENDATION
+  BADGE_UNLOCKED
+  MESSAGE_RECEIVED
+}
+
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  EMAIL
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+  READ
+}
+
+model User {
+  id                   String               @id @default(cuid())
+  clerkUserId          String               @unique
+  email                String               @unique
+  firstName            String?
+  lastName             String?
+  role                 UserRole
+  dateOfBirth          DateTime?
+  isMinor              Boolean              @default(false)
+  parentEmail          String?
+  profileImageUrl      String?
+  pushToken            String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  studentProfile       StudentProfile?
+  orgProfile           OrgProfile?
+  applications         Application[]
+  attendanceRecords    AttendanceRecord[]
+  studentOrgReviews    ReviewStudentToOrg[] @relation("StudentReviewsWritten")
+  orgStudentReviews    ReviewOrgToStudent[] @relation("StudentReviewsReceived")
+  messagesSent         Message[]            @relation("MessagesSent")
+  messagesReceived     Message[]            @relation("MessagesReceived")
+  notifications        Notification[]
+  badgeUnlocks         BadgeUnlock[]
+  orgMemberships       OrgMember[]
+
+  @@map("users")
+}
+
+model StudentProfile {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  schoolId              String?
+  schoolName            String?
+  grade                 Int?
+  zipCode               String?
+  interests             String[]
+  availabilityDays      String[]
+  shiftLengthPreference Int?
+  bio                   String?
+  totalVerifiedHours    Decimal  @default(0) @db.Decimal(8, 2)
+  publicSlug            String?  @unique
+  isPublicPortfolio     Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school           SchoolLookup?    @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  certificates     Certificate[]
+  recommendations  Opportunity[]    @relation("RecommendedOpportunities")
+
+  @@index([interests], type: Gin)
+  @@index([availabilityDays], type: Gin)
+  @@map("student_profiles")
+}
+
+model OrgProfile {
+  id                       String             @id @default(cuid())
+  userId                   String             @unique
+  orgName                  String
+  slug                     String             @unique
+  ein                      String?            @unique
+  mission                  String?
+  logoUrl                  String?
+  websiteUrl               String?
+  phone                    String?
+  email                    String?
+  address                  String?
+  city                     String?
+  state                    String?
+  zipCode                  String?
+  lat                      Decimal?           @db.Decimal(9, 6)
+  lng                      Decimal?           @db.Decimal(9, 6)
+  causeTags                String[]
+  isVerified               Boolean            @default(false)
+  verificationRequestedAt  DateTime?
+  verificationApprovedAt   DateTime?
+  verificationRejectedAt   DateTime?
+  verificationRejectReason String?
+  trustBadge               Boolean            @default(false)
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+
+  user                     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  opportunities            Opportunity[]
+  studentReviewsReceived   ReviewStudentToOrg[] @relation("OrgReviewsReceived")
+  orgReviewsWritten        ReviewOrgToStudent[] @relation("OrgReviewsWritten")
+  orgMemberships           OrgMember[]
+
+  @@index([causeTags], type: Gin)
+  @@map("org_profiles")
+}
+
+model OrgMember {
+  id           String        @id @default(cuid())
+  orgProfileId String
+  userId       String
+  memberRole   OrgMemberRole
+  createdAt    DateTime      @default(now())
+
+  orgProfile OrgProfile @relation(fields: [orgProfileId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgProfileId, userId])
+  @@map("org_members")
+}
+
+model Opportunity {
+  id               String    @id @default(cuid())
+  orgProfileId     String
+  title            String
+  description      String
+  causeTags        String[]
+  date             DateTime
+  startTime        DateTime
+  endTime          DateTime
+  durationHours    Decimal   @db.Decimal(5, 2)
+  lat              Decimal   @db.Decimal(9, 6)
+  lng              Decimal   @db.Decimal(9, 6)
+  address          String
+  city             String?
+  state            String?
+  zipCode          String?
+  totalSpots       Int
+  filledSpots      Int       @default(0)
+  ageMinimum       Int?
+  creditEligible   Boolean   @default(false)
+  whatToBring      String[]
+  recurring        Boolean   @default(false)
+  recurringRule    String?
+  isPublished      Boolean   @default(false)
+  publishedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  orgProfile       OrgProfile         @relation(fields: [orgProfileId], references: [id], onDelete: Cascade)
+  applications     Application[]
+  attendanceRecords AttendanceRecord[]
+  reviewsStudentToOrg ReviewStudentToOrg[]
+  reviewsOrgToStudent ReviewOrgToStudent[]
+  recommendedTo      StudentProfile[] @relation("RecommendedOpportunities")
+
+  @@index([causeTags], type: Gin)
+  @@index([date])
+  @@map("opportunities")
+}
+
+model Application {
+  id              String            @id @default(cuid())
+  studentId       String
+  opportunityId   String
+  status          ApplicationStatus @default(PENDING)
+  appliedAt       DateTime          @default(now())
+  decidedAt       DateTime?
+  decisionNote    String?
+  qrCodeData      String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  student         User              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  opportunity     Opportunity       @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  messages        Message[]
+  attendance      AttendanceRecord?
+
+  @@unique([studentId, opportunityId])
+  @@index([opportunityId, status])
+  @@map("applications")
+}
+
+model AttendanceRecord {
+  id                 String             @id @default(cuid())
+  studentId          String
+  opportunityId      String
+  applicationId      String?            @unique
+  checkinTime        DateTime?
+  checkoutTime       DateTime?
+  hoursLogged        Decimal            @default(0) @db.Decimal(6, 2)
+  verificationStatus VerificationStatus @default(PENDING)
+  verifiedByOrgId    String?
+  verificationNote   String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  student            User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  opportunity        Opportunity  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  application        Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  certificates       Certificate[]
+
+  @@index([studentId, verificationStatus])
+  @@index([opportunityId])
+  @@map("attendance_records")
+}
+
+model ReviewStudentToOrg {
+  id            String   @id @default(cuid())
+  studentId     String
+  orgProfileId  String
+  opportunityId String?
+  rating        Int
+  comment       String?
+  createdAt     DateTime @default(now())
+
+  student       User        @relation("StudentReviewsWritten", fields: [studentId], references: [id], onDelete: Cascade)
+  orgProfile    OrgProfile  @relation("OrgReviewsReceived", fields: [orgProfileId], references: [id], onDelete: Cascade)
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+
+  @@index([orgProfileId, createdAt])
+  @@map("reviews_student_to_org")
+}
+
+model ReviewOrgToStudent {
+  id            String   @id @default(cuid())
+  orgProfileId  String
+  studentId     String
+  opportunityId String?
+  rating        Int
+  comment       String?
+  createdAt     DateTime @default(now())
+
+  orgProfile    OrgProfile  @relation("OrgReviewsWritten", fields: [orgProfileId], references: [id], onDelete: Cascade)
+  student       User        @relation("StudentReviewsReceived", fields: [studentId], references: [id], onDelete: Cascade)
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+
+  @@index([studentId, createdAt])
+  @@map("reviews_org_to_student")
+}
+
+model Certificate {
+  id                 String          @id @default(cuid())
+  studentProfileId   String
+  attendanceRecordId String?
+  badgeId            String?
+  certificateType    CertificateType
+  title              String
+  issuedAt           DateTime        @default(now())
+  pdfUrl             String?
+  verificationHash   String          @unique
+  createdAt          DateTime        @default(now())
+
+  studentProfile     StudentProfile   @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  attendanceRecord   AttendanceRecord? @relation(fields: [attendanceRecordId], references: [id], onDelete: SetNull)
+  badge              Badge?           @relation(fields: [badgeId], references: [id], onDelete: SetNull)
+
+  @@index([studentProfileId, issuedAt])
+  @@map("certificates")
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  applicationId  String
+  senderId       String
+  recipientId    String?
+  body           String
+  sentAt         DateTime @default(now())
+  readAt         DateTime?
+
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  sender         User        @relation("MessagesSent", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient      User?       @relation("MessagesReceived", fields: [recipientId], references: [id], onDelete: SetNull)
+
+  @@index([applicationId, sentAt])
+  @@map("messages")
+}
+
+model Notification {
+  id            String              @id @default(cuid())
+  userId        String
+  type          NotificationType
+  channel       NotificationChannel @default(IN_APP)
+  title         String
+  body          String
+  deepLink      String?
+  status        NotificationStatus  @default(QUEUED)
+  scheduledFor  DateTime?
+  sentAt        DateTime?
+  readAt        DateTime?
+  createdAt     DateTime            @default(now())
+
+  user          User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([scheduledFor])
+  @@map("notifications")
+}
+
+model Badge {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  label       String
+  description String
+  icon        String?
+  threshold   Int?
+  createdAt   DateTime @default(now())
+
+  unlocks      BadgeUnlock[]
+  certificates Certificate[]
+
+  @@map("badges")
+}
+
+model BadgeUnlock {
+  id          String   @id @default(cuid())
+  badgeId     String
+  userId      String
+  unlockedAt  DateTime @default(now())
+
+  badge       Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([badgeId, userId])
+  @@index([userId, unlockedAt])
+  @@map("badge_unlocks")
+}
+
+model SchoolLookup {
+  id           String   @id @default(cuid())
+  ncesId       String?  @unique
+  name         String
+  districtName String?
+  city         String?
+  state        String?
+  zipCode      String?
+  country      String   @default("US")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  students     StudentProfile[]
+
+  @@index([zipCode])
+  @@index([state, city])
+  @@map("school_lookup")
 }

@@ -37,3 +37,12 @@ Before moving to full production, the following needs to be integrated:
 - Hook up actual Camera access in the `org/scanner.tsx` view using `expo-camera`.
 
 Once you spin up the backend repo (`apps/web` or `packages/api`), the transition from Phase 1 to Phase 2 will mostly be swapping state variables for API calls!
+
+## 🛠️ Phase 2 Kickoff Progress
+
+- [x] Implemented complete Prisma data model in `packages/db/prisma/schema.prisma`
+- [x] Added PostgreSQL reference DDL in `packages/db/schema.sql`
+- [x] Added Prisma workflow scripts in `packages/db/package.json`
+- [ ] Generate initial migration in `packages/db/prisma/migrations/`
+- [ ] Build API route scaffolding in `packages/api/`
+- [ ] Start replacing mock reads with API clients in mobile screens
