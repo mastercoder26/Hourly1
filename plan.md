@@ -10,6 +10,11 @@
 
 Each phase is a self-contained sprint. Complete phases in order — later phases depend on earlier ones. Every task shows the **exact files to touch** and the **exact commands to run** so you can vibecode without stopping to think about setup.
 
+> **Repo status update (2026-03-27):**
+> - Phases 1–2 are implemented in-repo.
+> - Placeholder scaffolding/config files were added for later phases (env examples + deploy config + privacy policy app config field).
+> - Remaining items that require real external accounts/keys are tracked in `stillneeded.md`.
+
 ---
 
 # Phase 1 — Fix TypeScript & App Config (½ day)
