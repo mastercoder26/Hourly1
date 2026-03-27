@@ -7,17 +7,16 @@ import { Colors } from '@/constants/colors';
 import { Feather } from '@expo/vector-icons';
 import { OpportunityCard } from '../../components/OpportunityCard';
 import { FilterBar, Filters } from '../../components/FilterBar';
-import { mockOpportunities } from '../../mocks/opportunities';
+import { useOpportunities } from '../../hooks/useOpportunities';
 import { Opportunity } from '../../types';
 
 export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [filters, setFilters] = useState<Filters>({ causes: [], maxDistance: 25, creditEligible: false });
 
-  const filteredOpportunities = mockOpportunities.filter(opp => {
-    if (filters.creditEligible && !opp.creditEligible) return false;
-    if (filters.causes.length > 0 && !opp.causeTags.some(tag => filters.causes.includes(tag))) return false;
-    return true;
+  const { data: filteredOpportunities } = useOpportunities({
+    causes: filters.causes,
+    creditEligible: filters.creditEligible,
   });
 
   const onRefresh = useCallback(() => {
