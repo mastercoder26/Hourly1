@@ -325,6 +325,17 @@ const { data } = useQuery(['opportunities', filters], () => fetchOpportunities(f
 ```
 This is done screen-by-screen so you always have a working app at every step. Order follows the build priority: feed → detail/apply → check-in → portfolio → org dashboard → applicant management → reports.
 
+## 🛠️ Phase 2 Kickoff Progress
+
+- [x] Implemented complete Prisma data model in `packages/db/prisma/schema.prisma`
+- [x] Added PostgreSQL reference DDL in `packages/db/schema.sql`
+- [x] Added Prisma workflow scripts in `packages/db/package.json`
+- [~] Generate initial migration in `packages/db/prisma/migrations/` _(dir scaffolded; run `npm run prisma:migrate:dev` once Postgres is available)_
+- [x] Build API route scaffolding in `packages/api/` — tRPC routers (`opportunity`, `application`, `user`), Express server on port 3001, TypeScript config
+- [x] Create tRPC client and provider in mobile app — `apps/mobile/lib/trpc.ts`, `apps/mobile/lib/TRPCProvider.tsx`
+- [x] Add `useOpportunities` hook with tRPC/mock fallback — `apps/mobile/hooks/useOpportunities.ts`
+- [~] Start replacing mock reads with API clients in mobile screens — `feed.tsx` migrated to `useOpportunities` hook; remaining screens still use direct mock imports
+
 ***
 
 ### Phase 3 — Intelligence + Engagement

@@ -37,3 +37,14 @@ Before moving to full production, the following needs to be integrated:
 - Hook up actual Camera access in the `org/scanner.tsx` view using `expo-camera`.
 
 Once you spin up the backend repo (`apps/web` or `packages/api`), the transition from Phase 1 to Phase 2 will mostly be swapping state variables for API calls!
+
+## 🛠️ Phase 2 Kickoff Progress
+
+- [x] Implemented complete Prisma data model in `packages/db/prisma/schema.prisma`
+- [x] Added PostgreSQL reference DDL in `packages/db/schema.sql`
+- [x] Added Prisma workflow scripts in `packages/db/package.json`
+- [~] Generate initial migration in `packages/db/prisma/migrations/` _(migrations dir scaffolded with README; run `npm run prisma:migrate:dev` once a Postgres instance is available)_
+- [x] Build API route scaffolding in `packages/api/` _(tRPC routers for opportunity, application, user; Express server on port 3001)_
+- [x] Create tRPC client and provider in mobile app _(`apps/mobile/lib/trpc.ts` + `TRPCProvider.tsx`)_
+- [x] Add useOpportunities hook with tRPC/mock fallback _(`apps/mobile/hooks/useOpportunities.ts`)_
+- [~] Start replacing mock reads with API clients in mobile screens _(feed.tsx now uses `useOpportunities` hook; remaining screens still use direct mock imports)_
