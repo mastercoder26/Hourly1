@@ -16,6 +16,30 @@ import { Card } from '@/components/ui/Card';
 import { PillButton } from '@/components/ui/PillButton';
 import { trpc } from '@/lib/trpc';
 
+function getWebStorageItem(key: string) {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function deleteWebStorageItem(key: string) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore storage delete failures in demo flows.
+  }
+}
+
 type OrgStatusFilter = 'ALL' | 'PENDING' | 'APPROVED' | 'DENIED' | 'APPEALED';
 type AppealStatusFilter = 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED';
 type PostStatusFilter = 'ALL' | 'VISIBLE' | 'REMOVED';
@@ -128,10 +152,26 @@ export default function AdminDashboardScreen() {
     let active = true;
 
     async function bootstrap() {
-      const [storedToken, storedEmail] = await Promise.all([
-        SecureStore.getItemAsync('hourly_admin_token'),
-        SecureStore.getItemAsync('hourly_admin_email'),
-      ]);
+      let storedToken: string | null = null;
+      let storedEmail: string | null = null;
+
+      try {
+        [storedToken, storedEmail] = await Promise.all([
+          SecureStore.getItemAsync('hourly_admin_token'),
+          SecureStore.getItemAsync('hourly_admin_email'),
+        ]);
+      } catch {
+        storedToken = null;
+        storedEmail = null;
+      }
+
+      if (!storedToken) {
+        storedToken = getWebStorageItem('hourly_admin_token');
+      }
+
+      if (!storedEmail) {
+        storedEmail = getWebStorageItem('hourly_admin_email');
+      }
 
       if (!storedToken) {
         router.replace('/admin/login' as never);
@@ -157,10 +197,14 @@ export default function AdminDashboardScreen() {
 
     async function clearAndExit() {
       await Promise.all([
-        SecureStore.deleteItemAsync('hourly_admin_token'),
-        SecureStore.deleteItemAsync('hourly_admin_email'),
-        SecureStore.deleteItemAsync('hourly_admin_expires_at'),
+        SecureStore.deleteItemAsync('hourly_admin_token').catch(() => undefined),
+        SecureStore.deleteItemAsync('hourly_admin_email').catch(() => undefined),
+        SecureStore.deleteItemAsync('hourly_admin_expires_at').catch(() => undefined),
       ]);
+
+      deleteWebStorageItem('hourly_admin_token');
+      deleteWebStorageItem('hourly_admin_email');
+      deleteWebStorageItem('hourly_admin_expires_at');
       router.replace('/admin/login' as never);
     }
 
@@ -175,10 +219,14 @@ export default function AdminDashboardScreen() {
     }
 
     await Promise.all([
-      SecureStore.deleteItemAsync('hourly_admin_token'),
-      SecureStore.deleteItemAsync('hourly_admin_email'),
-      SecureStore.deleteItemAsync('hourly_admin_expires_at'),
+      SecureStore.deleteItemAsync('hourly_admin_token').catch(() => undefined),
+      SecureStore.deleteItemAsync('hourly_admin_email').catch(() => undefined),
+      SecureStore.deleteItemAsync('hourly_admin_expires_at').catch(() => undefined),
     ]);
+
+    deleteWebStorageItem('hourly_admin_token');
+    deleteWebStorageItem('hourly_admin_email');
+    deleteWebStorageItem('hourly_admin_expires_at');
 
     router.replace('/admin/login' as never);
   }

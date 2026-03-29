@@ -16,6 +16,30 @@ import { Typography } from '@/constants/typography';
 import { PillButton } from '@/components/ui/PillButton';
 import { trpc } from '@/lib/trpc';
 
+function getWebStorageItem(key: string) {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function setWebStorageItem(key: string, value: string) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore storage write failures in demo flows.
+  }
+}
+
 export default function AdminLoginScreen() {
   const router = useRouter();
   const loginMutation = trpc.admin.login.useMutation();
@@ -29,10 +53,20 @@ export default function AdminLoginScreen() {
     let isActive = true;
 
     async function bootstrap() {
-      const existingToken = await SecureStore.getItemAsync('hourly_admin_token');
+      let existingToken: string | null = null;
+
+      try {
+        existingToken = await SecureStore.getItemAsync('hourly_admin_token');
+      } catch {
+        existingToken = null;
+      }
+
+      if (!existingToken) {
+        existingToken = getWebStorageItem('hourly_admin_token');
+      }
+
       if (existingToken) {
         router.replace('/admin/dashboard' as never);
-        return;
       }
 
       if (isActive) {
@@ -56,9 +90,15 @@ export default function AdminLoginScreen() {
         password,
       });
 
-      await SecureStore.setItemAsync('hourly_admin_token', result.token);
-      await SecureStore.setItemAsync('hourly_admin_email', result.email);
-      await SecureStore.setItemAsync('hourly_admin_expires_at', result.expiresAt);
+      await Promise.all([
+        SecureStore.setItemAsync('hourly_admin_token', result.token).catch(() => undefined),
+        SecureStore.setItemAsync('hourly_admin_email', result.email).catch(() => undefined),
+        SecureStore.setItemAsync('hourly_admin_expires_at', result.expiresAt).catch(() => undefined),
+      ]);
+
+      setWebStorageItem('hourly_admin_token', result.token);
+      setWebStorageItem('hourly_admin_email', result.email);
+      setWebStorageItem('hourly_admin_expires_at', result.expiresAt);
       router.replace('/admin/dashboard' as never);
     } catch (err: unknown) {
       const message =

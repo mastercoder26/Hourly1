@@ -14,7 +14,7 @@ export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [filters, setFilters] = useState<Filters>({ causes: [], maxDistance: 25, creditEligible: false });
 
-  const { data: filteredOpportunities, loading, error, refetch } = useOpportunities({
+  const { data: filteredOpportunities, loading, error, refetch, usingFallback } = useOpportunities({
     causes: filters.causes,
     creditEligible: filters.creditEligible,
     maxDistance: filters.maxDistance,
@@ -66,6 +66,12 @@ export default function FeedScreen() {
 
       {/* Filter bar */}
       <FilterBar onFiltersChange={setFilters} />
+
+      {usingFallback ? (
+        <View style={styles.demoNotice}>
+          <Text style={styles.demoNoticeText}>Demo mode: showing local mock opportunities</Text>
+        </View>
+      ) : null}
 
       {/* Feed list */}
       <FlatList
@@ -130,6 +136,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 20,
+  },
+  demoNotice: {
+    marginHorizontal: 20,
+    marginTop: 8,
+    marginBottom: 4,
+    backgroundColor: Colors.tealSoft,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  demoNoticeText: {
+    color: Colors.teal,
+    fontSize: 12,
+    fontWeight: '600',
   },
   empty: {
     alignItems: 'center',

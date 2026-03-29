@@ -4,6 +4,35 @@ import { trpc, getTRPCClient } from './trpc';
 import { useAuth } from '@clerk/expo';
 import * as SecureStore from 'expo-secure-store';
 
+async function getAdminTokenWithTimeout(timeoutMs = 800) {
+  let secureStoreToken: string | null = null;
+
+  try {
+    secureStoreToken = await Promise.race<string | null>([
+      SecureStore.getItemAsync('hourly_admin_token'),
+      new Promise(resolve => {
+        setTimeout(() => resolve(null), timeoutMs);
+      }),
+    ]);
+  } catch {
+    secureStoreToken = null;
+  }
+
+  if (secureStoreToken) {
+    return secureStoreToken;
+  }
+
+  if (typeof window !== 'undefined') {
+    try {
+      return window.localStorage.getItem('hourly_admin_token');
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
   const { getToken } = useAuth();
 
@@ -27,7 +56,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
         headers['x-demo-user-id'] = demoUserId;
       }
 
-      const adminToken = await SecureStore.getItemAsync('hourly_admin_token');
+      const adminToken = await getAdminTokenWithTimeout();
       if (adminToken) {
         headers['x-admin-token'] = adminToken;
       }

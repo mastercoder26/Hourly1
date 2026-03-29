@@ -47,8 +47,12 @@ export default function RootLayout() {
     return null;
   }
 
+  const rawClerkPublishableKey =
+    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() ?? '';
   const clerkPublishableKey =
-    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? 'pk_test_PLACEHOLDER_PUBLISHABLE_KEY';
+    rawClerkPublishableKey && !rawClerkPublishableKey.includes('PLACEHOLDER')
+      ? rawClerkPublishableKey
+      : '';
 
   return (
     <GestureHandlerRootView style={styles.root}>
