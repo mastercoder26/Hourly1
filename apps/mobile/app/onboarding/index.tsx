@@ -3,11 +3,12 @@ import React, { useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { PillButton } from '../../components/ui/PillButton';
+import { enterFade, enterRise } from '../../lib/motion';
 
 export default function OnboardingIndex() {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function OnboardingIndex() {
 
   return (
     <View style={styles.container}>
-      <Animated.View style={styles.header} entering={FadeIn.delay(100)}>
+      <Animated.View style={styles.header} entering={enterFade(40)}>
         <ProgressBar steps={4} currentStep={0} accent={isOrg ? 'purple' : 'teal'} />
         <PillButton variant="ghost" size="small" onPress={() => router.push('/onboarding/school')}>
           Skip for now
@@ -24,7 +25,7 @@ export default function OnboardingIndex() {
       </Animated.View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
-        <Animated.View entering={FadeInDown.springify().damping(18).mass(0.8).delay(200)}>
+        <Animated.View entering={enterRise(120)}>
           <Text style={styles.stepLabel}>Step 1 of 4</Text>
           <Text style={styles.title}>
             {isOrg ? 'Tell us about your organization' : 'What school do you attend?'}
@@ -36,7 +37,7 @@ export default function OnboardingIndex() {
           </Text>
         </Animated.View>
 
-        <Animated.View style={styles.form} entering={FadeInDown.springify().damping(18).mass(0.8).delay(350)}>
+        <Animated.View style={styles.form} entering={enterRise(200)}>
           <TextInput
             style={styles.input}
             placeholder={isOrg ? 'Organization name' : 'Search your school by name or ZIP'}
@@ -48,11 +49,14 @@ export default function OnboardingIndex() {
               <Text style={styles.gradeLabel}>Grade level</Text>
               <View style={styles.gradeGrid}>
                 {[9, 10, 11, 12].map(grade => (
-                  <Pressable key={grade} style={styles.gradeChip}>
+                  <Pressable
+                    key={grade}
+                    style={({ pressed }) => [styles.gradeChip, pressed && styles.gradeChipPressed]}
+                  >
                     <Text style={styles.gradeText}>{grade}th</Text>
                   </Pressable>
                 ))}
-                <Pressable style={styles.gradeChip}>
+                <Pressable style={({ pressed }) => [styles.gradeChip, pressed && styles.gradeChipPressed]}>
                   <Text style={styles.gradeText}>College</Text>
                 </Pressable>
               </View>
@@ -79,7 +83,7 @@ export default function OnboardingIndex() {
         </Animated.View>
       </ScrollView>
 
-      <Animated.View style={styles.footer} entering={FadeInDown.springify().damping(18).mass(0.8).delay(500)}>
+      <Animated.View style={styles.footer} entering={enterRise(280)}>
         <PillButton
           variant="primary"
           fullWidth
@@ -173,6 +177,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 999,
     backgroundColor: Colors.dark.element,
+  },
+  gradeChipPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
   },
   gradeText: {
     fontFamily: Typography.label.fontFamily,

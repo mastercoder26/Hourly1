@@ -1,13 +1,12 @@
 // Portfolio — hours tracker, badge grid, past shifts
 import React, { useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Pressable } from 'react-native';
-import { Text } from '@/components/Themed';;
+import { View, ScrollView, StyleSheet } from 'react-native';
+import { Text } from '@/components/Themed';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withDelay,
-  Easing,
 } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';
@@ -17,6 +16,7 @@ import { HoursChart } from '../../components/HoursChart';
 import { BadgeGrid } from '../../components/BadgeGrid';
 import { mockStudent, mockAttendance, mockBadges } from '../../mocks/data';
 import { mockOpportunities } from '../../mocks/opportunities';
+import { enterRise, MOTION } from '../../lib/motion';
 
 export default function PortfolioScreen() {
   const hoursAnim = useSharedValue(0);
@@ -25,8 +25,11 @@ export default function PortfolioScreen() {
     .reduce((sum, a) => sum + a.hoursLogged, 0);
 
   useEffect(() => {
-    hoursAnim.value = withDelay(300, withTiming(1, { duration: 1200, easing: Easing.out(Easing.cubic) }));
-  }, []);
+    hoursAnim.value = withDelay(
+      120,
+      withTiming(1, { duration: 420, easing: MOTION.easeOut }),
+    );
+  }, [hoursAnim]);
 
   const hoursStyle = useAnimatedStyle(() => ({
     opacity: hoursAnim.value,
@@ -34,64 +37,70 @@ export default function PortfolioScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Portfolio</Text>
+      <Animated.View entering={enterRise(60)}>
+        <Text style={styles.title}>Portfolio</Text>
+      </Animated.View>
 
-      {/* Total hours card */}
-      <Card style={styles.hoursCard}>
-        <Text style={styles.hoursLabel}>Total verified hours</Text>
-        <Animated.View style={hoursStyle}>
-          <Text style={styles.hoursValue}>{totalVerified}</Text>
-        </Animated.View>
-        <Text style={styles.hoursSubtext}>across {new Set(mockAttendance.map(a => a.opportunityId)).size} shifts</Text>
-        <View style={styles.hoursActions}>
-          <PillButton variant="primary" accent="teal" size="small">
-            Share portfolio
-          </PillButton>
-          <PillButton variant="default" size="small">
-            Download certificate
-          </PillButton>
-        </View>
-      </Card>
+      <Animated.View entering={enterRise(120)}>
+        <Card style={styles.hoursCard}>
+          <Text style={styles.hoursLabel}>Total verified hours</Text>
+          <Animated.View style={hoursStyle}>
+            <Text style={styles.hoursValue}>{totalVerified}</Text>
+          </Animated.View>
+          <Text style={styles.hoursSubtext}>across {new Set(mockAttendance.map(a => a.opportunityId)).size} shifts</Text>
+          <View style={styles.hoursActions}>
+            <PillButton variant="primary" accent="teal" size="small">
+              Share portfolio
+            </PillButton>
+            <PillButton variant="default" size="small">
+              Download certificate
+            </PillButton>
+          </View>
+        </Card>
+      </Animated.View>
 
-      {/* Hours by cause */}
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Hours by cause</Text>
-        <HoursChart attendance={mockAttendance} />
-      </Card>
+      <Animated.View entering={enterRise(180)}>
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Hours by cause</Text>
+          <HoursChart attendance={mockAttendance} />
+        </Card>
+      </Animated.View>
 
-      {/* Badges */}
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Milestones</Text>
-        <BadgeGrid badges={mockBadges} />
-      </Card>
+      <Animated.View entering={enterRise(240)}>
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Milestones</Text>
+          <BadgeGrid badges={mockBadges} />
+        </Card>
+      </Animated.View>
 
-      {/* Past shifts */}
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Past shifts</Text>
-        {mockAttendance.map(record => {
-          const opp = mockOpportunities.find(o => o.id === record.opportunityId);
-          return (
-            <View key={record.id} style={styles.shiftRow}>
-              <View style={styles.shiftInfo}>
-                <Text style={styles.shiftEmoji}>{opp?.orgLogo || '📋'}</Text>
-                <View>
-                  <Text style={styles.shiftTitle}>{opp?.title || 'Shift'}</Text>
-                  <Text style={styles.shiftDate}>
-                    {new Date(record.checkinTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </Text>
+      <Animated.View entering={enterRise(300)}>
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Past shifts</Text>
+          {mockAttendance.map(record => {
+            const opp = mockOpportunities.find(o => o.id === record.opportunityId);
+            return (
+              <View key={record.id} style={styles.shiftRow}>
+                <View style={styles.shiftInfo}>
+                  <Text style={styles.shiftEmoji}>{opp?.orgLogo || '📋'}</Text>
+                  <View>
+                    <Text style={styles.shiftTitle}>{opp?.title || 'Shift'}</Text>
+                    <Text style={styles.shiftDate}>
+                      {new Date(record.checkinTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.shiftRight}>
+                  <Text style={styles.shiftHours}>{record.hoursLogged}h</Text>
+                  <PillBadge
+                    label={record.verificationStatus === 'VERIFIED' ? 'Verified' : 'Pending'}
+                    color={record.verificationStatus === 'VERIFIED' ? Colors.success : Colors.warning}
+                  />
                 </View>
               </View>
-              <View style={styles.shiftRight}>
-                <Text style={styles.shiftHours}>{record.hoursLogged}h</Text>
-                <PillBadge
-                  label={record.verificationStatus === 'VERIFIED' ? 'Verified' : 'Pending'}
-                  color={record.verificationStatus === 'VERIFIED' ? Colors.success : Colors.warning}
-                />
-              </View>
-            </View>
-          );
-        })}
-      </Card>
+            );
+          })}
+        </Card>
+      </Animated.View>
     </ScrollView>
   );
 }

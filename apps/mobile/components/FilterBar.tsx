@@ -1,7 +1,7 @@
 // FilterBar — sticky filter bar for opportunity feed
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
-import { Text } from '@/components/Themed';;
+import { Text } from '@/components/Themed';
 import { Colors } from '@/constants/colors';
 import { CauseTag } from '../types';
 
@@ -40,7 +40,11 @@ export function FilterBar({ onFiltersChange }: FilterBarProps) {
         {/* Credit-eligible filter */}
         <Pressable
           onPress={toggleCredit}
-          style={[styles.chip, creditOnly && styles.chipActive]}
+          style={({ pressed }) => [
+            styles.chip,
+            creditOnly && styles.chipActive,
+            pressed && styles.chipPressed,
+          ]}
         >
           <Text style={[styles.chipText, creditOnly && styles.chipTextActive]}>
             Credit eligible
@@ -57,9 +61,10 @@ export function FilterBar({ onFiltersChange }: FilterBarProps) {
             <Pressable
               key={cause}
               onPress={() => toggleCause(cause)}
-              style={[
+              style={({ pressed }) => [
                 styles.chip,
                 isActive && { backgroundColor: Colors.causeTags[cause] + '30' },
+                pressed && styles.chipPressed,
               ]}
             >
               <Text
@@ -93,6 +98,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
     backgroundColor: Colors.dark.element,
+  },
+  chipPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.98 }],
   },
   chipActive: {
     backgroundColor: Colors.tealSoft,

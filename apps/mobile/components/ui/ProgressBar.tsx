@@ -5,9 +5,9 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  Easing,
 } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
+import { MOTION } from '../../lib/motion';
 
 interface ProgressBarProps {
   steps: number;
@@ -37,8 +37,8 @@ function ProgressSegment({ active, current, color }: { active: boolean; current:
 
   useEffect(() => {
     width.value = withTiming(active || current ? 1 : 0, {
-      duration: 400,
-      easing: Easing.bezier(0.4, 0, 0.2, 1),
+      duration: MOTION.duration.standard,
+      easing: MOTION.easeOut,
     });
   }, [active, current]);
 

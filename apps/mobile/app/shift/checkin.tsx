@@ -1,14 +1,15 @@
 // Check-In Screen — QR code display for student
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { Text } from '@/components/Themed';;
+import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';
 import { PillButton } from '../../components/ui/PillButton';
 import { mockApplications } from '../../mocks/data';
 import { mockOpportunities } from '../../mocks/opportunities';
+import { enterFade, enterRise } from '../../lib/motion';
 
 export default function CheckInScreen() {
   const router = useRouter();
@@ -17,11 +18,16 @@ export default function CheckInScreen() {
 
   return (
     <View style={styles.container}>
-      <Pressable onPress={() => router.back()} style={styles.closeButton}>
-        <Text style={styles.closeText}>✕</Text>
-      </Pressable>
+      <Animated.View entering={enterFade(40)}>
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}
+        >
+          <Text style={styles.closeText}>✕</Text>
+        </Pressable>
+      </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.content}>
+      <Animated.View entering={enterRise(120)} style={styles.content}>
         <Text style={styles.title}>Check in</Text>
         <Text style={styles.subtitle}>Show this QR code to the coordinator</Text>
 
@@ -94,6 +100,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 24,
     marginBottom: 16,
+  },
+  closeButtonPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.97 }],
   },
   closeText: {
     fontSize: 16,

@@ -9,13 +9,11 @@ import Animated, {
   withDelay,
   withSpring,
   withTiming,
-  withSequence,
-  Easing,
-  FadeInDown,
 } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { PillButton } from '../../components/ui/PillButton';
+import { enterRise, MOTION } from '../../lib/motion';
 
 export default function OnboardingComplete() {
   const router = useRouter();
@@ -23,15 +21,31 @@ export default function OnboardingComplete() {
   const isOrg = role === 'organizer';
   const accentColor = Colors.dark.textPrimary; // Premium black and white
 
-  const checkScale = useSharedValue(0);
+  const checkScale = useSharedValue(0.92);
   const textOpacity = useSharedValue(0);
-  const textTransY = useSharedValue(40);
+  const textTransY = useSharedValue(24);
   
   useEffect(() => {
-    // Elegant heavy spring
-    checkScale.value = withDelay(200, withSpring(1, { damping: 18, mass: 0.8 }));
-    textOpacity.value = withDelay(400, withTiming(1, { duration: 600 }));
-    textTransY.value = withDelay(400, withSpring(0, { damping: 18, mass: 0.8 }));
+    checkScale.value = withDelay(
+      120,
+      withSpring(1, {
+        damping: MOTION.spring.damping,
+        stiffness: MOTION.spring.stiffness,
+        mass: MOTION.spring.mass,
+      }),
+    );
+    textOpacity.value = withDelay(
+      200,
+      withTiming(1, { duration: MOTION.duration.screen, easing: MOTION.easeOut }),
+    );
+    textTransY.value = withDelay(
+      200,
+      withSpring(0, {
+        damping: MOTION.spring.damping,
+        stiffness: MOTION.spring.stiffness,
+        mass: MOTION.spring.mass,
+      }),
+    );
   }, []);
 
   const checkStyle = useAnimatedStyle(() => ({
@@ -68,7 +82,7 @@ export default function OnboardingComplete() {
         </Animated.View>
       </View>
 
-      <Animated.View style={styles.footer} entering={FadeInDown.springify().damping(18).mass(0.8).delay(600)}>
+      <Animated.View style={styles.footer} entering={enterRise(260)}>
         <PillButton
           variant="primary"
           fullWidth

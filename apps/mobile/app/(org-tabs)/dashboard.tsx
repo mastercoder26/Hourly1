@@ -1,15 +1,16 @@
 // Org Dashboard — main organizer home screen
 import React from 'react';
 import { View, ScrollView, StyleSheet, Pressable } from 'react-native';
-import { Text } from '@/components/Themed';;
+import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';
 import { PillButton } from '../../components/ui/PillButton';
 import { PillBadge } from '../../components/ui/PillBadge';
 import { mockOrgStats } from '../../mocks/data';
 import { mockOpportunities } from '../../mocks/opportunities';
+import { enterRise } from '../../lib/motion';
 
 export default function OrgDashboard() {
   const router = useRouter();
@@ -28,7 +29,7 @@ export default function OrgDashboard() {
       </View>
 
       {/* Quick stats */}
-      <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.statsRow}>
+      <Animated.View entering={enterRise(80)} style={styles.statsRow}>
         <Card style={styles.statCard}>
           <Text style={styles.statValue}>{mockOrgStats.volunteersThisMonth}</Text>
           <Text style={styles.statLabel}>Volunteers this month</Text>
@@ -39,7 +40,7 @@ export default function OrgDashboard() {
         </Card>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.statsRow}>
+      <Animated.View entering={enterRise(140)} style={styles.statsRow}>
         <Card style={styles.statCard}>
           <Text style={styles.statValue}>{Math.round(mockOrgStats.retentionRate * 100)}%</Text>
           <Text style={styles.statLabel}>Retention rate</Text>
@@ -51,7 +52,7 @@ export default function OrgDashboard() {
       </Animated.View>
 
       {/* Post a role CTA */}
-      <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+      <Animated.View entering={enterRise(200)}>
         <PillButton
           variant="primary"
           accent="purple"
@@ -64,7 +65,7 @@ export default function OrgDashboard() {
       </Animated.View>
 
       {/* Active listings */}
-      <Animated.View entering={FadeInDown.delay(400).duration(400)}>
+      <Animated.View entering={enterRise(260)}>
         <Text style={styles.sectionTitle}>Active listings</Text>
         {orgOpps.map(opp => {
           const spotsLeft = opp.totalSpots - opp.filledSpots;
@@ -72,7 +73,7 @@ export default function OrgDashboard() {
             <Pressable
               key={opp.id}
               onPress={() => router.push(`/org/applicants/${opp.id}`)}
-              style={({ pressed }) => [pressed && { opacity: 0.9 }]}
+              style={({ pressed }) => [pressed && styles.listingPressed]}
             >
               <Card style={styles.listingCard}>
                 <View style={styles.listingHeader}>
@@ -96,7 +97,7 @@ export default function OrgDashboard() {
       </Animated.View>
 
       {/* Upcoming shifts */}
-      <Animated.View entering={FadeInDown.delay(500).duration(400)}>
+      <Animated.View entering={enterRise(320)}>
         <Text style={styles.sectionTitle}>Upcoming shifts (next 7 days)</Text>
         <Card style={styles.upcomingCard}>
           <View style={styles.upcomingRow}>
@@ -136,6 +137,10 @@ const styles = StyleSheet.create({
   listingProgress: { height: 4, borderRadius: 2, backgroundColor: Colors.dark.element, overflow: 'hidden' },
   listingBar: { height: '100%', borderRadius: 2, backgroundColor: Colors.purple },
   listingApplicants: { fontSize: 13, color: Colors.purple, fontWeight: '500' },
+  listingPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.985 }],
+  },
   upcomingCard: { marginTop: 12, padding: 0 },
   upcomingRow: { padding: 18, gap: 4 },
   upcomingDate: { fontSize: 12, color: Colors.dark.textSecondary, textTransform: 'uppercase', letterSpacing: 0.3 },

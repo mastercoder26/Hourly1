@@ -3,11 +3,12 @@ import React, { useState } from 'react';
 import { View, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Pressable, ScrollView } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { PillButton } from '../../components/ui/PillButton';
 import { useSignUp } from '@clerk/expo/legacy';
+import { enterFade, enterRise } from '../../lib/motion';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -95,18 +96,21 @@ export default function SignUpScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Animated.View entering={FadeIn.delay(100)}>
-          <Pressable onPress={() => router.back()} style={styles.closeButton}>
+        <Animated.View entering={enterFade(40)}>
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}
+          >
             <Text style={styles.closeText}>✕</Text>
           </Pressable>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.springify().damping(18).mass(0.8).delay(200)}>
+        <Animated.View entering={enterRise(120)}>
           <Text style={styles.title}>Create {isStudent ? 'student' : 'organizer'} account</Text>
           <Text style={styles.subtitle}>Join Hourly and start {isStudent ? 'volunteering' : 'managing volunteers'}</Text>
         </Animated.View>
 
-        <Animated.View style={styles.form} entering={FadeInDown.springify().damping(18).mass(0.8).delay(350)}>
+        <Animated.View style={styles.form} entering={enterRise(200)}>
           <View style={styles.nameRow}>
             <View style={[styles.inputGroup, { flex: 1 }]}>
               <Text style={styles.label}>First name</Text>
@@ -158,7 +162,7 @@ export default function SignUpScreen() {
           </View>
         </Animated.View>
 
-        <Animated.View style={styles.actions} entering={FadeInDown.springify().damping(18).mass(0.8).delay(500)}>
+        <Animated.View style={styles.actions} entering={enterRise(280)}>
           {!pendingVerification ? (
             <>
               <PillButton
@@ -243,6 +247,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 32,
+  },
+  closeButtonPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.97 }],
   },
   closeText: {
     fontSize: 16,

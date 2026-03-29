@@ -3,12 +3,13 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import Animated, { FadeInDown, FadeIn, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { PillButton } from '../../components/ui/PillButton';
 import { CauseTag } from '../../types';
+import { enterFade, enterRise, stagger } from '../../lib/motion';
 
 const CAUSES: { tag: CauseTag; emoji: string }[] = [
   { tag: 'Environment', emoji: '🌿' },
@@ -37,7 +38,7 @@ export default function InterestsStep() {
 
   return (
     <View style={styles.container}>
-      <Animated.View style={styles.header} entering={FadeIn.delay(100)}>
+      <Animated.View style={styles.header} entering={enterFade(40)}>
         <ProgressBar steps={4} currentStep={2} accent={isOrg ? 'purple' : 'teal'} />
         <PillButton variant="ghost" size="small" onPress={() => router.push(`/onboarding/availability?role=${role || 'student'}`)}>
           Skip for now
@@ -45,7 +46,7 @@ export default function InterestsStep() {
       </Animated.View>
 
       <View style={styles.content}>
-        <Animated.View entering={FadeInDown.springify().damping(18).mass(0.8).delay(200)}>
+        <Animated.View entering={enterRise(120)}>
           <Text style={styles.stepLabel}>Step 3 of 4</Text>
           <Text style={styles.title}>
             {isOrg ? 'What causes does your org serve?' : 'What causes are you passionate about?'}
@@ -59,11 +60,12 @@ export default function InterestsStep() {
           {CAUSES.map(({ tag, emoji }, index) => {
             const isSelected = selected.includes(tag);
             return (
-              <Animated.View key={tag} entering={FadeInDown.springify().damping(18).mass(0.8).delay(350 + (index * 50))}>
+              <Animated.View key={tag} entering={enterRise(stagger(index, 200, 35, 420))}>
                 <Pressable
                   onPress={() => toggle(tag)}
-                  style={[
+                  style={({ pressed }) => [
                     styles.bubble,
+                    pressed && styles.bubblePressed,
                     isSelected && {
                       backgroundColor: Colors.causeTags[tag] + '25',
                       borderColor: Colors.causeTags[tag],
@@ -91,7 +93,7 @@ export default function InterestsStep() {
         </View>
       </View>
 
-      <Animated.View style={styles.footer} entering={FadeInDown.springify().damping(18).mass(0.8).delay(600)}>
+      <Animated.View style={styles.footer} entering={enterRise(280)}>
         <View style={styles.footerButtons}>
           <PillButton variant="ghost" size="medium" onPress={() => router.back()} style={{ flex: 1 }}>
             Back
@@ -165,6 +167,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'transparent',
     position: 'relative',
+  },
+  bubblePressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.98 }],
   },
   bubbleEmoji: {
     fontSize: 20,

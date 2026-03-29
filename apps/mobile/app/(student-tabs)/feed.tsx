@@ -1,14 +1,15 @@
 // Opportunity Feed — main student home screen
 import React, { useState, useCallback } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
-import { Text } from '@/components/Themed';;
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Text } from '@/components/Themed';
+import Animated from 'react-native-reanimated';
 import { Colors } from '@/constants/colors';
 import { Feather } from '@expo/vector-icons';
 import { OpportunityCard } from '../../components/OpportunityCard';
 import { FilterBar, Filters } from '../../components/FilterBar';
 import { useOpportunities } from '../../hooks/useOpportunities';
 import { Opportunity } from '../../types';
+import { enterFade, enterRise, stagger } from '../../lib/motion';
 
 export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
@@ -30,7 +31,7 @@ export default function FeedScreen() {
   }, [refetch]);
 
   const renderItem = useCallback(({ item, index }: { item: Opportunity; index: number }) => (
-    <Animated.View entering={FadeInDown.delay(index * 80).duration(400)}>
+    <Animated.View entering={enterRise(stagger(index, 0, 45, 220))}>
       <OpportunityCard opportunity={item} />
     </Animated.View>
   ), []);
@@ -53,8 +54,7 @@ export default function FeedScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
+      <Animated.View style={styles.header} entering={enterFade(40)}>
         <View>
           <Text style={styles.greeting}>Good evening, Alex</Text>
           <Text style={styles.title}>Find opportunities</Text>
@@ -62,15 +62,16 @@ export default function FeedScreen() {
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>AR</Text>
         </View>
-      </View>
+      </Animated.View>
 
-      {/* Filter bar */}
-      <FilterBar onFiltersChange={setFilters} />
+      <Animated.View entering={enterRise(110)}>
+        <FilterBar onFiltersChange={setFilters} />
+      </Animated.View>
 
       {usingFallback ? (
-        <View style={styles.demoNotice}>
+        <Animated.View style={styles.demoNotice} entering={enterFade(160)}>
           <Text style={styles.demoNoticeText}>Demo mode: showing local mock opportunities</Text>
-        </View>
+        </Animated.View>
       ) : null}
 
       {/* Feed list */}

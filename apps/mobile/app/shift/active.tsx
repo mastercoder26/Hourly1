@@ -1,13 +1,14 @@
 // Active Shift — timer and progress during shift
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
-import { Text } from '@/components/Themed';;
+import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';
 import { PillButton } from '../../components/ui/PillButton';
 import { mockOpportunities } from '../../mocks/opportunities';
+import { enterFade, enterRise, MOTION } from '../../lib/motion';
 
 export default function ActiveShiftScreen() {
   const router = useRouter();
@@ -20,12 +21,15 @@ export default function ActiveShiftScreen() {
     const interval = setInterval(() => {
       setElapsed(prev => {
         const next = prev + 1;
-        progress.value = withTiming(next / totalDuration, { duration: 900 });
+        progress.value = withTiming(next / totalDuration, {
+          duration: 850,
+          easing: MOTION.easeInOut,
+        });
         return next;
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [progress, totalDuration]);
 
   const progressStyle = useAnimatedStyle(() => ({
     width: `${Math.min(progress.value * 100, 100)}%`,
@@ -51,34 +55,32 @@ export default function ActiveShiftScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
+      <Animated.View style={styles.header} entering={enterFade(40)}>
         <View style={styles.liveDot} />
         <Text style={styles.liveText}>Shift in progress</Text>
-      </View>
+      </Animated.View>
 
-      {/* Shift info */}
-      <Card style={styles.shiftCard}>
-        <View style={styles.orgRow}>
-          <View style={styles.orgLogo}>
-            <Text style={styles.orgEmoji}>{opp.orgLogo}</Text>
+      <Animated.View entering={enterRise(100)}>
+        <Card style={styles.shiftCard}>
+          <View style={styles.orgRow}>
+            <View style={styles.orgLogo}>
+              <Text style={styles.orgEmoji}>{opp.orgLogo}</Text>
+            </View>
+            <View>
+              <Text style={styles.shiftTitle}>{opp.title}</Text>
+              <Text style={styles.shiftOrg}>{opp.orgName}</Text>
+            </View>
           </View>
-          <View>
-            <Text style={styles.shiftTitle}>{opp.title}</Text>
-            <Text style={styles.shiftOrg}>{opp.orgName}</Text>
-          </View>
-        </View>
-      </Card>
+        </Card>
+      </Animated.View>
 
-      {/* Timer */}
-      <View style={styles.timerSection}>
+      <Animated.View style={styles.timerSection} entering={enterRise(160)}>
         <Text style={styles.timerLabel}>Elapsed</Text>
         <Text style={styles.timer}>{formatTime(elapsed)}</Text>
         <Text style={styles.timerTotal}>of {opp.durationHours}h 00m total</Text>
-      </View>
+      </Animated.View>
 
-      {/* Progress */}
-      <View style={styles.progressContainer}>
+      <Animated.View style={styles.progressContainer} entering={enterRise(220)}>
         <View style={styles.progressBar}>
           <Animated.View style={[styles.progressFill, progressStyle]} />
         </View>
@@ -86,14 +88,13 @@ export default function ActiveShiftScreen() {
           <Text style={styles.progressLabel}>Check in</Text>
           <Text style={styles.progressLabel}>{opp.endTime}</Text>
         </View>
-      </View>
+      </Animated.View>
 
-      {/* Actions */}
-      <View style={styles.actions}>
+      <Animated.View style={styles.actions} entering={enterRise(280)}>
         <PillButton variant="default" fullWidth size="large" onPress={handleCheckOut}>
           Check out early
         </PillButton>
-      </View>
+      </Animated.View>
     </View>
   );
 }

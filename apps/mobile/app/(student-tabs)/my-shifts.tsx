@@ -1,14 +1,16 @@
 // My Shifts — upcoming and past shifts for student
 import React, { useMemo } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
-import { Text } from '@/components/Themed';;
+import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
+import Animated from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';
 import { PillBadge } from '../../components/ui/PillBadge';
 import { PillButton } from '../../components/ui/PillButton';
 import { trpc } from '../../lib/trpc';
 import { ApiOpportunityLike, toMobileOpportunity } from '../../lib/opportunity-adapter';
+import { enterRise } from '../../lib/motion';
 
 export default function MyShiftsScreen() {
   const router = useRouter();
@@ -47,82 +49,59 @@ export default function MyShiftsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>My shifts</Text>
+      <Animated.View entering={enterRise(60)}>
+        <Text style={styles.title}>My shifts</Text>
+      </Animated.View>
 
-      {/* Active shift banner */}
       {activeOpportunity && (
-        <Card style={styles.activeCard}>
-          <View style={styles.activeHeader}>
-            <View style={styles.liveDot} />
-            <Text style={styles.activeLabel}>Active shift</Text>
-          </View>
-          <Text style={styles.activeTitle}>{activeOpportunity.title}</Text>
-          <Text style={styles.activeOrg}>{activeOpportunity.orgName}</Text>
-          <View style={styles.timerContainer}>
-            <Text style={styles.timerText}>Ready</Text>
-            <Text style={styles.timerSub}>to check in</Text>
-          </View>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '20%' }]} />
-          </View>
-          <PillButton
-            variant="primary"
-            accent="teal"
-            fullWidth
-            size="medium"
-            onPress={() => router.push('/shift/active')}
-          >
-            View shift
-          </PillButton>
-        </Card>
+        <Animated.View entering={enterRise(120)}>
+          <Card style={styles.activeCard}>
+            <View style={styles.activeHeader}>
+              <View style={styles.liveDot} />
+              <Text style={styles.activeLabel}>Active shift</Text>
+            </View>
+            <Text style={styles.activeTitle}>{activeOpportunity.title}</Text>
+            <Text style={styles.activeOrg}>{activeOpportunity.orgName}</Text>
+            <View style={styles.timerContainer}>
+              <Text style={styles.timerText}>Ready</Text>
+              <Text style={styles.timerSub}>to check in</Text>
+            </View>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: '20%' }]} />
+            </View>
+            <PillButton
+              variant="primary"
+              accent="teal"
+              fullWidth
+              size="medium"
+              onPress={() => router.push('/shift/active')}
+            >
+              View shift
+            </PillButton>
+          </Card>
+        </Animated.View>
       )}
 
-      {/* Upcoming */}
-      <Text style={styles.sectionTitle}>Upcoming</Text>
+      <Animated.View entering={enterRise(180)}>
+        <Text style={styles.sectionTitle}>Upcoming</Text>
+      </Animated.View>
       {upcomingApps.length === 0 && (
-        <Card style={styles.shiftCard}>
-          <Text style={styles.emptyStateText}>No approved shifts yet.</Text>
-        </Card>
+        <Animated.View entering={enterRise(220)}>
+          <Card style={styles.shiftCard}>
+            <Text style={styles.emptyStateText}>No approved shifts yet.</Text>
+          </Card>
+        </Animated.View>
       )}
-      {upcomingApps.map(app => {
+      {upcomingApps.map((app, index) => {
         const opp = opportunitiesById.get(app.opportunityId);
         if (!opp) return null;
         return (
-          <Pressable
-            key={app.id}
-            onPress={() => router.push('/shift/checkin')}
-            style={({ pressed }) => [pressed && { opacity: 0.9 }]}
-          >
-            <Card style={styles.shiftCard}>
-              <View style={styles.shiftHeader}>
-                <View style={styles.shiftOrgLogo}>
-                  <Text style={styles.shiftOrgEmoji}>{opp.orgLogo}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.shiftTitle}>{opp.title}</Text>
-                  <Text style={styles.shiftOrg}>{opp.orgName}</Text>
-                </View>
-                <PillBadge label="Approved" color={Colors.success} />
-              </View>
-              <View style={styles.shiftDetails}>
-                <Text style={styles.shiftDetail}>📅 {new Date(opp.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</Text>
-                <Text style={styles.shiftDetail}>🕐 {opp.startTime} – {opp.endTime}</Text>
-                <Text style={styles.shiftDetail}>📍 {opp.distance?.toFixed(1)} mi</Text>
-              </View>
-            </Card>
-          </Pressable>
-        );
-      })}
-
-      {/* Pending */}
-      {pendingApps.length > 0 && (
-        <>
-          <Text style={styles.sectionTitle}>Pending</Text>
-          {pendingApps.map(app => {
-            const opp = opportunitiesById.get(app.opportunityId);
-            if (!opp) return null;
-            return (
-              <Card key={app.id} style={styles.shiftCard}>
+          <Animated.View key={app.id} entering={enterRise(220 + index * 40)}>
+            <Pressable
+              onPress={() => router.push('/shift/checkin')}
+              style={({ pressed }) => [pressed && styles.shiftPressed]}
+            >
+              <Card style={styles.shiftCard}>
                 <View style={styles.shiftHeader}>
                   <View style={styles.shiftOrgLogo}>
                     <Text style={styles.shiftOrgEmoji}>{opp.orgLogo}</Text>
@@ -131,9 +110,42 @@ export default function MyShiftsScreen() {
                     <Text style={styles.shiftTitle}>{opp.title}</Text>
                     <Text style={styles.shiftOrg}>{opp.orgName}</Text>
                   </View>
-                  <PillBadge label="Pending" color={Colors.warning} />
+                  <PillBadge label="Approved" color={Colors.success} />
+                </View>
+                <View style={styles.shiftDetails}>
+                  <Text style={styles.shiftDetail}>📅 {new Date(opp.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</Text>
+                  <Text style={styles.shiftDetail}>🕐 {opp.startTime} – {opp.endTime}</Text>
+                  <Text style={styles.shiftDetail}>📍 {opp.distance?.toFixed(1)} mi</Text>
                 </View>
               </Card>
+            </Pressable>
+          </Animated.View>
+        );
+      })}
+
+      {pendingApps.length > 0 && (
+        <>
+          <Animated.View entering={enterRise(280)}>
+            <Text style={styles.sectionTitle}>Pending</Text>
+          </Animated.View>
+          {pendingApps.map((app, index) => {
+            const opp = opportunitiesById.get(app.opportunityId);
+            if (!opp) return null;
+            return (
+              <Animated.View key={app.id} entering={enterRise(320 + index * 40)}>
+                <Card style={styles.shiftCard}>
+                  <View style={styles.shiftHeader}>
+                    <View style={styles.shiftOrgLogo}>
+                      <Text style={styles.shiftOrgEmoji}>{opp.orgLogo}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.shiftTitle}>{opp.title}</Text>
+                      <Text style={styles.shiftOrg}>{opp.orgName}</Text>
+                    </View>
+                    <PillBadge label="Pending" color={Colors.warning} />
+                  </View>
+                </Card>
+              </Animated.View>
             );
           })}
         </>
@@ -239,6 +251,10 @@ const styles = StyleSheet.create({
   shiftCard: {
     marginBottom: 14,
     padding: 20,
+  },
+  shiftPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.985 }],
   },
   shiftHeader: {
     flexDirection: 'row',

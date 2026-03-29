@@ -1,9 +1,9 @@
 // Opportunity Detail — full detail view with map, reviews, and apply
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
-import { Text } from '@/components/Themed';;
+import { Text } from '@/components/Themed';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import Animated, { FadeIn, FadeInDown, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming } from 'react-native-reanimated';
 import { Colors } from '@/constants/colors';
 import { Card } from '../../components/ui/Card';
 import { PillBadge } from '../../components/ui/PillBadge';
@@ -12,6 +12,7 @@ import { MapPreview } from '../../components/MapPreview';
 import { Feather } from '@expo/vector-icons';
 import { trpc } from '../../lib/trpc';
 import { ApiOpportunityLike, toMobileOpportunity } from '../../lib/opportunity-adapter';
+import { enterFade, enterRise, exitDrop, exitFade, MOTION } from '../../lib/motion';
 
 export default function OpportunityDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,7 +30,7 @@ export default function OpportunityDetailScreen() {
   const [showApplySheet, setShowApplySheet] = useState(false);
   const [applied, setApplied] = useState(false);
 
-  const checkScale = useSharedValue(0);
+  const checkScale = useSharedValue(0.92);
   const checkOpacity = useSharedValue(0);
 
   if (isLoading) {
@@ -62,10 +63,13 @@ export default function OpportunityDetailScreen() {
       setApplied(true);
       setShowApplySheet(false);
       checkScale.value = withSequence(
-        withSpring(1.3, { damping: 6, stiffness: 300 }),
-        withSpring(1, { damping: 10, stiffness: 200 })
+        withSpring(1.08, { damping: 14, stiffness: 260, mass: 0.8 }),
+        withSpring(1, { damping: 18, stiffness: 220, mass: 0.9 })
       );
-      checkOpacity.value = withTiming(1, { duration: 300 });
+      checkOpacity.value = withTiming(1, {
+        duration: MOTION.duration.standard,
+        easing: MOTION.easeOut,
+      });
     } catch {
       Alert.alert('Apply failed', 'Please try again in a moment.');
     }
@@ -79,14 +83,15 @@ export default function OpportunityDetailScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Back button */}
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [styles.backButton, pressed && styles.backPressed]}
+        >
           <Feather name="arrow-left" size={20} color={Colors.teal} />
           <Text style={styles.backText}>Back</Text>
         </Pressable>
 
-        {/* Org header */}
-        <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.orgHeader}>
+        <Animated.View entering={enterRise(80)} style={styles.orgHeader}>
           <View style={styles.orgLogo}>
             <Text style={styles.orgEmoji}>{opportunity.orgLogo}</Text>
           </View>
@@ -102,8 +107,7 @@ export default function OpportunityDetailScreen() {
           </View>
         </Animated.View>
 
-        {/* Title */}
-        <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+        <Animated.View entering={enterRise(140)}>
           <Text style={styles.title}>{opportunity.title}</Text>
           <View style={styles.tags}>
             {opportunity.causeTags.map(tag => (
@@ -115,8 +119,7 @@ export default function OpportunityDetailScreen() {
           </View>
         </Animated.View>
 
-        {/* Details card */}
-        <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+        <Animated.View entering={enterRise(200)}>
           <Card style={styles.detailsCard}>
             <View style={styles.detailRow}>
               <Feather name="calendar" size={20} color={Colors.dark.textSecondary} style={styles.detailIcon} />
@@ -158,14 +161,12 @@ export default function OpportunityDetailScreen() {
           </Card>
         </Animated.View>
 
-        {/* Description */}
-        <Animated.View entering={FadeInDown.delay(400).duration(400)}>
+        <Animated.View entering={enterRise(260)}>
           <Text style={styles.sectionTitle}>About this opportunity</Text>
           <Text style={styles.description}>{opportunity.description}</Text>
         </Animated.View>
 
-        {/* Map */}
-        <Animated.View entering={FadeInDown.delay(500).duration(400)}>
+        <Animated.View entering={enterRise(320)}>
           <Text style={styles.sectionTitle}>Location</Text>
           <MapPreview
             latitude={opportunity.location.lat}
@@ -176,9 +177,8 @@ export default function OpportunityDetailScreen() {
           />
         </Animated.View>
 
-        {/* What to bring */}
         {opportunity.whatToBring.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(600).duration(400)}>
+          <Animated.View entering={enterRise(360)}>
             <Text style={styles.sectionTitle}>What to bring</Text>
             <Card style={styles.checklistCard}>
               {opportunity.whatToBring.map((item, i) => (
@@ -191,9 +191,8 @@ export default function OpportunityDetailScreen() {
           </Animated.View>
         )}
 
-        {/* Reviews */}
         {opportunity.reviews.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(700).duration(400)}>
+          <Animated.View entering={enterRise(400)}>
             <Text style={styles.sectionTitle}>Volunteer reviews</Text>
             {opportunity.reviews.map(review => (
               <Card key={review.id} style={styles.reviewCard}>
@@ -214,11 +213,10 @@ export default function OpportunityDetailScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Apply bottom sheet */}
       {showApplySheet && (
-        <Animated.View entering={FadeIn.duration(200)} style={styles.sheetOverlay}>
+        <Animated.View entering={enterFade()} exiting={exitFade()} style={styles.sheetOverlay}>
           <Pressable style={styles.sheetBg} onPress={() => setShowApplySheet(false)} />
-          <Animated.View entering={FadeInDown.duration(300)} style={styles.sheet}>
+          <Animated.View entering={enterRise(40)} exiting={exitDrop()} style={styles.sheet}>
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>Confirm application</Text>
             <Card style={styles.sheetSummary}>
@@ -243,9 +241,8 @@ export default function OpportunityDetailScreen() {
         </Animated.View>
       )}
 
-      {/* Success overlay */}
       {applied && (
-        <View style={styles.successOverlay}>
+        <Animated.View style={styles.successOverlay} entering={enterFade(40)}>
           <Animated.View style={[styles.successCircle, successStyle]}>
             <Feather name="check" size={48} color={Colors.teal} style={styles.successCheck} />
           </Animated.View>
@@ -260,10 +257,9 @@ export default function OpportunityDetailScreen() {
           >
             Back to feed
           </PillButton>
-        </View>
+        </Animated.View>
       )}
 
-      {/* Sticky bottom bar */}
       {!showApplySheet && !applied && (
         <View style={styles.bottomBar}>
           <PillButton variant="default" size="medium">
@@ -314,6 +310,10 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 8,
     paddingRight: 16,
+  },
+  backPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.98 }],
   },
   backText: {
     fontSize: 16,

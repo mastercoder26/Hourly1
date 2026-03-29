@@ -1,7 +1,7 @@
 // BadgeGrid — milestone badge display with unlock animation
 import React, { useEffect } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { Text } from '@/components/Themed';;
+import { Text } from '@/components/Themed';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -27,16 +27,16 @@ export function BadgeGrid({ badges }: BadgeGridProps) {
 }
 
 function BadgeItem({ badge, index }: { badge: Badge; index: number }) {
-  const scale = useSharedValue(badge.isNew ? 0 : 1);
+  const scale = useSharedValue(badge.isNew ? 0.95 : 1);
   const earned = !!badge.earnedAt;
 
   useEffect(() => {
     if (badge.isNew) {
       scale.value = withDelay(
-        index * 100,
+        index * 70,
         withSequence(
-          withSpring(1.2, { damping: 8, stiffness: 300 }),
-          withSpring(1, { damping: 10, stiffness: 200 })
+          withSpring(1.08, { damping: 14, stiffness: 260, mass: 0.8 }),
+          withSpring(1, { damping: 18, stiffness: 220, mass: 0.9 })
         )
       );
     }
@@ -48,7 +48,13 @@ function BadgeItem({ badge, index }: { badge: Badge; index: number }) {
 
   return (
     <Animated.View style={animatedStyle}>
-      <Pressable style={[styles.badge, !earned && styles.badgeLocked]}>
+      <Pressable
+        style={({ pressed }) => [
+          styles.badge,
+          !earned && styles.badgeLocked,
+          pressed && styles.badgePressed,
+        ]}
+      >
         <Text style={[styles.icon, !earned && styles.iconLocked]}>{badge.icon}</Text>
         <Text style={[styles.label, !earned && styles.labelLocked]}>{badge.label}</Text>
         {badge.isNew && earned && (
@@ -74,6 +80,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     position: 'relative',
+  },
+  badgePressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.98 }],
   },
   badgeLocked: {
     opacity: 0.35,

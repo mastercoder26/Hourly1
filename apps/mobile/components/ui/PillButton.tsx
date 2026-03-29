@@ -1,8 +1,14 @@
 // Pill Button — rounded action buttons matching React App.js style
 import React from 'react';
-import { Pressable, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { Text } from '@/components/Themed';;
+import { Pressable, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import { Text } from '@/components/Themed';
 import { Colors } from '@/constants/colors';
+import { MOTION, PRESS_FEEDBACK } from '@/lib/motion';
 
 interface PillButtonProps {
   children: React.ReactNode;
@@ -12,8 +18,8 @@ interface PillButtonProps {
   accent?: 'teal' | 'purple';
   fullWidth?: boolean;
   disabled?: boolean;
-  style?: ViewStyle;
-  textStyle?: TextStyle;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
 }
 
 export function PillButton({
@@ -26,38 +32,60 @@ export function PillButton({
   style,
   textStyle,
 }: PillButtonProps) {
+  const isPressed = useSharedValue(0);
+
+  const pressStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        scale: withTiming(isPressed.value ? PRESS_FEEDBACK.scale : 1, {
+          duration: MOTION.duration.instant,
+          easing: MOTION.easeOut,
+        }),
+      },
+    ],
+    opacity: withTiming(isPressed.value ? PRESS_FEEDBACK.opacity : 1, {
+      duration: MOTION.duration.instant,
+      easing: MOTION.easeOut,
+    }),
+  }));
+
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={({ pressed }) => [
-        styles.base,
-        styles[size],
-        variant === 'default' && styles.default,
-        variant === 'primary' && styles.primary,
-        variant === 'secondary' && styles.secondary,
-        variant === 'ghost' && styles.ghost,
-        fullWidth && styles.fullWidth,
-        pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-        disabled && styles.disabled,
-        style,
-      ]}
-    >
-      <Text
+    <Animated.View style={[pressStyle, fullWidth && styles.fullWidth, style]}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => {
+          isPressed.value = 1;
+        }}
+        onPressOut={() => {
+          isPressed.value = 0;
+        }}
+        disabled={disabled}
         style={[
-          styles.text,
-          styles[`${size}Text`],
-          variant === 'default' && styles.defaultText,
-          variant === 'primary' && styles.primaryText,
-          variant === 'secondary' && styles.secondaryText,
-          variant === 'ghost' && styles.ghostText,
-          disabled && styles.disabledText,
-          textStyle,
+          styles.base,
+          styles[size],
+          variant === 'default' && styles.default,
+          variant === 'primary' && styles.primary,
+          variant === 'secondary' && styles.secondary,
+          variant === 'ghost' && styles.ghost,
+          disabled && styles.disabled,
         ]}
       >
-        {children}
-      </Text>
-    </Pressable>
+        <Text
+          style={[
+            styles.text,
+            styles[`${size}Text`],
+            variant === 'default' && styles.defaultText,
+            variant === 'primary' && styles.primaryText,
+            variant === 'secondary' && styles.secondaryText,
+            variant === 'ghost' && styles.ghostText,
+            disabled && styles.disabledText,
+            textStyle,
+          ]}
+        >
+          {children}
+        </Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 

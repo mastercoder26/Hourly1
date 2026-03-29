@@ -2,30 +2,37 @@ import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
-import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Colors } from '../constants/colors';
 import { Typography } from '../constants/typography';
 import { Card } from '../components/ui/Card';
+import { enterFade, enterRise } from '../lib/motion';
 
 export default function RoleSelectionScreen() {
   const router = useRouter();
 
   return (
     <View style={styles.container}>
-      <Animated.View style={styles.header} entering={FadeIn.delay(100)}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+      <Animated.View style={styles.header} entering={enterFade(40)}>
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [styles.backButton, pressed && styles.pressablePressed]}
+        >
           <Text style={styles.backText}>← Back</Text>
         </Pressable>
       </Animated.View>
 
       <View style={styles.content}>
-        <Animated.View style={styles.titleContainer} entering={FadeInDown.springify().damping(18).mass(0.8).delay(200)}>
+        <Animated.View style={styles.titleContainer} entering={enterRise(120)}>
           <Text style={styles.title}>Welcome to Hourly</Text>
           <Text style={styles.subtitle}>How will you be using the platform?</Text>
         </Animated.View>
 
-        <Animated.View style={styles.optionsContainer} entering={FadeInDown.springify().damping(18).mass(0.8).delay(300)}>
-          <Pressable onPress={() => router.push('/(auth)/sign-up?role=student')}>
+        <Animated.View style={styles.optionsContainer} entering={enterRise(200)}>
+          <Pressable
+            onPress={() => router.push('/(auth)/sign-up?role=student')}
+            style={({ pressed }) => [styles.rolePressable, pressed && styles.pressablePressed]}
+          >
             <Card style={styles.roleCard}>
               <View style={styles.roleContent}>
                 <Text style={styles.roleTitle}>I'm a Student</Text>
@@ -35,7 +42,10 @@ export default function RoleSelectionScreen() {
             </Card>
           </Pressable>
 
-          <Pressable onPress={() => router.push('/(auth)/sign-up?role=organizer')}>
+          <Pressable
+            onPress={() => router.push('/(auth)/sign-up?role=organizer')}
+            style={({ pressed }) => [styles.rolePressable, pressed && styles.pressablePressed]}
+          >
             <Card style={styles.roleCard}>
               <View style={styles.roleContent}>
                 <Text style={styles.roleTitle}>I'm an Organizer</Text>
@@ -62,6 +72,13 @@ const styles = StyleSheet.create({
   },
   backButton: {
     paddingVertical: 8,
+  },
+  rolePressable: {
+    borderRadius: 20,
+  },
+  pressablePressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.98 }],
   },
   backText: {
     fontFamily: Typography.label.fontFamily,

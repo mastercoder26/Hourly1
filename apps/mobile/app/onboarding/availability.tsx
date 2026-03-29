@@ -3,12 +3,13 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { PillButton } from '../../components/ui/PillButton';
 import { DayOfWeek } from '../../types';
+import { enterFade, enterRise, stagger } from '../../lib/motion';
 
 const DAYS: DayOfWeek[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const SHIFT_LENGTHS = [1, 2, 3, 4, 5, 6];
@@ -34,7 +35,7 @@ export default function AvailabilityStep() {
 
   return (
     <View style={styles.container}>
-      <Animated.View style={styles.header} entering={FadeIn.delay(100)}>
+      <Animated.View style={styles.header} entering={enterFade(40)}>
         <ProgressBar steps={4} currentStep={3} accent={isOrg ? 'purple' : 'teal'} />
         <PillButton variant="ghost" size="small" onPress={handleComplete}>
           Skip for now
@@ -42,7 +43,7 @@ export default function AvailabilityStep() {
       </Animated.View>
 
       <View style={styles.content}>
-        <Animated.View entering={FadeInDown.springify().damping(18).mass(0.8).delay(200)}>
+        <Animated.View entering={enterRise(120)}>
           <Text style={styles.stepLabel}>Step 4 of 4</Text>
           <Text style={styles.title}>When are you available?</Text>
           <Text style={styles.subtitle}>
@@ -50,19 +51,18 @@ export default function AvailabilityStep() {
           </Text>
         </Animated.View>
 
-        {/* Day selection */}
-        <Animated.View entering={FadeInDown.springify().damping(18).mass(0.8).delay(350)}>
+        <Animated.View entering={enterRise(200)}>
           <Text style={styles.sectionLabel}>Days of the week</Text>
           <View style={styles.dayGrid}>
             {DAYS.map((day, i) => {
               const isSelected = selectedDays.includes(day);
-              // Adding subtle animation to chips
               return (
-                <Animated.View key={day} style={{ flex: 1 }} entering={FadeInDown.springify().damping(18).mass(0.8).delay(350 + i * 50)}>
+                <Animated.View key={day} style={{ flex: 1 }} entering={enterRise(stagger(i, 240, 30, 420))}>
                   <Pressable
                     onPress={() => toggleDay(day)}
-                    style={[
+                    style={({ pressed }) => [
                       styles.dayChip,
+                      pressed && styles.chipPressed,
                       isSelected && { backgroundColor: Colors.dark.element, borderColor: accentColor },
                     ]}
                   >
@@ -76,18 +76,18 @@ export default function AvailabilityStep() {
           </View>
         </Animated.View>
 
-        {/* Shift length */}
-        <Animated.View entering={FadeInDown.springify().damping(18).mass(0.8).delay(500)}>
+        <Animated.View entering={enterRise(260)}>
           <Text style={[styles.sectionLabel, { marginTop: 32 }]}>Preferred shift length</Text>
           <View style={styles.shiftRow}>
             {SHIFT_LENGTHS.map((hours, i) => {
               const isSelected = shiftLength === hours;
               return (
-                <Animated.View key={hours} style={{ flex: 1 }} entering={FadeInDown.springify().damping(18).mass(0.8).delay(500 + i * 30)}>
+                <Animated.View key={hours} style={{ flex: 1 }} entering={enterRise(stagger(i, 300, 24, 420))}>
                   <Pressable
                     onPress={() => setShiftLength(hours)}
-                    style={[
+                    style={({ pressed }) => [
                       styles.shiftChip,
+                      pressed && styles.chipPressed,
                       isSelected && { backgroundColor: accentColor, borderColor: accentColor },
                     ]}
                   >
@@ -102,7 +102,7 @@ export default function AvailabilityStep() {
         </Animated.View>
       </View>
 
-      <Animated.View style={styles.footer} entering={FadeInDown.springify().damping(18).mass(0.8).delay(700)}>
+      <Animated.View style={styles.footer} entering={enterRise(320)}>
         <View style={styles.footerButtons}>
           <PillButton variant="ghost" size="medium" onPress={() => router.back()} style={{ flex: 1 }}>
             Back
@@ -180,6 +180,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: 'transparent',
+  },
+  chipPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.98 }],
   },
   dayText: {
     fontFamily: Typography.label.fontFamily,

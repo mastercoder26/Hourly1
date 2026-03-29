@@ -3,11 +3,12 @@ import React, { useEffect } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
-import Animated, { FadeInDown, FadeIn, ZoomIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Colors } from '../constants/colors';
 import { Typography } from '../constants/typography';
 import { PillButton } from '../components/ui/PillButton';
 import { useAuth, useUser } from '@clerk/expo';
+import { enterRise } from '../lib/motion';
 
 const { width } = Dimensions.get('window');
 
@@ -37,15 +38,13 @@ export default function WelcomeScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        {/* Cool Logo Animation */}
-        <Animated.View style={styles.logoContainer} entering={ZoomIn.springify().damping(12).mass(1).delay(200)}>
+        <Animated.View style={styles.logoContainer} entering={enterRise(120)}>
           <View style={styles.brandCircle}>
             <Text style={styles.logoText}>H</Text>
           </View>
         </Animated.View>
 
-        {/* Title */}
-        <Animated.View style={styles.titleContainer} entering={FadeInDown.springify().damping(18).mass(0.8).delay(400)}>
+        <Animated.View style={styles.titleContainer} entering={enterRise(200)}>
           <Text style={styles.title}>Hourly.</Text>
           <Text style={styles.subtitle}>
             The new standard for volunteer tracking.
@@ -53,8 +52,7 @@ export default function WelcomeScreen() {
         </Animated.View>
       </View>
 
-      {/* Buttons */}
-      <Animated.View style={styles.bottomActions} entering={FadeInDown.springify().damping(18).mass(0.8).delay(600)}>
+      <Animated.View style={styles.bottomActions} entering={enterRise(280)}>
         <PillButton
           variant="primary"
           fullWidth

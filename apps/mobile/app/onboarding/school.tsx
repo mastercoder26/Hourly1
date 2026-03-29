@@ -3,11 +3,12 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { PillButton } from '../../components/ui/PillButton';
+import { enterFade, enterRise } from '../../lib/motion';
 
 export default function SchoolStep() {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function SchoolStep() {
 
   return (
     <View style={styles.container}>
-      <Animated.View style={styles.header} entering={FadeIn.delay(100)}>
+      <Animated.View style={styles.header} entering={enterFade(40)}>
         <ProgressBar steps={4} currentStep={1} accent={isOrg ? 'purple' : 'teal'} />
         <PillButton variant="ghost" size="small" onPress={() => router.push(`/onboarding/interests?role=${role || 'student'}`)}>
           Skip for now
@@ -24,7 +25,7 @@ export default function SchoolStep() {
       </Animated.View>
 
       <View style={styles.content}>
-        <Animated.View entering={FadeInDown.springify().damping(18).mass(0.8).delay(200)}>
+        <Animated.View entering={enterRise(120)}>
           <Text style={styles.stepLabel}>Step 2 of 4</Text>
           <Text style={styles.title}>
             {isOrg ? 'Where are you located?' : 'Confirm your school'}
@@ -37,7 +38,7 @@ export default function SchoolStep() {
         </Animated.View>
 
         {/* Mock school cards */}
-        <Animated.View entering={FadeInDown.springify().damping(18).mass(0.8).delay(350)}>
+        <Animated.View entering={enterRise(200)}>
           <View style={styles.schoolCard}>
             <Text style={styles.schoolEmoji}>🏫</Text>
             <View>
@@ -48,7 +49,7 @@ export default function SchoolStep() {
         </Animated.View>
       </View>
 
-      <Animated.View style={styles.footer} entering={FadeInDown.springify().damping(18).mass(0.8).delay(500)}>
+      <Animated.View style={styles.footer} entering={enterRise(280)}>
         <View style={styles.footerButtons}>
           <PillButton variant="ghost" size="medium" onPress={() => router.back()} style={{ flex: 1 }}>
             Back
