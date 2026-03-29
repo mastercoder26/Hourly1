@@ -1,4 +1,4 @@
-# Hourly1
+# Hourly
 
 Hourly is a monorepo for a volunteer tracking platform with:
 
