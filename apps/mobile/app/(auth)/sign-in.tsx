@@ -1,6 +1,6 @@
 // Auth — Sign In Screen
 import React, { useState } from 'react';
-import { View, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
+import { View, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Pressable, Alert } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
 import Animated from 'react-native-reanimated';
@@ -21,6 +21,20 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleForgotPassword = () => {
+    Alert.alert(
+      'Reset password',
+      'Password reset is not available in this demo yet. Use your email/password or continue as guest.',
+    );
+  };
+
+  const handleGoogleSignIn = () => {
+    Alert.alert(
+      'Google sign-in',
+      'Google sign-in is coming soon. Use email/password for now.',
+    );
+  };
 
   const handleSignIn = async () => {
     if (!isClerkConfigured) {
@@ -104,7 +118,12 @@ export default function SignInScreen() {
             />
           </View>
 
-          <PillButton variant="ghost" size="small" style={{ alignSelf: 'flex-end', paddingRight: 0 }}>
+          <PillButton
+            variant="ghost"
+            size="small"
+            style={{ alignSelf: 'flex-end', paddingRight: 0 }}
+            onPress={handleForgotPassword}
+          >
             <Text style={{ ...Typography.label, color: Colors.dark.textSecondary }}>Forgot password?</Text>
           </PillButton>
 
@@ -132,7 +151,7 @@ export default function SignInScreen() {
             variant="default"
             fullWidth
             size="large"
-            onPress={handleSignIn}
+            onPress={handleGoogleSignIn}
           >
             Continue with Google
           </PillButton>

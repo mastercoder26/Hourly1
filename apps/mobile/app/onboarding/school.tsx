@@ -18,7 +18,7 @@ export default function SchoolStep() {
   return (
     <View style={styles.container}>
       <Animated.View style={styles.header} entering={enterFade(40)}>
-        <ProgressBar steps={4} currentStep={1} accent={isOrg ? 'purple' : 'teal'} />
+        <ProgressBar steps={4} currentStep={1} accent="purple" />
         <PillButton variant="ghost" size="small" onPress={() => router.push(`/onboarding/interests?role=${role || 'student'}`)}>
           Skip for now
         </PillButton>

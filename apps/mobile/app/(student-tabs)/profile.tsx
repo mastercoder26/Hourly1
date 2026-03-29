@@ -1,19 +1,52 @@
 // Profile Screen — student profile and settings
-import React from 'react';
-import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { Text } from '@/components/Themed';;
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';
 import { PillBadge } from '../../components/ui/PillBadge';
 import { PillButton } from '../../components/ui/PillButton';
+import { mockStudent } from '../../mocks/data';
 import { trpc } from '../../lib/trpc';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { data: profile, isLoading, error } = trpc.user.me.useQuery();
+  const [useFallback, setUseFallback] = useState(false);
+  const profileQuery = trpc.user.me.useQuery();
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!profileQuery.isLoading) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setUseFallback(true);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [profileQuery.isLoading]);
+
+  useEffect(() => {
+    if (profileQuery.error) {
+      setUseFallback(true);
+    }
+  }, [profileQuery.error]);
+
+  useEffect(() => {
+    if (profileQuery.isSuccess) {
+      setUseFallback(false);
+    }
+  }, [profileQuery.isSuccess]);
+
+  const shouldUseFallback = useFallback || Boolean(profileQuery.error);
+  const profile = shouldUseFallback ? mockStudent : profileQuery.data;
+
+  const showComingSoon = (label: string) => {
+    Alert.alert(label, 'This section is coming soon in a future update.');
+  };
+
+  if (profileQuery.isLoading && !shouldUseFallback) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.teal} />
@@ -21,7 +54,7 @@ export default function ProfileScreen() {
     );
   }
 
-  if (error || !profile) {
+  if (!profile) {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.errorText}>Unable to load profile.</Text>
@@ -32,6 +65,9 @@ export default function ProfileScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Profile</Text>
+      {shouldUseFallback && (
+        <Text style={styles.fallbackNote}>Demo mode: showing local profile</Text>
+      )}
 
       {/* Profile card */}
       <Card style={styles.profileCard}>
@@ -47,7 +83,12 @@ export default function ProfileScreen() {
             <PillBadge key={tag} label={tag} />
           ))}
         </View>
-        <PillButton variant="default" size="small" fullWidth>
+        <PillButton
+          variant="default"
+          size="small"
+          fullWidth
+          onPress={() => showComingSoon('Edit profile')}
+        >
           Edit profile
         </PillButton>
       </Card>
@@ -71,15 +112,15 @@ export default function ProfileScreen() {
       {/* Settings menu */}
       <Card style={styles.menuCard}>
         {[
-          { icon: '🔔', label: 'Notifications', action: () => {} },
-          { icon: '🎨', label: 'Appearance', action: () => {} },
-          { icon: '🔒', label: 'Privacy', action: () => {} },
-          { icon: '❓', label: 'Help & support', action: () => {} },
-          { icon: '📋', label: 'Terms of service', action: () => {} },
+          { icon: '🔔', label: 'Notifications' },
+          { icon: '🎨', label: 'Appearance' },
+          { icon: '🔒', label: 'Privacy' },
+          { icon: '❓', label: 'Help & support' },
+          { icon: '📋', label: 'Terms of service' },
         ].map((item, i, arr) => (
           <Pressable
             key={item.label}
-            onPress={item.action}
+            onPress={() => showComingSoon(item.label)}
             style={[styles.menuItem, i < arr.length - 1 && styles.menuItemBorder]}
           >
             <Text style={styles.menuIcon}>{item.icon}</Text>
@@ -217,5 +258,11 @@ const styles = StyleSheet.create({
   menuArrow: {
     fontSize: 20,
     color: Colors.dark.textTertiary,
+  },
+  fallbackNote: {
+    fontSize: 12,
+    color: Colors.teal,
+    fontWeight: '600',
+    marginTop: -6,
   },
 });

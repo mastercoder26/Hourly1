@@ -1,6 +1,6 @@
 // QR Scanner — org-side camera scanner
-import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, Pressable, Alert } from 'react-native';
 import { Text } from '@/components/Themed';;
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
@@ -9,6 +9,12 @@ import { PillButton } from '../../components/ui/PillButton';
 
 export default function ScannerScreen() {
   const router = useRouter();
+  const [checkedInCount, setCheckedInCount] = useState(2);
+
+  const handleCheckIn = () => {
+    setCheckedInCount(prev => prev + 1);
+    Alert.alert('Checked in', 'Alex Rivera has been checked in for this shift.');
+  };
 
   return (
     <View style={styles.container}>
@@ -43,14 +49,20 @@ export default function ScannerScreen() {
             <Text style={styles.resultDetails}>Grade 11 • 47.5h total</Text>
           </View>
         </View>
-        <PillButton variant="primary" accent="purple" fullWidth size="medium">
+        <PillButton
+          variant="primary"
+          accent="purple"
+          fullWidth
+          size="medium"
+          onPress={handleCheckIn}
+        >
           ✓ Check in
         </PillButton>
       </Card>
 
       {/* Live roster */}
       <Card style={styles.rosterCard}>
-        <Text style={styles.rosterTitle}>Live roster (2 checked in)</Text>
+        <Text style={styles.rosterTitle}>Live roster ({checkedInCount} checked in)</Text>
         <View style={styles.rosterItem}>
           <Text style={styles.rosterDot}>🟢</Text>
           <Text style={styles.rosterName}>Jordan T.</Text>

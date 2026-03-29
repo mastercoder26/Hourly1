@@ -1,5 +1,5 @@
 // Opportunity Detail — full detail view with map, reviews, and apply
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -12,28 +12,65 @@ import { MapPreview } from '../../components/MapPreview';
 import { Feather } from '@expo/vector-icons';
 import { trpc } from '../../lib/trpc';
 import { ApiOpportunityLike, toMobileOpportunity } from '../../lib/opportunity-adapter';
+import { getOpportunityById } from '../../mocks/opportunities';
 import { enterFade, enterRise, exitDrop, exitFade, MOTION } from '../../lib/motion';
 
 export default function OpportunityDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const opportunityId = Array.isArray(id) ? id[0] : id;
+  const [useFallback, setUseFallback] = useState(false);
 
   const { data: rawOpportunity, isLoading, error } = trpc.opportunity.getById.useQuery({
     id: opportunityId ?? '',
   });
   const applyMutation = trpc.application.apply.useMutation();
+
+  useEffect(() => {
+    if (!isLoading) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setUseFallback(true);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (error) {
+      setUseFallback(true);
+    }
+  }, [error]);
+
+  useEffect(() => {
+    if (rawOpportunity) {
+      setUseFallback(false);
+    }
+  }, [rawOpportunity]);
+
+  const fallbackOpportunity = useMemo(() => {
+    if (!opportunityId) {
+      return undefined;
+    }
+
+    return getOpportunityById(opportunityId);
+  }, [opportunityId]);
+
+  const shouldUseFallback = useFallback || Boolean(error);
   const opportunity = rawOpportunity
     ? toMobileOpportunity(rawOpportunity as ApiOpportunityLike)
-    : null;
+    : (shouldUseFallback ? fallbackOpportunity ?? null : null);
 
   const [showApplySheet, setShowApplySheet] = useState(false);
   const [applied, setApplied] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const checkScale = useSharedValue(0.92);
   const checkOpacity = useSharedValue(0);
 
-  if (isLoading) {
+  if (isLoading && !shouldUseFallback) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.teal} />
@@ -55,6 +92,20 @@ export default function OpportunityDetailScreen() {
   const handleApply = async () => {
     if (!opportunityId) return;
 
+    if (shouldUseFallback) {
+      setApplied(true);
+      setShowApplySheet(false);
+      checkScale.value = withSequence(
+        withSpring(1.08, { damping: 14, stiffness: 260, mass: 0.8 }),
+        withSpring(1, { damping: 18, stiffness: 220, mass: 0.9 })
+      );
+      checkOpacity.value = withTiming(1, {
+        duration: MOTION.duration.standard,
+        easing: MOTION.easeOut,
+      });
+      return;
+    }
+
     try {
       await applyMutation.mutateAsync({
         opportunityId,
@@ -73,6 +124,17 @@ export default function OpportunityDetailScreen() {
     } catch {
       Alert.alert('Apply failed', 'Please try again in a moment.');
     }
+  };
+
+  const handleToggleSave = () => {
+    const nextSaved = !saved;
+    setSaved(nextSaved);
+    Alert.alert(
+      nextSaved ? 'Saved' : 'Removed',
+      nextSaved
+        ? 'This opportunity was added to your saved list.'
+        : 'This opportunity was removed from your saved list.',
+    );
   };
 
   const successStyle = useAnimatedStyle(() => ({
@@ -109,6 +171,9 @@ export default function OpportunityDetailScreen() {
 
         <Animated.View entering={enterRise(140)}>
           <Text style={styles.title}>{opportunity.title}</Text>
+          {shouldUseFallback && (
+            <Text style={styles.fallbackNote}>Demo mode: showing local opportunity</Text>
+          )}
           <View style={styles.tags}>
             {opportunity.causeTags.map(tag => (
               <PillBadge key={tag} label={tag} causeTag={tag} size="medium" />
@@ -262,8 +327,8 @@ export default function OpportunityDetailScreen() {
 
       {!showApplySheet && !applied && (
         <View style={styles.bottomBar}>
-          <PillButton variant="default" size="medium">
-            Save for later
+          <PillButton variant="default" size="medium" onPress={handleToggleSave}>
+            {saved ? 'Saved' : 'Save for later'}
           </PillButton>
           <PillButton
             variant="primary"
@@ -373,6 +438,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+  },
+  fallbackNote: {
+    fontSize: 12,
+    color: Colors.teal,
+    fontWeight: '600',
+    marginBottom: 14,
   },
   detailsCard: {
     padding: 0,

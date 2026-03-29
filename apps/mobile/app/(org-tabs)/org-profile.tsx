@@ -1,6 +1,6 @@
 // Org Profile — organization profile and settings
 import React from 'react';
-import { View, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
 import { Text } from '@/components/Themed';;
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
@@ -12,6 +12,10 @@ import { mockOrganizations } from '../../mocks/data';
 export default function OrgProfileScreen() {
   const router = useRouter();
   const org = mockOrganizations[0];
+
+  const showComingSoon = (label: string) => {
+    Alert.alert(label, 'This section is coming soon for organizer accounts.');
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -39,7 +43,11 @@ export default function OrgProfileScreen() {
           { icon: '🔔', label: 'Notifications' },
           { icon: '⚙️', label: 'Settings' },
         ].map((item, i, arr) => (
-          <Pressable key={item.label} style={[styles.menuItem, i < arr.length - 1 && styles.menuBorder]}>
+          <Pressable
+            key={item.label}
+            onPress={() => showComingSoon(item.label)}
+            style={[styles.menuItem, i < arr.length - 1 && styles.menuBorder]}
+          >
             <Text style={styles.menuIcon}>{item.icon}</Text>
             <Text style={styles.menuLabel}>{item.label}</Text>
             <Text style={styles.menuArrow}>›</Text>

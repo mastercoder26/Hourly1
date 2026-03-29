@@ -1,6 +1,6 @@
 // Applicant Management — per-opportunity applicant list
-import React from 'react';
-import { View, ScrollView, StyleSheet, Pressable } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
 import { Text } from '@/components/Themed';;
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors } from '../../../constants/colors';
@@ -14,12 +14,44 @@ export default function ApplicantManagement() {
   const { opportunityId } = useLocalSearchParams<{ opportunityId: string }>();
   const router = useRouter();
   const opp = getOpportunityById(opportunityId || '');
+  const [applicants, setApplicants] = useState(mockApplicants);
 
-  const statusGroups = {
-    PENDING: mockApplicants.filter(a => a.status === 'PENDING'),
-    APPROVED: mockApplicants.filter(a => a.status === 'APPROVED'),
-    WAITLISTED: mockApplicants.filter(a => a.status === 'WAITLISTED'),
-    DECLINED: mockApplicants.filter(a => a.status === 'DECLINED'),
+  const statusGroups = useMemo(
+    () => ({
+      PENDING: applicants.filter(a => a.status === 'PENDING'),
+      APPROVED: applicants.filter(a => a.status === 'APPROVED'),
+      WAITLISTED: applicants.filter(a => a.status === 'WAITLISTED'),
+      DECLINED: applicants.filter(a => a.status === 'DECLINED'),
+    }),
+    [applicants],
+  );
+
+  const handleDecision = (applicantId: string, decision: 'APPROVED' | 'DECLINED') => {
+    const applicant = applicants.find(a => a.id === applicantId);
+    if (!applicant) {
+      return;
+    }
+
+    setApplicants(prev =>
+      prev.map(item =>
+        item.id === applicantId
+          ? {
+              ...item,
+              status: decision,
+            }
+          : item,
+      ),
+    );
+
+    const decisionVerb = decision === 'APPROVED' ? 'approved' : 'declined';
+    Alert.alert(
+      `Applicant ${decisionVerb}`,
+      `${applicant.firstName} ${applicant.lastName} has been ${decisionVerb}.`,
+    );
+  };
+
+  const handleMessageApplicant = (applicantId: string) => {
+    router.push(`/messages/${applicantId}` as never);
   };
 
   const statusColors = { PENDING: Colors.warning, APPROVED: Colors.success, WAITLISTED: Colors.purple, DECLINED: Colors.error };
@@ -30,7 +62,7 @@ export default function ApplicantManagement() {
         <Text style={styles.backText}>← Back</Text>
       </Pressable>
       <Text style={styles.title}>{opp?.title || 'Applicants'}</Text>
-      <Text style={styles.subtitle}>{mockApplicants.length} applicants total</Text>
+      <Text style={styles.subtitle}>{applicants.length} applicants total</Text>
 
       {Object.entries(statusGroups).map(([status, applicants]) => {
         if (applicants.length === 0) return null;
@@ -51,9 +83,26 @@ export default function ApplicantManagement() {
                 </View>
                 {status === 'PENDING' && (
                   <View style={styles.actions}>
-                    <PillButton variant="primary" accent="purple" size="small" style={{ flex: 1 }}>Approve</PillButton>
-                    <PillButton variant="default" size="small" style={{ flex: 1 }}>Decline</PillButton>
-                    <PillButton variant="ghost" size="small">💬</PillButton>
+                    <PillButton
+                      variant="primary"
+                      accent="purple"
+                      size="small"
+                      style={{ flex: 1 }}
+                      onPress={() => handleDecision(a.id, 'APPROVED')}
+                    >
+                      Approve
+                    </PillButton>
+                    <PillButton
+                      variant="default"
+                      size="small"
+                      style={{ flex: 1 }}
+                      onPress={() => handleDecision(a.id, 'DECLINED')}
+                    >
+                      Decline
+                    </PillButton>
+                    <PillButton variant="ghost" size="small" onPress={() => handleMessageApplicant(a.id)}>
+                      💬
+                    </PillButton>
                   </View>
                 )}
               </Card>

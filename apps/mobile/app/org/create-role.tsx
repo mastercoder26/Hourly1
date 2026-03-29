@@ -1,13 +1,15 @@
 // Create Role — multi-step form for posting volunteer opportunities
 import React, { useState } from 'react';
 import { View, TextInput, ScrollView, StyleSheet, Pressable } from 'react-native';
-import { Text } from '@/components/Themed';;
+import { Text } from '@/components/Themed';
+import Animated from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { PillButton } from '../../components/ui/PillButton';
 import { CauseTag } from '../../types';
+import { enterRise } from '../../lib/motion';
 
 const CAUSES: CauseTag[] = ['Environment', 'Education', 'Food', 'Animals', 'Seniors', 'Youth', 'Health', 'Arts'];
 
@@ -16,6 +18,8 @@ export default function CreateRoleScreen() {
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState('');
   const [causes, setCauses] = useState<CauseTag[]>([]);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [isCreditEligible, setIsCreditEligible] = useState(false);
   const totalSteps = 5;
 
   const toggleCause = (c: CauseTag) => {
@@ -28,7 +32,13 @@ export default function CreateRoleScreen() {
         return (
           <View style={styles.stepContent}>
             <Text style={styles.stepTitle}>What's the role?</Text>
-            <TextInput style={styles.input} placeholder="Role title" placeholderTextColor={Colors.dark.textTertiary} value={title} onChangeText={setTitle} />
+            <TextInput
+              style={styles.input}
+              placeholder="Role title"
+              placeholderTextColor={Colors.dark.textTertiary}
+              value={title ?? ''}
+              onChangeText={text => setTitle(text ?? '')}
+            />
             <Text style={styles.fieldLabel}>Causes</Text>
             <View style={styles.causeGrid}>
               {CAUSES.map(c => (
@@ -48,8 +58,13 @@ export default function CreateRoleScreen() {
               <TextInput style={[styles.input, { flex: 1 }]} placeholder="Start time" placeholderTextColor={Colors.dark.textTertiary} />
               <TextInput style={[styles.input, { flex: 1 }]} placeholder="End time" placeholderTextColor={Colors.dark.textTertiary} />
             </View>
-            <Pressable style={styles.recurringToggle}>
-              <Text style={styles.recurringText}>☐ Recurring event</Text>
+            <Pressable
+              onPress={() => setIsRecurring(prev => !prev)}
+              style={[styles.recurringToggle, isRecurring && styles.toggleActive]}
+            >
+              <Text style={[styles.recurringText, isRecurring && styles.toggleTextActive]}>
+                {isRecurring ? '☑' : '☐'} Recurring event
+              </Text>
             </Pressable>
           </View>
         );
@@ -89,8 +104,13 @@ export default function CreateRoleScreen() {
                   </View>
                 ))}
               </View>
-              <Pressable style={styles.creditToggle}>
-                <Text style={styles.creditToggleText}>☐ Credit eligible</Text>
+              <Pressable
+                onPress={() => setIsCreditEligible(prev => !prev)}
+                style={[styles.creditToggle, isCreditEligible && styles.toggleActive]}
+              >
+                <Text style={[styles.creditToggleText, isCreditEligible && styles.toggleTextActive]}>
+                  {isCreditEligible ? '☑' : '☐'} Credit eligible
+                </Text>
               </Pressable>
             </Card>
           </View>
@@ -111,7 +131,9 @@ export default function CreateRoleScreen() {
       </View>
       <ProgressBar steps={totalSteps} currentStep={step} accent="purple" />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {renderStep()}
+        <Animated.View key={`create-role-step-${step}`} entering={enterRise(70)}>
+          {renderStep()}
+        </Animated.View>
       </ScrollView>
       <View style={styles.footer}>
         <View style={styles.footerButtons}>
@@ -163,6 +185,15 @@ const styles = StyleSheet.create({
   previewTagText: { fontSize: 13, fontWeight: '500' },
   creditToggle: { paddingVertical: 12, borderTopWidth: 1, borderTopColor: Colors.dark.element },
   creditToggleText: { fontSize: 15, color: Colors.dark.textSecondary },
+  toggleActive: {
+    borderRadius: 12,
+    backgroundColor: Colors.purpleSoft,
+    paddingHorizontal: 10,
+  },
+  toggleTextActive: {
+    color: Colors.purple,
+    fontWeight: '500',
+  },
   footer: { paddingHorizontal: 24, paddingBottom: 40, paddingTop: 16 },
   footerButtons: { flexDirection: 'row', gap: 12 },
 });

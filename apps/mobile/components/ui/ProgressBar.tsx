@@ -4,6 +4,7 @@ import { View, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  withDelay,
   withTiming,
 } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
@@ -17,14 +18,15 @@ interface ProgressBarProps {
 
 export function ProgressBar({ steps, currentStep, accent = 'teal' }: ProgressBarProps) {
   const accentColor = accent === 'teal' ? Colors.teal : Colors.purple;
+  const safeStep = Math.max(0, Math.min(currentStep, steps - 1));
 
   return (
     <View style={styles.container}>
       {Array.from({ length: steps }).map((_, index) => (
         <ProgressSegment
           key={index}
-          active={index < currentStep}
-          current={index === currentStep}
+          active={index < safeStep}
+          current={index === safeStep}
           color={accentColor}
         />
       ))}
@@ -33,13 +35,20 @@ export function ProgressBar({ steps, currentStep, accent = 'teal' }: ProgressBar
 }
 
 function ProgressSegment({ active, current, color }: { active: boolean; current: boolean; color: string }) {
-  const width = useSharedValue(active || current ? 1 : 0);
+  // Completed steps render as filled immediately; current step animates in.
+  const width = useSharedValue(active ? 1 : 0);
 
   useEffect(() => {
-    width.value = withTiming(active || current ? 1 : 0, {
-      duration: MOTION.duration.standard,
-      easing: MOTION.easeOut,
-    });
+    const shouldFill = active || current;
+    const duration = current ? MOTION.duration.screen : MOTION.duration.standard;
+
+    width.value = withDelay(
+      current ? 45 : 0,
+      withTiming(shouldFill ? 1 : 0, {
+        duration,
+        easing: MOTION.easeOut,
+      })
+    );
   }, [active, current]);
 
   const animatedStyle = useAnimatedStyle(() => ({

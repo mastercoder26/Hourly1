@@ -36,7 +36,7 @@ export default function AvailabilityStep() {
   return (
     <View style={styles.container}>
       <Animated.View style={styles.header} entering={enterFade(40)}>
-        <ProgressBar steps={4} currentStep={3} accent={isOrg ? 'purple' : 'teal'} />
+        <ProgressBar steps={4} currentStep={3} accent="purple" />
         <PillButton variant="ghost" size="small" onPress={handleComplete}>
           Skip for now
         </PillButton>

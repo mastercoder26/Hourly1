@@ -23,6 +23,7 @@
     "packages/*"
   ],
   "dependencies": {
+    "@tanstack/react-query": "^4.43.0",
     "expo-router": "~55.0.8"
   }
 }

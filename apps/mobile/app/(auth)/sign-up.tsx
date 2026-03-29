@@ -1,6 +1,6 @@
 // Auth — Sign Up Screen
 import React, { useState } from 'react';
-import { View, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Pressable, ScrollView } from 'react-native';
+import { View, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Pressable, ScrollView, Alert } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Animated from 'react-native-reanimated';
@@ -86,6 +86,13 @@ export default function SignUpScreen() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleGoogleSignUp = () => {
+    Alert.alert(
+      'Google sign-up',
+      'Google sign-up is coming soon. Use email/password to create your account right now.',
+    );
   };
 
   const isStudent = selectedRole !== 'organizer';
@@ -181,7 +188,7 @@ export default function SignUpScreen() {
                 <View style={styles.dividerLine} />
               </View>
 
-              <PillButton variant="default" fullWidth size="large" onPress={handleSignUp}>
+              <PillButton variant="default" fullWidth size="large" onPress={handleGoogleSignUp}>
                 Sign up with Google
               </PillButton>
 

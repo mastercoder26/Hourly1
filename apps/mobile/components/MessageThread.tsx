@@ -1,5 +1,5 @@
 // MessageThread — in-app messaging UI
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, TextInput, StyleSheet, FlatList, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text } from '@/components/Themed';;
 import { Colors } from '../constants/colors';
@@ -13,12 +13,34 @@ interface MessageThreadProps {
 
 export function MessageThread({ messages, currentUserId, onSend }: MessageThreadProps) {
   const [inputText, setInputText] = useState('');
+  const [threadMessages, setThreadMessages] = useState<Message[]>(messages);
+
+  useEffect(() => {
+    setThreadMessages(messages);
+  }, [messages]);
 
   const handleSend = () => {
-    if (inputText.trim()) {
-      onSend?.(inputText.trim());
-      setInputText('');
-    }
+    const text = inputText.trim();
+    if (!text) return;
+
+    const currentUserRole =
+      threadMessages.find(message => message.senderId === currentUserId)?.senderRole ?? 'student';
+    const applicationId =
+      threadMessages[0]?.applicationId ?? messages[0]?.applicationId ?? 'local-thread';
+
+    const localMessage: Message = {
+      id: `local-${Date.now()}`,
+      applicationId,
+      senderId: currentUserId,
+      senderName: 'You',
+      senderRole: currentUserRole,
+      text,
+      sentAt: new Date().toISOString(),
+    };
+
+    setThreadMessages(prev => [...prev, localMessage]);
+    onSend?.(text);
+    setInputText('');
   };
 
   const formatTime = (dateStr: string) => {
@@ -46,7 +68,7 @@ export function MessageThread({ messages, currentUserId, onSend }: MessageThread
       keyboardVerticalOffset={100}
     >
       <FlatList
-        data={messages}
+        data={threadMessages}
         renderItem={renderMessage}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.list}

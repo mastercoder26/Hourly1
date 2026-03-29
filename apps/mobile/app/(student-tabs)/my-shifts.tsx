@@ -1,5 +1,5 @@
 // My Shifts — upcoming and past shifts for student
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
@@ -10,15 +10,53 @@ import { PillBadge } from '../../components/ui/PillBadge';
 import { PillButton } from '../../components/ui/PillButton';
 import { trpc } from '../../lib/trpc';
 import { ApiOpportunityLike, toMobileOpportunity } from '../../lib/opportunity-adapter';
+import { mockApplications } from '../../mocks/data';
+import { mockOpportunities } from '../../mocks/opportunities';
 import { enterRise } from '../../lib/motion';
 
 export default function MyShiftsScreen() {
   const router = useRouter();
+  const [useFallback, setUseFallback] = useState(false);
 
   const applicationsQuery = trpc.application.listMine.useQuery();
   const opportunitiesQuery = trpc.opportunity.list.useQuery({});
 
-  const opportunitiesById = useMemo(() => {
+  const isLoadingRemote = applicationsQuery.isLoading || opportunitiesQuery.isLoading;
+  const shouldUseFallback =
+    useFallback ||
+    Boolean(applicationsQuery.error) ||
+    Boolean(opportunitiesQuery.error);
+
+  useEffect(() => {
+    if (!isLoadingRemote) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setUseFallback(true);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [isLoadingRemote]);
+
+  useEffect(() => {
+    if (applicationsQuery.error || opportunitiesQuery.error) {
+      setUseFallback(true);
+    }
+  }, [applicationsQuery.error, opportunitiesQuery.error]);
+
+  useEffect(() => {
+    if (applicationsQuery.isSuccess && opportunitiesQuery.isSuccess) {
+      setUseFallback(false);
+    }
+  }, [applicationsQuery.isSuccess, opportunitiesQuery.isSuccess]);
+
+  const fallbackOpportunitiesById = useMemo(() => {
+    const entries = mockOpportunities.map(item => [item.id, item] as const);
+    return new Map(entries);
+  }, []);
+
+  const apiOpportunitiesById = useMemo(() => {
     const entries = (opportunitiesQuery.data ?? []).map(item => {
       const mapped = toMobileOpportunity(item as ApiOpportunityLike);
       return [mapped.id, mapped] as const;
@@ -26,23 +64,17 @@ export default function MyShiftsScreen() {
     return new Map(entries);
   }, [opportunitiesQuery.data]);
 
-  const applications = applicationsQuery.data ?? [];
+  const opportunitiesById = shouldUseFallback ? fallbackOpportunitiesById : apiOpportunitiesById;
+
+  const applications = shouldUseFallback ? mockApplications : (applicationsQuery.data ?? []);
   const upcomingApps = applications.filter(a => a.status === 'APPROVED');
   const pendingApps = applications.filter(a => a.status === 'PENDING');
   const activeOpportunity = upcomingApps[0] ? opportunitiesById.get(upcomingApps[0].opportunityId) : null;
 
-  if (applicationsQuery.isLoading || opportunitiesQuery.isLoading) {
+  if (isLoadingRemote && !shouldUseFallback) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.teal} />
-      </View>
-    );
-  }
-
-  if (applicationsQuery.error || opportunitiesQuery.error) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.emptyStateText}>Failed to load shifts.</Text>
       </View>
     );
   }
@@ -51,6 +83,9 @@ export default function MyShiftsScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Animated.View entering={enterRise(60)}>
         <Text style={styles.title}>My shifts</Text>
+        {shouldUseFallback && (
+          <Text style={styles.fallbackNote}>Demo mode: showing local shifts</Text>
+        )}
       </Animated.View>
 
       {activeOpportunity && (
@@ -297,5 +332,12 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 14,
     color: Colors.dark.textSecondary,
+  },
+  fallbackNote: {
+    fontSize: 12,
+    color: Colors.teal,
+    fontWeight: '600',
+    marginTop: -16,
+    marginBottom: 18,
   },
 });

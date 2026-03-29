@@ -1,6 +1,6 @@
 // Portfolio — hours tracker, badge grid, past shifts
 import React, { useEffect } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet, Alert } from 'react-native';
 import { Text } from '@/components/Themed';
 import Animated, {
   useSharedValue,
@@ -35,6 +35,14 @@ export default function PortfolioScreen() {
     opacity: hoursAnim.value,
   }));
 
+  const handleSharePortfolio = () => {
+    Alert.alert('Share portfolio', 'Portfolio sharing is coming soon.');
+  };
+
+  const handleDownloadCertificate = () => {
+    Alert.alert('Download certificate', 'Certificate downloads are coming soon.');
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Animated.View entering={enterRise(60)}>
@@ -49,10 +57,19 @@ export default function PortfolioScreen() {
           </Animated.View>
           <Text style={styles.hoursSubtext}>across {new Set(mockAttendance.map(a => a.opportunityId)).size} shifts</Text>
           <View style={styles.hoursActions}>
-            <PillButton variant="primary" accent="teal" size="small">
+            <PillButton
+              variant="primary"
+              accent="teal"
+              size="small"
+              onPress={handleSharePortfolio}
+            >
               Share portfolio
             </PillButton>
-            <PillButton variant="default" size="small">
+            <PillButton
+              variant="default"
+              size="small"
+              onPress={handleDownloadCertificate}
+            >
               Download certificate
             </PillButton>
           </View>

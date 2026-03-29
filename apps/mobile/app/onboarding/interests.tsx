@@ -39,7 +39,7 @@ export default function InterestsStep() {
   return (
     <View style={styles.container}>
       <Animated.View style={styles.header} entering={enterFade(40)}>
-        <ProgressBar steps={4} currentStep={2} accent={isOrg ? 'purple' : 'teal'} />
+        <ProgressBar steps={4} currentStep={2} accent="purple" />
         <PillButton variant="ghost" size="small" onPress={() => router.push(`/onboarding/availability?role=${role || 'student'}`)}>
           Skip for now
         </PillButton>

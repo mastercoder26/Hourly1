@@ -1,6 +1,6 @@
 // BadgeGrid — milestone badge display with unlock animation
 import React, { useEffect } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, Alert } from 'react-native';
 import { Text } from '@/components/Themed';
 import Animated, {
   useSharedValue,
@@ -46,9 +46,19 @@ function BadgeItem({ badge, index }: { badge: Badge; index: number }) {
     transform: [{ scale: scale.value }],
   }));
 
+  const handlePress = () => {
+    if (earned) {
+      Alert.alert(badge.label, badge.description);
+      return;
+    }
+
+    Alert.alert('Badge locked', `Complete ${badge.label.toLowerCase()} to unlock this badge.`);
+  };
+
   return (
     <Animated.View style={animatedStyle}>
       <Pressable
+        onPress={handlePress}
         style={({ pressed }) => [
           styles.badge,
           !earned && styles.badgeLocked,

@@ -14,12 +14,28 @@ export default function OnboardingIndex() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
   const isOrg = role === 'organizer';
+  const [selectedGrade, setSelectedGrade] = useState<number | 'college' | null>(null);
+
+  const handleContinue = () => {
+    const roleParam = role || 'student';
+
+    if (!selectedGrade || isOrg) {
+      router.push(`/onboarding/school?role=${roleParam}`);
+      return;
+    }
+
+    router.push(`/onboarding/school?role=${roleParam}&grade=${selectedGrade}`);
+  };
 
   return (
     <View style={styles.container}>
       <Animated.View style={styles.header} entering={enterFade(40)}>
-        <ProgressBar steps={4} currentStep={0} accent={isOrg ? 'purple' : 'teal'} />
-        <PillButton variant="ghost" size="small" onPress={() => router.push('/onboarding/school')}>
+        <ProgressBar steps={4} currentStep={0} accent="purple" />
+        <PillButton
+          variant="ghost"
+          size="small"
+          onPress={() => router.push(`/onboarding/school?role=${role || 'student'}`)}
+        >
           Skip for now
         </PillButton>
       </Animated.View>
@@ -48,16 +64,38 @@ export default function OnboardingIndex() {
             <View style={styles.gradeSelector}>
               <Text style={styles.gradeLabel}>Grade level</Text>
               <View style={styles.gradeGrid}>
-                {[9, 10, 11, 12].map(grade => (
-                  <Pressable
-                    key={grade}
-                    style={({ pressed }) => [styles.gradeChip, pressed && styles.gradeChipPressed]}
+                {[9, 10, 11, 12].map(grade => {
+                  const isSelected = selectedGrade === grade;
+                  return (
+                    <Pressable
+                      key={grade}
+                      onPress={() => setSelectedGrade(grade)}
+                      style={({ pressed }) => [
+                        styles.gradeChip,
+                        isSelected && styles.gradeChipSelected,
+                        pressed && styles.gradeChipPressed,
+                      ]}
+                    >
+                      <Text style={[styles.gradeText, isSelected && styles.gradeTextSelected]}>{grade}th</Text>
+                    </Pressable>
+                  );
+                })}
+                <Pressable
+                  onPress={() => setSelectedGrade('college')}
+                  style={({ pressed }) => [
+                    styles.gradeChip,
+                    selectedGrade === 'college' && styles.gradeChipSelected,
+                    pressed && styles.gradeChipPressed,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.gradeText,
+                      selectedGrade === 'college' && styles.gradeTextSelected,
+                    ]}
                   >
-                    <Text style={styles.gradeText}>{grade}th</Text>
-                  </Pressable>
-                ))}
-                <Pressable style={({ pressed }) => [styles.gradeChip, pressed && styles.gradeChipPressed]}>
-                  <Text style={styles.gradeText}>College</Text>
+                    College
+                  </Text>
                 </Pressable>
               </View>
             </View>
@@ -88,7 +126,7 @@ export default function OnboardingIndex() {
           variant="primary"
           fullWidth
           size="large"
-          onPress={() => router.push(`/onboarding/school?role=${role || 'student'}`)}
+          onPress={handleContinue}
         >
           Continue
         </PillButton>
@@ -177,6 +215,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 999,
     backgroundColor: Colors.dark.element,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  gradeChipSelected: {
+    backgroundColor: Colors.purpleSoft,
+    borderColor: Colors.purple,
   },
   gradeChipPressed: {
     opacity: 0.9,
@@ -187,6 +231,9 @@ const styles = StyleSheet.create({
     fontSize: Typography.label.fontSize,
     fontWeight: Typography.label.fontWeight,
     color: Colors.dark.textSecondary,
+  },
+  gradeTextSelected: {
+    color: Colors.purple,
   },
   footer: {
     paddingHorizontal: 24,
