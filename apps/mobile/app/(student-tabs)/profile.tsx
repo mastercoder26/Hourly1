@@ -1,16 +1,33 @@
 // Profile Screen — student profile and settings
 import React from 'react';
-import { View, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/Themed';;
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';
 import { PillBadge } from '../../components/ui/PillBadge';
 import { PillButton } from '../../components/ui/PillButton';
-import { mockStudent } from '../../mocks/data';
+import { trpc } from '../../lib/trpc';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { data: profile, isLoading, error } = trpc.user.me.useQuery();
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.teal} />
+      </View>
+    );
+  }
+
+  if (error || !profile) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.errorText}>Unable to load profile.</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -20,14 +37,14 @@ export default function ProfileScreen() {
       <Card style={styles.profileCard}>
         <View style={styles.avatarLarge}>
           <Text style={styles.avatarText}>
-            {mockStudent.firstName[0]}{mockStudent.lastName[0]}
+            {profile.firstName[0]}{profile.lastName[0]}
           </Text>
         </View>
-        <Text style={styles.name}>{mockStudent.firstName} {mockStudent.lastName}</Text>
-        <Text style={styles.school}>{mockStudent.school} • Grade {mockStudent.grade}</Text>
+        <Text style={styles.name}>{profile.firstName} {profile.lastName}</Text>
+        <Text style={styles.school}>{profile.school} • Grade {profile.grade}</Text>
         <View style={styles.interests}>
-          {mockStudent.interests.map(tag => (
-            <PillBadge key={tag} label={tag} causeTag={tag} />
+          {profile.interests.map(tag => (
+            <PillBadge key={tag} label={tag} />
           ))}
         </View>
         <PillButton variant="default" size="small" fullWidth>
@@ -38,7 +55,7 @@ export default function ProfileScreen() {
       {/* Quick stats */}
       <View style={styles.statsRow}>
         <Card style={styles.statCard}>
-          <Text style={styles.statValue}>{mockStudent.totalHours}</Text>
+          <Text style={styles.statValue}>{profile.totalHours}</Text>
           <Text style={styles.statLabel}>Total hours</Text>
         </Card>
         <Card style={styles.statCard}>
@@ -92,6 +109,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.base,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: Colors.dark.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorText: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
   },
   content: {
     paddingTop: 60,

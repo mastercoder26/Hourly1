@@ -1,28 +1,46 @@
 // Opportunity Detail — full detail view with map, reviews, and apply
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/Themed';;
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import Animated, { FadeIn, FadeInDown, useSharedValue, useAnimatedStyle, withSpring, withSequence, withDelay, withTiming } from 'react-native-reanimated';
-import { Colors, CardStyle } from '@/constants/colors';
+import Animated, { FadeIn, FadeInDown, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming } from 'react-native-reanimated';
+import { Colors } from '@/constants/colors';
 import { Card } from '../../components/ui/Card';
 import { PillBadge } from '../../components/ui/PillBadge';
 import { PillButton } from '../../components/ui/PillButton';
 import { MapPreview } from '../../components/MapPreview';
-import { getOpportunityById } from '../../mocks/opportunities';
 import { Feather } from '@expo/vector-icons';
+import { trpc } from '../../lib/trpc';
+import { ApiOpportunityLike, toMobileOpportunity } from '../../lib/opportunity-adapter';
 
 export default function OpportunityDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const opportunity = getOpportunityById(id || '');
+  const opportunityId = Array.isArray(id) ? id[0] : id;
+
+  const { data: rawOpportunity, isLoading, error } = trpc.opportunity.getById.useQuery({
+    id: opportunityId ?? '',
+  });
+  const applyMutation = trpc.application.apply.useMutation();
+  const opportunity = rawOpportunity
+    ? toMobileOpportunity(rawOpportunity as ApiOpportunityLike)
+    : null;
+
   const [showApplySheet, setShowApplySheet] = useState(false);
   const [applied, setApplied] = useState(false);
 
   const checkScale = useSharedValue(0);
   const checkOpacity = useSharedValue(0);
 
-  if (!opportunity) {
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.teal} />
+      </View>
+    );
+  }
+
+  if (error || !opportunity) {
     return (
       <View style={styles.container}>
         <Text style={styles.errorText}>Opportunity not found</Text>
@@ -33,14 +51,24 @@ export default function OpportunityDetailScreen() {
   const spotsLeft = opportunity.totalSpots - opportunity.filledSpots;
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
-  const handleApply = () => {
-    setApplied(true);
-    setShowApplySheet(false);
-    checkScale.value = withSequence(
-      withSpring(1.3, { damping: 6, stiffness: 300 }),
-      withSpring(1, { damping: 10, stiffness: 200 })
-    );
-    checkOpacity.value = withTiming(1, { duration: 300 });
+  const handleApply = async () => {
+    if (!opportunityId) return;
+
+    try {
+      await applyMutation.mutateAsync({
+        opportunityId,
+      });
+
+      setApplied(true);
+      setShowApplySheet(false);
+      checkScale.value = withSequence(
+        withSpring(1.3, { damping: 6, stiffness: 300 }),
+        withSpring(1, { damping: 10, stiffness: 200 })
+      );
+      checkOpacity.value = withTiming(1, { duration: 300 });
+    } catch {
+      Alert.alert('Apply failed', 'Please try again in a moment.');
+    }
   };
 
   const successStyle = useAnimatedStyle(() => ({
@@ -198,8 +226,15 @@ export default function OpportunityDetailScreen() {
               <Text style={styles.sheetSummaryOrg}>{opportunity.orgName}</Text>
               <Text style={styles.sheetSummaryDate}>{formatDate(opportunity.date)} • {opportunity.startTime} – {opportunity.endTime}</Text>
             </Card>
-            <PillButton variant="primary" accent="teal" fullWidth size="large" onPress={handleApply}>
-              Confirm — apply now
+            <PillButton
+              variant="primary"
+              accent="teal"
+              fullWidth
+              size="large"
+              onPress={handleApply}
+              disabled={applyMutation.isPending}
+            >
+              {applyMutation.isPending ? 'Submitting...' : 'Confirm — apply now'}
             </PillButton>
             <PillButton variant="ghost" fullWidth size="medium" onPress={() => setShowApplySheet(false)}>
               Cancel
@@ -253,6 +288,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.base,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: Colors.dark.base,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
     paddingTop: 60,

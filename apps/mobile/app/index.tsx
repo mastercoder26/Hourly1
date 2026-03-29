@@ -1,5 +1,5 @@
 // Welcome Screen — "Welcome to Hourly" landing page
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
@@ -7,11 +7,32 @@ import Animated, { FadeInDown, FadeIn, ZoomIn } from 'react-native-reanimated';
 import { Colors } from '../constants/colors';
 import { Typography } from '../constants/typography';
 import { PillButton } from '../components/ui/PillButton';
+import { useAuth, useUser } from '@clerk/expo';
 
 const { width } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const { isLoaded: authLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
+
+  useEffect(() => {
+    if (!authLoaded || !isSignedIn) {
+      return;
+    }
+
+    const role =
+      typeof user?.unsafeMetadata?.role === 'string'
+        ? user.unsafeMetadata.role
+        : null;
+
+    if (role === 'organizer') {
+      router.replace('/(org-tabs)/dashboard');
+      return;
+    }
+
+    router.replace('/(student-tabs)/feed');
+  }, [authLoaded, isSignedIn, router, user?.unsafeMetadata?.role]);
 
   return (
     <View style={styles.container}>
@@ -49,6 +70,14 @@ export default function WelcomeScreen() {
           onPress={() => router.push('/(auth)/sign-in')}
         >
           Sign In
+        </PillButton>
+        <PillButton
+          variant="ghost"
+          fullWidth
+          size="medium"
+          onPress={() => router.push('/admin/login' as never)}
+        >
+          Admin Portal
         </PillButton>
       </Animated.View>
     </View>

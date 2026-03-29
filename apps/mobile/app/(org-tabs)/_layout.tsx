@@ -1,11 +1,12 @@
 // Org Tabs Layout
 import React from 'react';
-import { Tabs, useRouter, usePathname, Link } from 'expo-router';
+import { Tabs, useRouter, usePathname, Link, Redirect } from 'expo-router';
 import { View, StyleSheet, Platform, useWindowDimensions, Pressable } from 'react-native';
 import { Text } from '@/components/Themed';
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { useAuth, useUser } from '@clerk/expo';
 
 // Types for our navigation items
 type TabName = 'dashboard' | 'events' | 'applicants' | 'org-profile';
@@ -62,6 +63,25 @@ function TabIcon({ name, focused, iconName }: { name: string; focused: boolean; 
 
 export default function OrgTabsLayout() {
   const { width } = useWindowDimensions();
+  const { isLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
+
+  const clerkKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
+  const isClerkConfigured = clerkKey.length > 0 && !clerkKey.includes('PLACEHOLDER');
+
+  if (isClerkConfigured && isLoaded && !isSignedIn) {
+    return <Redirect href="/(auth)/sign-in" />;
+  }
+
+  const role =
+    typeof user?.unsafeMetadata?.role === 'string'
+      ? user.unsafeMetadata.role
+      : null;
+
+  if (isClerkConfigured && isLoaded && isSignedIn && role && role !== 'organizer') {
+    return <Redirect href="/(student-tabs)/feed" />;
+  }
+
   // We trigger the premium desktop layout on screens wider than 768px
   const isWebWide = Platform.OS === 'web' && width > 768;
 

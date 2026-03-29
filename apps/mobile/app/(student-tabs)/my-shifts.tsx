@@ -1,55 +1,91 @@
 // My Shifts — upcoming and past shifts for student
-import React from 'react';
-import { View, ScrollView, StyleSheet, Pressable } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/Themed';;
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';
 import { PillBadge } from '../../components/ui/PillBadge';
 import { PillButton } from '../../components/ui/PillButton';
-import { mockApplications } from '../../mocks/data';
-import { mockOpportunities } from '../../mocks/opportunities';
+import { trpc } from '../../lib/trpc';
+import { ApiOpportunityLike, toMobileOpportunity } from '../../lib/opportunity-adapter';
 
 export default function MyShiftsScreen() {
   const router = useRouter();
-  
-  const upcomingApps = mockApplications.filter(a => a.status === 'APPROVED');
-  const pendingApps = mockApplications.filter(a => a.status === 'PENDING');
+
+  const applicationsQuery = trpc.application.listMine.useQuery();
+  const opportunitiesQuery = trpc.opportunity.list.useQuery({});
+
+  const opportunitiesById = useMemo(() => {
+    const entries = (opportunitiesQuery.data ?? []).map(item => {
+      const mapped = toMobileOpportunity(item as ApiOpportunityLike);
+      return [mapped.id, mapped] as const;
+    });
+    return new Map(entries);
+  }, [opportunitiesQuery.data]);
+
+  const applications = applicationsQuery.data ?? [];
+  const upcomingApps = applications.filter(a => a.status === 'APPROVED');
+  const pendingApps = applications.filter(a => a.status === 'PENDING');
+  const activeOpportunity = upcomingApps[0] ? opportunitiesById.get(upcomingApps[0].opportunityId) : null;
+
+  if (applicationsQuery.isLoading || opportunitiesQuery.isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.teal} />
+      </View>
+    );
+  }
+
+  if (applicationsQuery.error || opportunitiesQuery.error) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.emptyStateText}>Failed to load shifts.</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>My shifts</Text>
 
       {/* Active shift banner */}
-      <Card style={styles.activeCard}>
-        <View style={styles.activeHeader}>
-          <View style={styles.liveDot} />
-          <Text style={styles.activeLabel}>Active shift</Text>
-        </View>
-        <Text style={styles.activeTitle}>Park cleanup & tree planting</Text>
-        <Text style={styles.activeOrg}>Green Earth Foundation</Text>
-        <View style={styles.timerContainer}>
-          <Text style={styles.timerText}>1h 23m</Text>
-          <Text style={styles.timerSub}>of 3h</Text>
-        </View>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: '46%' }]} />
-        </View>
-        <PillButton
-          variant="primary"
-          accent="teal"
-          fullWidth
-          size="medium"
-          onPress={() => router.push('/shift/active')}
-        >
-          View shift
-        </PillButton>
-      </Card>
+      {activeOpportunity && (
+        <Card style={styles.activeCard}>
+          <View style={styles.activeHeader}>
+            <View style={styles.liveDot} />
+            <Text style={styles.activeLabel}>Active shift</Text>
+          </View>
+          <Text style={styles.activeTitle}>{activeOpportunity.title}</Text>
+          <Text style={styles.activeOrg}>{activeOpportunity.orgName}</Text>
+          <View style={styles.timerContainer}>
+            <Text style={styles.timerText}>Ready</Text>
+            <Text style={styles.timerSub}>to check in</Text>
+          </View>
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, { width: '20%' }]} />
+          </View>
+          <PillButton
+            variant="primary"
+            accent="teal"
+            fullWidth
+            size="medium"
+            onPress={() => router.push('/shift/active')}
+          >
+            View shift
+          </PillButton>
+        </Card>
+      )}
 
       {/* Upcoming */}
       <Text style={styles.sectionTitle}>Upcoming</Text>
+      {upcomingApps.length === 0 && (
+        <Card style={styles.shiftCard}>
+          <Text style={styles.emptyStateText}>No approved shifts yet.</Text>
+        </Card>
+      )}
       {upcomingApps.map(app => {
-        const opp = mockOpportunities.find(o => o.id === app.opportunityId);
+        const opp = opportunitiesById.get(app.opportunityId);
         if (!opp) return null;
         return (
           <Pressable
@@ -83,7 +119,7 @@ export default function MyShiftsScreen() {
         <>
           <Text style={styles.sectionTitle}>Pending</Text>
           {pendingApps.map(app => {
-            const opp = mockOpportunities.find(o => o.id === app.opportunityId);
+            const opp = opportunitiesById.get(app.opportunityId);
             if (!opp) return null;
             return (
               <Card key={app.id} style={styles.shiftCard}>
@@ -110,6 +146,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.base,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: Colors.dark.base,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   content: {
     paddingTop: 60,
@@ -234,6 +276,10 @@ const styles = StyleSheet.create({
   },
   shiftDetail: {
     fontSize: 13,
+    color: Colors.dark.textSecondary,
+  },
+  emptyStateText: {
+    fontSize: 14,
     color: Colors.dark.textSecondary,
   },
 });

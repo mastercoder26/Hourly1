@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { router, publicProcedure } from '../trpc';
-import { mockOpportunities } from '../mock-data';
+import { mockOpportunities, mockOrganizations } from '../mock-data';
 
 export const opportunityRouter = router({
   list: publicProcedure
@@ -13,7 +14,16 @@ export const opportunityRouter = router({
       }).optional()
     )
     .query(({ input }) => {
-      let results = [...mockOpportunities];
+      const approvedOrgIds = new Set(
+        mockOrganizations
+          .filter(org => org.status === 'APPROVED')
+          .map(org => org.id)
+      );
+
+      let results = mockOpportunities.filter(
+        opportunity =>
+          approvedOrgIds.has(opportunity.orgId) && (opportunity.postStatus ?? 'VISIBLE') === 'VISIBLE'
+      );
 
       if (input?.creditEligible) {
         results = results.filter(o => o.creditEligible);
@@ -40,9 +50,20 @@ export const opportunityRouter = router({
   getById: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(({ input }) => {
-      const opportunity = mockOpportunities.find(o => o.id === input.id);
+      const approvedOrgIds = new Set(
+        mockOrganizations
+          .filter(org => org.status === 'APPROVED')
+          .map(org => org.id)
+      );
+
+      const opportunity = mockOpportunities.find(
+        o =>
+          o.id === input.id &&
+          approvedOrgIds.has(o.orgId) &&
+          (o.postStatus ?? 'VISIBLE') === 'VISIBLE'
+      );
       if (!opportunity) {
-        throw new Error(`Opportunity not found: ${input.id}`);
+        throw new TRPCError({ code: 'NOT_FOUND', message: `Opportunity not found: ${input.id}` });
       }
       return opportunity;
     }),

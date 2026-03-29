@@ -1,11 +1,12 @@
 // Student Tabs Layout
 import React from 'react';
-import { Tabs, useRouter, usePathname, Link } from 'expo-router';
+import { Tabs, useRouter, usePathname, Link, Redirect } from 'expo-router';
 import { View, StyleSheet, Platform, useWindowDimensions, Pressable } from 'react-native';
 import { Text } from '@/components/Themed';
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { useAuth } from '@clerk/expo';
 
 // Types for our navigation items
 type TabName = 'feed' | 'my-shifts' | 'portfolio' | 'profile';
@@ -62,6 +63,15 @@ function TabIcon({ name, focused, iconName }: { name: string; focused: boolean; 
 
 export default function StudentTabsLayout() {
   const { width } = useWindowDimensions();
+  const { isLoaded, isSignedIn } = useAuth();
+
+  const clerkKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
+  const isClerkConfigured = clerkKey.length > 0 && !clerkKey.includes('PLACEHOLDER');
+
+  if (isClerkConfigured && isLoaded && !isSignedIn) {
+    return <Redirect href="/(auth)/sign-in" />;
+  }
+
   // We trigger the premium desktop layout on screens wider than 768px
   const isWebWide = Platform.OS === 'web' && width > 768;
 

@@ -2,11 +2,13 @@ import { router } from './trpc';
 import { opportunityRouter } from './routers/opportunity';
 import { applicationRouter } from './routers/application';
 import { userRouter } from './routers/user';
+import { adminRouter } from './routers/admin';
 
 export const appRouter = router({
   opportunity: opportunityRouter,
   application: applicationRouter,
   user: userRouter,
+  admin: adminRouter,
 });
 
 export type AppRouter = typeof appRouter;

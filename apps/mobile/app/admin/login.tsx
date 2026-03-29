@@ -1,0 +1,217 @@
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
+import { Text } from '@/components/Themed';
+import { Colors } from '@/constants/colors';
+import { Typography } from '@/constants/typography';
+import { PillButton } from '@/components/ui/PillButton';
+import { trpc } from '@/lib/trpc';
+
+export default function AdminLoginScreen() {
+  const router = useRouter();
+  const loginMutation = trpc.admin.login.useMutation();
+
+  const [checkingExistingSession, setCheckingExistingSession] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function bootstrap() {
+      const existingToken = await SecureStore.getItemAsync('hourly_admin_token');
+      if (existingToken) {
+        router.replace('/admin/dashboard' as never);
+        return;
+      }
+
+      if (isActive) {
+        setCheckingExistingSession(false);
+      }
+    }
+
+    bootstrap();
+
+    return () => {
+      isActive = false;
+    };
+  }, [router]);
+
+  async function handleAdminLogin() {
+    setError('');
+
+    try {
+      const result = await loginMutation.mutateAsync({
+        email: email.trim(),
+        password,
+      });
+
+      await SecureStore.setItemAsync('hourly_admin_token', result.token);
+      await SecureStore.setItemAsync('hourly_admin_email', result.email);
+      await SecureStore.setItemAsync('hourly_admin_expires_at', result.expiresAt);
+      router.replace('/admin/dashboard' as never);
+    } catch (err: unknown) {
+      const message =
+        typeof err === 'object' &&
+        err !== null &&
+        'message' in err &&
+        typeof (err as { message?: unknown }).message === 'string'
+          ? (err as { message: string }).message
+          : 'Admin sign in failed';
+
+      setError(message);
+    }
+  }
+
+  if (checkingExistingSession) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.teal} />
+      </View>
+    );
+  }
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={styles.content}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+
+        <Text style={styles.title}>Admin Portal</Text>
+        <Text style={styles.subtitle}>Sign in with authorized admin credentials.</Text>
+
+        <View style={styles.form}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Admin email</Text>
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              placeholder="admin@hourly.app"
+              placeholderTextColor={Colors.dark.textTertiary}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Password</Text>
+            <TextInput
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              placeholder="Enter admin password"
+              placeholderTextColor={Colors.dark.textTertiary}
+            />
+          </View>
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          <PillButton
+            variant="primary"
+            fullWidth
+            size="large"
+            onPress={handleAdminLogin}
+            disabled={loginMutation.isPending || !email.trim() || !password}
+          >
+            {loginMutation.isPending ? 'Signing in...' : 'Enter Dashboard'}
+          </PillButton>
+
+          <Text style={styles.note}>
+            Credentials are validated server-side via API env vars.
+          </Text>
+        </View>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.base,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: Colors.dark.base,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 60,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    marginBottom: 24,
+  },
+  backText: {
+    color: Colors.dark.textSecondary,
+    fontFamily: Typography.label.fontFamily,
+    fontSize: 15,
+  },
+  title: {
+    color: Colors.dark.textPrimary,
+    fontFamily: Typography.valueLarge.fontFamily,
+    fontSize: Typography.valueLarge.fontSize,
+    fontWeight: Typography.valueLarge.fontWeight,
+    marginBottom: 8,
+  },
+  subtitle: {
+    color: Colors.dark.textSecondary,
+    fontFamily: Typography.body.fontFamily,
+    fontSize: Typography.body.fontSize,
+    marginBottom: 28,
+  },
+  form: {
+    gap: 18,
+  },
+  inputGroup: {
+    gap: 10,
+  },
+  label: {
+    color: Colors.dark.textSecondary,
+    fontFamily: Typography.sub.fontFamily,
+    fontSize: Typography.sub.fontSize,
+    letterSpacing: Typography.sub.letterSpacing,
+    textTransform: 'uppercase',
+  },
+  input: {
+    backgroundColor: Colors.dark.element,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: Colors.dark.textPrimary,
+    fontSize: 16,
+  },
+  errorText: {
+    color: Colors.error,
+    fontFamily: Typography.body.fontFamily,
+    fontSize: 13,
+  },
+  note: {
+    color: Colors.dark.textTertiary,
+    fontFamily: Typography.caption.fontFamily,
+    fontSize: Typography.caption.fontSize,
+    lineHeight: Typography.caption.lineHeight,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+});

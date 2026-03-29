@@ -1,6 +1,6 @@
 // Opportunity Feed — main student home screen
 import React, { useState, useCallback } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
+import { View, FlatList, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/Themed';;
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Colors } from '@/constants/colors';
@@ -14,21 +14,42 @@ export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [filters, setFilters] = useState<Filters>({ causes: [], maxDistance: 25, creditEligible: false });
 
-  const { data: filteredOpportunities } = useOpportunities({
+  const { data: filteredOpportunities, loading, error, refetch } = useOpportunities({
     causes: filters.causes,
     creditEligible: filters.creditEligible,
+    maxDistance: filters.maxDistance,
   });
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
-  }, []);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
 
   const renderItem = useCallback(({ item, index }: { item: Opportunity; index: number }) => (
     <Animated.View entering={FadeInDown.delay(index * 80).duration(400)}>
       <OpportunityCard opportunity={item} />
     </Animated.View>
   ), []);
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.teal} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.errorText}>Failed to load opportunities</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -123,5 +144,15 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontSize: 14,
     color: Colors.dark.textSecondary,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: Colors.dark.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorText: {
+    color: Colors.dark.textSecondary,
+    fontSize: 15,
   },
 });

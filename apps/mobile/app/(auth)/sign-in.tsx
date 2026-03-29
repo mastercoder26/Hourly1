@@ -7,15 +7,53 @@ import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { PillButton } from '../../components/ui/PillButton';
+import { useSignIn } from '@clerk/expo/legacy';
 
 export default function SignInScreen() {
   const router = useRouter();
+  const { signIn, setActive, isLoaded } = useSignIn();
+
+  const clerkKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
+  const isClerkConfigured = clerkKey.length > 0 && !clerkKey.includes('PLACEHOLDER');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSignIn = () => {
-    // Mock sign-in — in Phase 2 this connects to Clerk
-    router.replace('/(student-tabs)/feed');
+  const handleSignIn = async () => {
+    if (!isClerkConfigured) {
+      router.replace('/(student-tabs)/feed');
+      return;
+    }
+    if (!isLoaded) return;
+
+    setError('');
+    setIsSubmitting(true);
+    try {
+      const result = await signIn.create({
+        identifier: email.trim(),
+        password,
+      });
+
+      if (result.status === 'complete' && result.createdSessionId) {
+        await setActive({ session: result.createdSessionId });
+        router.replace('/(student-tabs)/feed');
+      } else {
+        setError('Sign in could not be completed.');
+      }
+    } catch (err: unknown) {
+      const message =
+        typeof err === 'object' &&
+        err !== null &&
+        'errors' in err &&
+        Array.isArray((err as { errors?: Array<{ message?: string }> }).errors)
+          ? (err as { errors: Array<{ message?: string }> }).errors[0]?.message
+          : null;
+      setError(message ?? 'Sign in failed');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -66,6 +104,8 @@ export default function SignInScreen() {
           <PillButton variant="ghost" size="small" style={{ alignSelf: 'flex-end', paddingRight: 0 }}>
             <Text style={{ ...Typography.label, color: Colors.dark.textSecondary }}>Forgot password?</Text>
           </PillButton>
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </Animated.View>
 
         <Animated.View style={styles.actions} entering={FadeInDown.springify().damping(18).mass(0.8).delay(500)}>
@@ -74,8 +114,9 @@ export default function SignInScreen() {
             fullWidth
             size="large"
             onPress={handleSignIn}
+            disabled={isSubmitting}
           >
-            Sign in
+            {isSubmitting ? 'Signing in...' : 'Sign in'}
           </PillButton>
 
           <View style={styles.divider}>
@@ -97,7 +138,7 @@ export default function SignInScreen() {
             variant="ghost"
             fullWidth
             size="medium"
-            onPress={handleSignIn}
+            onPress={() => router.replace('/(student-tabs)/feed')}
           >
             Continue as guest
           </PillButton>
@@ -170,6 +211,11 @@ const styles = StyleSheet.create({
     color: Colors.dark.textPrimary,
     borderWidth: 1,
     borderColor: 'transparent',
+  },
+  errorText: {
+    fontFamily: Typography.body.fontFamily,
+    color: Colors.error,
+    fontSize: 13,
   },
   actions: {
     gap: 16,

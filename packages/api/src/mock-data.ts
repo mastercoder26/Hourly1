@@ -19,6 +19,9 @@ export type Opportunity = {
   whatToBring?: string[];
   recurring: boolean;
   rating?: number;
+  postStatus?: 'VISIBLE' | 'REMOVED';
+  removedReason?: string;
+  moderatedAt?: string;
 };
 
 export type Application = {
@@ -39,6 +42,38 @@ export type UserProfile = {
   grade: number;
   interests: string[];
   totalHours: number;
+};
+
+export type OrganizationModerationStatus = 'PENDING' | 'APPROVED' | 'DENIED' | 'APPEALED';
+export type AppealStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export type AppealRecord = {
+  id: string;
+  message: string;
+  submittedAt: string;
+  status: AppealStatus;
+  resolutionNote?: string;
+  resolvedAt?: string;
+};
+
+export type OrganizationRecord = {
+  id: string;
+  name: string;
+  contactEmail: string;
+  causeTags: string[];
+  description: string;
+  status: OrganizationModerationStatus;
+  denialReason?: string;
+  appeal?: AppealRecord;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminSession = {
+  token: string;
+  email: string;
+  createdAt: string;
+  expiresAt: string;
 };
 
 export const mockOpportunities: Opportunity[] = [
@@ -231,6 +266,9 @@ export const mockOpportunities: Opportunity[] = [
     whatToBring: ['Closed-toe shoes', 'Water bottle', 'Physical ability to lift 30lbs'],
     recurring: true,
     rating: 4.7,
+    postStatus: 'REMOVED',
+    removedReason: 'Duplicate posting detected',
+    moderatedAt: '2026-03-26T09:30:00.000Z',
   },
 ];
 
@@ -248,3 +286,79 @@ export const mockUsers: UserProfile[] = [
     totalHours: 24,
   },
 ];
+
+export const mockOrganizations: OrganizationRecord[] = [
+  {
+    id: 'org-001',
+    name: 'Green Earth Foundation',
+    contactEmail: 'contact@greenearth.org',
+    causeTags: ['Environment', 'Food'],
+    description: 'Community environmental stewardship and neighborhood sustainability.',
+    status: 'APPROVED',
+    createdAt: '2026-01-12T08:00:00.000Z',
+    updatedAt: '2026-03-20T10:00:00.000Z',
+  },
+  {
+    id: 'org-002',
+    name: 'Austin Food Bank',
+    contactEmail: 'volunteer@austinfoodbank.org',
+    causeTags: ['Food', 'Health'],
+    description: 'Food sorting and distribution programs across Austin neighborhoods.',
+    status: 'APPROVED',
+    createdAt: '2026-01-20T09:15:00.000Z',
+    updatedAt: '2026-03-18T14:22:00.000Z',
+  },
+  {
+    id: 'org-003',
+    name: 'Youth Mentorship Alliance',
+    contactEmail: 'team@youthmentorship.org',
+    causeTags: ['Education', 'Youth'],
+    description: 'Academic mentorship and after-school support for local students.',
+    status: 'APPROVED',
+    createdAt: '2026-02-02T12:40:00.000Z',
+    updatedAt: '2026-03-19T09:12:00.000Z',
+  },
+  {
+    id: 'org-004',
+    name: 'Sunny Paws Rescue',
+    contactEmail: 'hello@sunnypaws.org',
+    causeTags: ['Animals'],
+    description: 'Rescue shelter and pet adoption support services.',
+    status: 'APPROVED',
+    createdAt: '2026-02-08T10:10:00.000Z',
+    updatedAt: '2026-03-17T15:42:00.000Z',
+  },
+  {
+    id: 'org-005',
+    name: 'Sunrise Senior Center',
+    contactEmail: 'coordinator@sunrisesenior.org',
+    causeTags: ['Seniors', 'Health'],
+    description: 'Senior care companionship and enrichment activities.',
+    status: 'APPROVED',
+    createdAt: '2026-02-12T11:00:00.000Z',
+    updatedAt: '2026-03-15T10:18:00.000Z',
+  },
+  {
+    id: 'org-006',
+    name: 'Arts for All',
+    contactEmail: 'admin@artsforall.org',
+    causeTags: ['Arts', 'Youth'],
+    description: 'Public art initiatives and youth mural workshops.',
+    status: 'DENIED',
+    denialReason: 'Missing nonprofit verification documents.',
+    createdAt: '2026-02-20T16:15:00.000Z',
+    updatedAt: '2026-03-21T08:45:00.000Z',
+  },
+  {
+    id: 'org-007',
+    name: 'Community Coding Club',
+    contactEmail: 'board@communitycoding.club',
+    causeTags: ['Education', 'Youth'],
+    description: 'Coding mentorship and weekend project labs for teens.',
+    status: 'PENDING',
+    createdAt: '2026-03-24T13:20:00.000Z',
+    updatedAt: '2026-03-24T13:20:00.000Z',
+  },
+];
+
+export const adminSessions: AdminSession[] = [];

@@ -7,22 +7,87 @@ import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { PillButton } from '../../components/ui/PillButton';
+import { useSignUp } from '@clerk/expo/legacy';
 
 export default function SignUpScreen() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role: string }>();
+  const { signUp, setActive, isLoaded } = useSignUp();
+
+  const selectedRole = role === 'organizer' ? 'organizer' : 'student';
+  const onboardingRoute = `/onboarding?role=${selectedRole}`;
+  const clerkKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
+  const isClerkConfigured = clerkKey.length > 0 && !clerkKey.includes('PLACEHOLDER');
   
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [pendingVerification, setPendingVerification] = useState(false);
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSignUp = () => {
-    // Mock sign-up — connects to Clerk in Phase 2
-    router.replace(`/onboarding?role=${role || 'student'}`);
+  const getClerkError = (err: unknown) => {
+    if (
+      typeof err === 'object' &&
+      err !== null &&
+      'errors' in err &&
+      Array.isArray((err as { errors?: Array<{ message?: string }> }).errors)
+    ) {
+      return (err as { errors: Array<{ message?: string }> }).errors[0]?.message;
+    }
+    return null;
   };
 
-  const isStudent = role !== 'organizer';
+  const handleSignUp = async () => {
+    if (!isClerkConfigured) {
+      router.replace(onboardingRoute as never);
+      return;
+    }
+    if (!isLoaded) return;
+
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      await signUp.create({
+        emailAddress: email.trim(),
+        password,
+      });
+
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      setPendingVerification(true);
+    } catch (err: unknown) {
+      setError(getClerkError(err) ?? 'Sign up failed');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleVerify = async () => {
+    if (!isLoaded) return;
+
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      const result = await signUp.attemptEmailAddressVerification({ code: code.trim() });
+
+      if (result.status === 'complete' && result.createdSessionId) {
+        await setActive({ session: result.createdSessionId });
+        router.replace(onboardingRoute as never);
+      } else {
+        setError('Verification could not be completed.');
+      }
+    } catch (err: unknown) {
+      setError(getClerkError(err) ?? 'Verification failed');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const isStudent = selectedRole !== 'organizer';
 
   return (
     <KeyboardAvoidingView
@@ -94,23 +159,66 @@ export default function SignUpScreen() {
         </Animated.View>
 
         <Animated.View style={styles.actions} entering={FadeInDown.springify().damping(18).mass(0.8).delay(500)}>
-          <PillButton variant="primary" fullWidth size="large" onPress={handleSignUp}>
-            Create account
-          </PillButton>
+          {!pendingVerification ? (
+            <>
+              <PillButton
+                variant="primary"
+                fullWidth
+                size="large"
+                onPress={handleSignUp}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Creating account...' : 'Create account'}
+              </PillButton>
 
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
-          </View>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or</Text>
+                <View style={styles.dividerLine} />
+              </View>
 
-          <PillButton variant="default" fullWidth size="large" onPress={handleSignUp}>
-            Sign up with Google
-          </PillButton>
+              <PillButton variant="default" fullWidth size="large" onPress={handleSignUp}>
+                Sign up with Google
+              </PillButton>
 
-          <Text style={styles.terms}>
-            By creating an account, you agree to our Terms of Service and Privacy Policy
-          </Text>
+              <Text style={styles.terms}>
+                By creating an account, you agree to our Terms of Service and Privacy Policy
+              </Text>
+            </>
+          ) : (
+            <>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Verification code</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="123456"
+                  placeholderTextColor={Colors.dark.textTertiary}
+                  value={code}
+                  onChangeText={setCode}
+                  keyboardType="number-pad"
+                />
+              </View>
+              <PillButton
+                variant="primary"
+                fullWidth
+                size="large"
+                onPress={handleVerify}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Verifying...' : 'Verify email'}
+              </PillButton>
+              <PillButton
+                variant="ghost"
+                fullWidth
+                size="medium"
+                onPress={() => setPendingVerification(false)}
+              >
+                Use a different email
+              </PillButton>
+            </>
+          )}
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -184,6 +292,12 @@ const styles = StyleSheet.create({
     color: Colors.dark.textPrimary,
     borderWidth: 1,
     borderColor: 'transparent',
+  },
+  errorText: {
+    fontFamily: Typography.body.fontFamily,
+    color: Colors.error,
+    fontSize: 13,
+    textAlign: 'center',
   },
   actions: {
     gap: 16,

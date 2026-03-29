@@ -1,10 +1,31 @@
 import { z } from 'zod';
-import { router, publicProcedure } from '../trpc';
+import { router, protectedProcedure, publicProcedure } from '../trpc';
 import { mockUsers, UserProfile } from '../mock-data';
 
 const users: UserProfile[] = [...mockUsers];
 
 export const userRouter = router({
+  me: protectedProcedure.query(({ ctx }) => {
+    let user = users.find(u => u.id === ctx.userId);
+
+    if (!user) {
+      user = {
+        id: ctx.userId,
+        firstName: 'Hourly',
+        lastName: 'User',
+        email: 'user@hourly.local',
+        school: 'Unknown School',
+        grade: 0,
+        interests: [],
+        totalHours: 0,
+      };
+      users.push(user);
+    }
+
+    return user;
+  }),
+
+  // Legacy route kept temporarily while screens migrate.
   getProfile: publicProcedure
     .input(z.object({ userId: z.string() }))
     .query(({ input }) => {
