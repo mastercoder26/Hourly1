@@ -1,14 +1,15 @@
-// Welcome Screen — "Welcome to Hourly" landing page
+// Welcome Screen — "Welcome to Hourly" landing page with refined animations
 import React, { useEffect } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
 import Animated from 'react-native-reanimated';
-import { Colors } from '../constants/colors';
+import { Colors, Shadows } from '../constants/colors';
 import { Typography } from '../constants/typography';
 import { PillButton } from '../components/ui/PillButton';
 import { useAuth, useUser } from '@clerk/expo';
-import { enterRise } from '../lib/motion';
+import { enterRise, enterFade } from '../lib/motion';
+import { Feather } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
@@ -37,32 +38,63 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Background decoration */}
+      <View style={styles.bgDecoration}>
+        <View style={styles.bgCircle1} />
+        <View style={styles.bgCircle2} />
+      </View>
+
       <View style={styles.content}>
-        <Animated.View style={styles.logoContainer} entering={enterRise(120)}>
+        {/* Logo */}
+        <Animated.View style={styles.logoContainer} entering={enterRise(80)}>
           <View style={styles.brandCircle}>
             <Text style={styles.logoText}>H</Text>
           </View>
         </Animated.View>
 
-        <Animated.View style={styles.titleContainer} entering={enterRise(200)}>
+        {/* Title & subtitle */}
+        <Animated.View style={styles.titleContainer} entering={enterRise(160)}>
           <Text style={styles.title}>Hourly.</Text>
           <Text style={styles.subtitle}>
-            The new standard for volunteer tracking.
+            Track your volunteer hours.{'\n'}Make an impact.
           </Text>
+        </Animated.View>
+
+        {/* Features */}
+        <Animated.View style={styles.features} entering={enterFade(280)}>
+          <View style={styles.featureItem}>
+            <View style={styles.featureIcon}>
+              <Feather name="clock" size={18} color={Colors.accent} />
+            </View>
+            <Text style={styles.featureText}>Verified hour tracking</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <View style={styles.featureIcon}>
+              <Feather name="award" size={18} color={Colors.accent} />
+            </View>
+            <Text style={styles.featureText}>Earn badges & credits</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <View style={styles.featureIcon}>
+              <Feather name="map-pin" size={18} color={Colors.accent} />
+            </View>
+            <Text style={styles.featureText}>Find local opportunities</Text>
+          </View>
         </Animated.View>
       </View>
 
-      <Animated.View style={styles.bottomActions} entering={enterRise(280)}>
+      {/* Bottom actions */}
+      <Animated.View style={styles.bottomActions} entering={enterRise(360)}>
         <PillButton
           variant="primary"
           fullWidth
           size="large"
           onPress={() => router.push('/role-selection')}
         >
-          Sign Up
+          Get Started
         </PillButton>
         <PillButton
-          variant="secondary" // Slightly lighter black, or keep ghost
+          variant="secondary"
           fullWidth
           size="large"
           onPress={() => router.push('/(auth)/sign-in')}
@@ -90,54 +122,98 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'space-between',
   },
+  bgDecoration: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  bgCircle1: {
+    position: 'absolute',
+    top: -100,
+    right: -100,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: Colors.accentSoft,
+    opacity: 0.3,
+  },
+  bgCircle2: {
+    position: 'absolute',
+    bottom: 200,
+    left: -150,
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+    backgroundColor: Colors.dark.card,
+    opacity: 0.5,
+  },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 32,
     justifyContent: 'center',
     alignItems: 'center',
   },
   logoContainer: {
-    marginBottom: 40,
+    marginBottom: 32,
   },
   brandCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     backgroundColor: Colors.dark.textPrimary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: Colors.dark.textPrimary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
+    ...Shadows.card,
   },
   logoText: {
-    fontFamily: Typography.valueHuge.fontFamily,
-    fontSize: 48,
+    fontSize: 44,
     fontWeight: '700',
     color: Colors.dark.base,
+    letterSpacing: -1,
   },
   titleContainer: {
     alignItems: 'center',
+    marginBottom: 48,
   },
   title: {
-    fontFamily: Typography.valueHuge.fontFamily,
-    fontSize: 48,
+    fontSize: 52,
     fontWeight: '600',
     letterSpacing: -1.5,
     color: Colors.dark.textPrimary,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   subtitle: {
-    fontFamily: Typography.body.fontFamily,
-    fontSize: 17,
+    ...Typography.body,
     color: Colors.dark.textSecondary,
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 26,
+  },
+  features: {
+    gap: 16,
+    alignItems: 'flex-start',
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  featureIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureText: {
+    ...Typography.label,
+    color: Colors.dark.textPrimary,
   },
   bottomActions: {
     paddingHorizontal: 24,
     paddingBottom: 48,
-    gap: 16,
+    gap: 12,
   },
 });

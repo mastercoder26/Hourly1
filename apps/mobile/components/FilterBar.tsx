@@ -1,9 +1,17 @@
-// FilterBar — sticky filter bar for opportunity feed
+// FilterBar — sticky filter bar for opportunity feed with refined styling
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/Themed';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { Colors } from '@/constants/colors';
+import { Typography } from '@/constants/typography';
 import { CauseTag } from '../types';
+import { MOTION, PRESS_FEEDBACK } from '../lib/motion';
+import { Feather } from '@expo/vector-icons';
 
 interface FilterBarProps {
   onFiltersChange?: (filters: Filters) => void;
@@ -16,6 +24,61 @@ export interface Filters {
 }
 
 const ALL_CAUSES: CauseTag[] = ['Environment', 'Education', 'Food', 'Animals', 'Seniors', 'Youth', 'Health', 'Arts'];
+
+function FilterChip({ 
+  label, 
+  isActive, 
+  activeColor,
+  activeBgColor,
+  onPress,
+  icon,
+}: { 
+  label: string;
+  isActive: boolean;
+  activeColor?: string;
+  activeBgColor?: string;
+  onPress: () => void;
+  icon?: string;
+}) {
+  const scale = useSharedValue(1);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withTiming(PRESS_FEEDBACK.scale, { duration: MOTION.duration.instant });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withTiming(1, { duration: MOTION.duration.quick });
+  };
+
+  const chipBgColor = isActive 
+    ? (activeBgColor || Colors.accentSoft)
+    : Colors.dark.element;
+  
+  const chipTextColor = isActive 
+    ? (activeColor || Colors.accent)
+    : Colors.dark.textSecondary;
+
+  return (
+    <Pressable 
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+    >
+      <Animated.View style={[styles.chip, animatedStyle, { backgroundColor: chipBgColor }]}>
+        {icon && (
+          <Feather name={icon as any} size={14} color={chipTextColor} />
+        )}
+        <Text style={[styles.chipText, { color: chipTextColor }]}>
+          {label}
+        </Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
 
 export function FilterBar({ onFiltersChange }: FilterBarProps) {
   const [selectedCauses, setSelectedCauses] = useState<CauseTag[]>([]);
@@ -36,20 +99,18 @@ export function FilterBar({ onFiltersChange }: FilterBarProps) {
 
   return (
     <View style={styles.container}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false} 
+        contentContainerStyle={styles.scroll}
+      >
         {/* Credit-eligible filter */}
-        <Pressable
+        <FilterChip
+          label="Credit eligible"
+          icon="award"
+          isActive={creditOnly}
           onPress={toggleCredit}
-          style={({ pressed }) => [
-            styles.chip,
-            creditOnly && styles.chipActive,
-            pressed && styles.chipPressed,
-          ]}
-        >
-          <Text style={[styles.chipText, creditOnly && styles.chipTextActive]}>
-            Credit eligible
-          </Text>
-        </Pressable>
+        />
 
         {/* Separator */}
         <View style={styles.separator} />
@@ -58,24 +119,14 @@ export function FilterBar({ onFiltersChange }: FilterBarProps) {
         {ALL_CAUSES.map(cause => {
           const isActive = selectedCauses.includes(cause);
           return (
-            <Pressable
+            <FilterChip
               key={cause}
+              label={cause}
+              isActive={isActive}
+              activeColor={Colors.causeTags[cause]}
+              activeBgColor={Colors.causeTagsSoft[cause]}
               onPress={() => toggleCause(cause)}
-              style={({ pressed }) => [
-                styles.chip,
-                isActive && { backgroundColor: Colors.causeTags[cause] + '30' },
-                pressed && styles.chipPressed,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  isActive && { color: Colors.causeTags[cause] },
-                ]}
-              >
-                {cause}
-              </Text>
-            </Pressable>
+            />
           );
         })}
       </ScrollView>
@@ -94,29 +145,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 9,
     borderRadius: 999,
-    backgroundColor: Colors.dark.element,
-  },
-  chipPressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.98 }],
-  },
-  chipActive: {
-    backgroundColor: Colors.tealSoft,
   },
   chipText: {
     fontSize: 13,
-    fontWeight: '500',
-    color: Colors.dark.textSecondary,
-  },
-  chipTextActive: {
-    color: Colors.teal,
+    fontWeight: '600',
+    letterSpacing: 0.1,
   },
   separator: {
     width: 1,
-    height: 20,
-    backgroundColor: Colors.dark.element,
+    height: 24,
+    backgroundColor: Colors.dark.divider,
+    marginHorizontal: 4,
   },
 });
