@@ -1,12 +1,19 @@
-// OpportunityCard — main feed card component
+// OpportunityCard — main feed card component with refined press states
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { Text } from '@/components/Themed';;
+import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { Opportunity } from '../types';
-import { Colors, CardStyle } from '@/constants/colors';
+import { Colors, CardStyle, Shadows } from '@/constants/colors';
+import { Typography } from '@/constants/typography';
 import { PillBadge } from './ui/PillBadge';
 import { Feather } from '@expo/vector-icons';
+import { MOTION, PRESS_FEEDBACK } from '../lib/motion';
 
 interface OpportunityCardProps {
   opportunity: Opportunity;
@@ -14,102 +21,131 @@ interface OpportunityCardProps {
 
 export function OpportunityCard({ opportunity }: OpportunityCardProps) {
   const router = useRouter();
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+
   const spotsLeft = opportunity.totalSpots - opportunity.filledSpots;
   const isUrgent = spotsLeft <= 5;
   const isCritical = spotsLeft <= 1;
+  const fillPercentage = (opportunity.filledSpots / opportunity.totalSpots) * 100;
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
+  const pressStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withTiming(PRESS_FEEDBACK.scale, { duration: MOTION.duration.instant });
+    opacity.value = withTiming(PRESS_FEEDBACK.opacity, { duration: MOTION.duration.instant });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withTiming(1, { duration: MOTION.duration.quick });
+    opacity.value = withTiming(1, { duration: MOTION.duration.quick });
+  };
+
+  const getUrgencyColor = () => {
+    if (isCritical) return Colors.urgencyRed;
+    if (isUrgent) return Colors.urgencyOrange;
+    return Colors.accent;
+  };
+
   return (
     <Pressable
       onPress={() => router.push(`/opportunity/${opportunity.id}`)}
-      style={({ pressed }) => [
-        styles.card,
-        pressed && styles.cardPressed,
-      ]}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
     >
-      {/* Header row */}
-      <View style={styles.header}>
-        <View style={styles.orgInfo}>
-          <View style={styles.orgLogo}>
-            <Text style={styles.orgLogoText}>{opportunity.orgLogo}</Text>
-          </View>
-          <View>
-            <View style={styles.orgNameRow}>
-              <Text style={styles.orgName}>{opportunity.orgName}</Text>
-              {opportunity.orgVerified && (
-                <Feather name="check-circle" size={12} color={Colors.teal} />
-              )}
+      <Animated.View style={[styles.card, pressStyle]}>
+        {/* Header row */}
+        <View style={styles.header}>
+          <View style={styles.orgInfo}>
+            <View style={styles.orgLogo}>
+              <Text style={styles.orgLogoText}>{opportunity.orgLogo}</Text>
             </View>
-            <Text style={styles.orgRating}>★ {opportunity.rating.toFixed(1)}</Text>
+            <View style={styles.orgDetails}>
+              <View style={styles.orgNameRow}>
+                <Text style={styles.orgName}>{opportunity.orgName}</Text>
+                {opportunity.orgVerified && (
+                  <View style={styles.verifiedBadge}>
+                    <Feather name="check" size={10} color={Colors.dark.base} />
+                  </View>
+                )}
+              </View>
+              <View style={styles.ratingRow}>
+                <Text style={styles.orgRating}>★ {opportunity.rating.toFixed(1)}</Text>
+              </View>
+            </View>
+          </View>
+          {opportunity.creditEligible && (
+            <View style={styles.creditBadge}>
+              <Feather name="award" size={12} color={Colors.accent} style={{ marginRight: 4 }} />
+              <Text style={styles.creditBadgeText}>Credit</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Title */}
+        <Text style={styles.title}>{opportunity.title}</Text>
+
+        {/* Cause tags */}
+        <View style={styles.tags}>
+          {opportunity.causeTags.slice(0, 3).map(tag => (
+            <PillBadge key={tag} label={tag} causeTag={tag} size="tiny" />
+          ))}
+          {opportunity.causeTags.length > 3 && (
+            <PillBadge label={`+${opportunity.causeTags.length - 3}`} size="tiny" />
+          )}
+        </View>
+
+        {/* Details row */}
+        <View style={styles.details}>
+          <View style={styles.detailItem}>
+            <Feather name="calendar" size={13} color={Colors.dark.textTertiary} />
+            <Text style={styles.detailText}>{formatDate(opportunity.date)}</Text>
+          </View>
+          <View style={styles.detailItem}>
+            <Feather name="clock" size={13} color={Colors.dark.textTertiary} />
+            <Text style={styles.detailText}>{opportunity.startTime} – {opportunity.endTime}</Text>
+          </View>
+          <View style={styles.detailItem}>
+            <Feather name="map-pin" size={13} color={Colors.dark.textTertiary} />
+            <Text style={styles.detailText}>{opportunity.distance?.toFixed(1)} mi</Text>
           </View>
         </View>
-        {opportunity.creditEligible && (
-          <View style={styles.creditBadge}>
-            <Text style={styles.creditBadgeText}>Credit</Text>
+
+        {/* Footer: spots + hours */}
+        <View style={styles.footer}>
+          <View style={styles.spotsContainer}>
+            <View style={styles.spotsBar}>
+              <Animated.View
+                style={[
+                  styles.spotsFill,
+                  {
+                    width: `${fillPercentage}%`,
+                    backgroundColor: getUrgencyColor(),
+                  },
+                ]}
+              />
+            </View>
+            <View style={styles.spotsInfo}>
+              <Text style={[styles.spotsText, { color: getUrgencyColor() }]}>
+                {spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left
+              </Text>
+              <Text style={styles.spotsTotal}>of {opportunity.totalSpots}</Text>
+            </View>
           </View>
-        )}
-      </View>
-
-      {/* Title */}
-      <Text style={styles.title}>{opportunity.title}</Text>
-
-      {/* Cause tags */}
-      <View style={styles.tags}>
-        {opportunity.causeTags.map(tag => (
-          <PillBadge key={tag} label={tag} causeTag={tag} />
-        ))}
-      </View>
-
-      {/* Details row */}
-      <View style={styles.details}>
-        <View style={styles.detailItem}>
-          <Feather name="calendar" size={14} color={Colors.dark.textSecondary} />
-          <Text style={styles.detailText}>{formatDate(opportunity.date)}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Feather name="clock" size={14} color={Colors.dark.textSecondary} />
-          <Text style={styles.detailText}>{opportunity.startTime} – {opportunity.endTime}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Feather name="map-pin" size={14} color={Colors.dark.textSecondary} />
-          <Text style={styles.detailText}>{opportunity.distance?.toFixed(1)} mi</Text>
-        </View>
-      </View>
-
-      {/* Footer: spots + hours */}
-      <View style={styles.footer}>
-        <View style={styles.spotsContainer}>
-          <View style={styles.spotsBar}>
-            <View
-              style={[
-                styles.spotsFill,
-                {
-                  width: `${(opportunity.filledSpots / opportunity.totalSpots) * 100}%`,
-                  backgroundColor: isCritical
-                    ? Colors.urgencyRed
-                    : isUrgent
-                    ? Colors.urgencyOrange
-                    : Colors.teal,
-                },
-              ]}
-            />
+          <View style={styles.hoursContainer}>
+            <Text style={styles.hoursValue}>{opportunity.durationHours}</Text>
+            <Text style={styles.hoursUnit}>hrs</Text>
           </View>
-          <Text
-            style={[
-              styles.spotsText,
-              isCritical && { color: Colors.urgencyRed },
-              isUrgent && !isCritical && { color: Colors.urgencyOrange },
-            ]}
-          >
-            {spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left
-          </Text>
         </View>
-        <Text style={styles.hours}>{opportunity.durationHours}h</Text>
-      </View>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -118,17 +154,9 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.dark.card,
     borderRadius: CardStyle.borderRadius,
-    padding: CardStyle.paddingSmall,
+    padding: 24,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  cardPressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.985 }],
+    ...Shadows.card,
   },
   header: {
     flexDirection: 'row',
@@ -140,17 +168,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
   },
   orgLogo: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.dark.element,
     alignItems: 'center',
     justifyContent: 'center',
   },
   orgLogoText: {
-    fontSize: 18,
+    fontSize: 20,
+  },
+  orgDetails: {
+    flex: 1,
   },
   orgNameRow: {
     flexDirection: 'row',
@@ -158,44 +190,60 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   orgName: {
-    fontSize: 14,
-    fontWeight: '500',
+    ...Typography.label,
     color: Colors.dark.textPrimary,
   },
-  orgRating: {
-    fontSize: 12,
-    color: Colors.dark.textSecondary,
+  verifiedBadge: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 2,
   },
+  orgRating: {
+    ...Typography.caption,
+    color: Colors.dark.textSecondary,
+  },
   creditBadge: {
-    backgroundColor: Colors.tealSoft,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.accentSoft,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 999,
   },
   creditBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: Colors.teal,
+    color: Colors.accent,
+    letterSpacing: 0.2,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '500',
+    ...Typography.subtitle,
     color: Colors.dark.textPrimary,
-    marginBottom: 12,
+    marginBottom: 14,
     lineHeight: 24,
   },
   tags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
     marginBottom: 16,
   },
   details: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
-    marginBottom: 16,
+    marginBottom: 18,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.divider,
   },
   detailItem: {
     flexDirection: 'row',
@@ -203,38 +251,60 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   detailText: {
-    fontSize: 13,
+    ...Typography.caption,
     color: Colors.dark.textSecondary,
-    fontWeight: '400',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-end',
   },
   spotsContainer: {
     flex: 1,
-    marginRight: 16,
+    marginRight: 20,
   },
   spotsBar: {
-    height: 4,
+    height: 6,
     backgroundColor: Colors.dark.element,
-    borderRadius: 2,
-    marginBottom: 6,
+    borderRadius: 3,
+    marginBottom: 8,
     overflow: 'hidden',
   },
   spotsFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: 3,
+  },
+  spotsInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   spotsText: {
-    fontSize: 12,
-    color: Colors.dark.textSecondary,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
   },
-  hours: {
-    fontSize: 15,
+  spotsTotal: {
+    ...Typography.caption,
+    color: Colors.dark.textTertiary,
+  },
+  hoursContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    backgroundColor: Colors.accentSoft,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  hoursValue: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: Colors.accent,
+  },
+  hoursUnit: {
+    fontSize: 12,
     fontWeight: '500',
-    color: Colors.teal,
+    color: Colors.accent,
+    marginLeft: 2,
+    opacity: 0.8,
   },
 });

@@ -1,17 +1,21 @@
-// Org Dashboard — main organizer home screen
+// Org Dashboard — main organizer home screen with refined stats grid
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
 import Animated from 'react-native-reanimated';
-import { Colors } from '../../constants/colors';
+import { Colors, CardStyle, Shadows } from '../../constants/colors';
+import { Typography } from '../../constants/typography';
 import { Card } from '../../components/ui/Card';
+import { StatCard } from '../../components/ui/StatCard';
+import { StatusPill } from '../../components/ui/StatusPill';
 import { PillButton } from '../../components/ui/PillButton';
 import { PillBadge } from '../../components/ui/PillBadge';
 import { trpc } from '../../lib/trpc';
 import { mockOrgStats } from '../../mocks/data';
 import { mockOpportunities } from '../../mocks/opportunities';
-import { enterRise } from '../../lib/motion';
+import { enterRise, enterRiseSnappy, enterFade, stagger } from '../../lib/motion';
+import { Feather } from '@expo/vector-icons';
 
 export default function OrgDashboard() {
   const router = useRouter();
@@ -58,110 +62,179 @@ export default function OrgDashboard() {
   if (isLoadingRemote && !shouldUseFallback) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.purple} />
+        <ActivityIndicator size="large" color={Colors.accent} />
+        <Text style={styles.loadingText}>Loading dashboard...</Text>
       </View>
     );
   }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Green Earth Foundation</Text>
+      {/* Header */}
+      <Animated.View style={styles.header} entering={enterFade(40)}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.greeting}>GREEN EARTH FOUNDATION</Text>
           <Text style={styles.title}>Dashboard</Text>
-          {shouldUseFallback && (
-            <Text style={styles.fallbackNote}>Demo mode: showing local data</Text>
-          )}
         </View>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>🌿</Text>
         </View>
-      </View>
-
-      {/* Quick stats */}
-      <Animated.View entering={enterRise(80)} style={styles.statsRow}>
-        <Card style={styles.statCard}>
-          <Text style={styles.statValue}>{stats.volunteersThisMonth}</Text>
-          <Text style={styles.statLabel}>Volunteers this month</Text>
-        </Card>
-        <Card style={styles.statCard}>
-          <Text style={styles.statValue}>{stats.totalHours.toLocaleString()}</Text>
-          <Text style={styles.statLabel}>Total hours</Text>
-        </Card>
       </Animated.View>
 
-      <Animated.View entering={enterRise(140)} style={styles.statsRow}>
-        <Card style={styles.statCard}>
-          <Text style={styles.statValue}>{Math.round(stats.retentionRate * 100)}%</Text>
-          <Text style={styles.statLabel}>Retention rate</Text>
-        </Card>
-        <Card style={styles.statCard}>
-          <Text style={styles.statValue}>★ {stats.avgRating}</Text>
-          <Text style={styles.statLabel}>Avg rating</Text>
-        </Card>
+      {/* Demo mode notice */}
+      {shouldUseFallback && (
+        <Animated.View style={styles.demoNotice} entering={enterFade(60)}>
+          <Feather name="info" size={14} color={Colors.accent} />
+          <Text style={styles.demoNoticeText}>Demo mode: showing sample data</Text>
+        </Animated.View>
+      )}
+
+      {/* Stats grid */}
+      <Animated.View style={styles.statsGrid} entering={enterRise(100)}>
+        <StatCard
+          label="Volunteers"
+          value={stats.volunteersThisMonth}
+          subValue="this month"
+          delay={100}
+          style={styles.statCard}
+        />
+        <StatCard
+          label="Total Hours"
+          value={stats.totalHours.toLocaleString()}
+          subValue="all time"
+          delay={150}
+          style={styles.statCard}
+        />
+        <StatCard
+          label="Retention"
+          value={`${Math.round(stats.retentionRate * 100)}%`}
+          trend={stats.retentionRate > 0.7 ? 'up' : 'down'}
+          delay={200}
+          style={styles.statCard}
+        />
+        <StatCard
+          label="Rating"
+          value={`★ ${stats.avgRating}`}
+          subValue="avg score"
+          delay={250}
+          style={styles.statCard}
+        />
       </Animated.View>
 
       {/* Post a role CTA */}
-      <Animated.View entering={enterRise(200)}>
-        <PillButton
-          variant="primary"
-          accent="purple"
-          fullWidth
-          size="large"
+      <Animated.View entering={enterRiseSnappy(280)}>
+        <Pressable
+          style={styles.ctaCard}
           onPress={() => router.push('/org/create-role')}
         >
-          + Post a new role
-        </PillButton>
+          <View style={styles.ctaContent}>
+            <View style={styles.ctaIcon}>
+              <Feather name="plus" size={24} color={Colors.dark.base} />
+            </View>
+            <View style={styles.ctaText}>
+              <Text style={styles.ctaTitle}>Post a new role</Text>
+              <Text style={styles.ctaSubtitle}>Create a volunteer opportunity</Text>
+            </View>
+          </View>
+          <Feather name="chevron-right" size={20} color={Colors.dark.base} />
+        </Pressable>
       </Animated.View>
 
       {/* Active listings */}
-      <Animated.View entering={enterRise(260)}>
-        <Text style={styles.sectionTitle}>Active listings</Text>
-        {orgOpps.map(opp => {
+      <Animated.View entering={enterRise(340)}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>ACTIVE LISTINGS</Text>
+          <Text style={styles.sectionCount}>{orgOpps.length} total</Text>
+        </View>
+
+        {orgOpps.map((opp, index) => {
           const spotsLeft = opp.totalSpots - opp.filledSpots;
+          const fillPercentage = (opp.filledSpots / opp.totalSpots) * 100;
+          const pendingApplicants = (opp as { pendingApplicants?: number }).pendingApplicants ?? 0;
+          
           return (
-            <Pressable
+            <Animated.View 
               key={opp.id}
-              onPress={() => router.push(`/org/applicants/${opp.id}`)}
-              style={({ pressed }) => [pressed && styles.listingPressed]}
+              entering={enterFade(stagger(index, 380, 50))}
             >
-              <Card style={styles.listingCard}>
+              <Card
+                style={styles.listingCard}
+                onPress={() => router.push(`/org/applicants/${opp.id}`)}
+              >
                 <View style={styles.listingHeader}>
-                  <Text style={styles.listingTitle}>{opp.title}</Text>
+                  <Text style={styles.listingTitle} numberOfLines={1}>{opp.title}</Text>
                   <PillBadge
                     label={`${opp.filledSpots}/${opp.totalSpots}`}
-                    color={spotsLeft <= 3 ? Colors.urgencyOrange : Colors.purple}
+                    color={spotsLeft <= 3 ? Colors.urgencyOrange : Colors.accent}
+                    size="tiny"
                   />
                 </View>
+                
                 <Text style={styles.listingDate}>
-                  {new Date(opp.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • {opp.startTime} – {opp.endTime}
+                  {new Date(opp.date).toLocaleDateString('en-US', { 
+                    weekday: 'short',
+                    month: 'short', 
+                    day: 'numeric' 
+                  })} • {opp.startTime} – {opp.endTime}
                 </Text>
+                
                 <View style={styles.listingProgress}>
-                  <View style={[styles.listingBar, { width: `${(opp.filledSpots / opp.totalSpots) * 100}%` }]} />
+                  <View style={[styles.listingBar, { width: `${fillPercentage}%` }]} />
                 </View>
-                <Text style={styles.listingApplicants}>
-                  {(opp as { pendingApplicants?: number }).pendingApplicants ?? 0} pending applicants →
-                </Text>
+                
+                <View style={styles.listingFooter}>
+                  <View style={styles.applicantsInfo}>
+                    <Feather name="users" size={14} color={Colors.accent} />
+                    <Text style={styles.applicantsText}>
+                      {pendingApplicants} pending applicant{pendingApplicants !== 1 ? 's' : ''}
+                    </Text>
+                  </View>
+                  <Feather name="chevron-right" size={18} color={Colors.dark.textTertiary} />
+                </View>
               </Card>
-            </Pressable>
+            </Animated.View>
           );
         })}
       </Animated.View>
 
       {/* Upcoming shifts */}
-      <Animated.View entering={enterRise(320)}>
-        <Text style={styles.sectionTitle}>Upcoming shifts (next 7 days)</Text>
+      <Animated.View entering={enterRise(480)}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>UPCOMING SHIFTS</Text>
+          <Text style={styles.sectionCount}>Next 7 days</Text>
+        </View>
+
         <Card style={styles.upcomingCard}>
           <View style={styles.upcomingRow}>
-            <Text style={styles.upcomingDate}>Sat, Apr 5</Text>
-            <Text style={styles.upcomingTitle}>Park cleanup & tree planting</Text>
-            <Text style={styles.upcomingVolunteers}>14 volunteers</Text>
+            <View style={styles.upcomingDate}>
+              <Text style={styles.upcomingDay}>SAT</Text>
+              <Text style={styles.upcomingDateNum}>5</Text>
+            </View>
+            <View style={styles.upcomingDetails}>
+              <Text style={styles.upcomingTitle}>Park cleanup & tree planting</Text>
+              <View style={styles.upcomingMeta}>
+                <Feather name="users" size={12} color={Colors.dark.textSecondary} />
+                <Text style={styles.upcomingMetaText}>14 volunteers confirmed</Text>
+              </View>
+            </View>
+            <StatusPill status="completed" label="Ready" size="small" />
           </View>
+          
           <View style={styles.upcomingDivider} />
+          
           <View style={styles.upcomingRow}>
-            <Text style={styles.upcomingDate}>Sat, Apr 19</Text>
-            <Text style={styles.upcomingTitle}>Community garden build</Text>
-            <Text style={styles.upcomingVolunteers}>24 volunteers</Text>
+            <View style={styles.upcomingDate}>
+              <Text style={styles.upcomingDay}>SAT</Text>
+              <Text style={styles.upcomingDateNum}>19</Text>
+            </View>
+            <View style={styles.upcomingDetails}>
+              <Text style={styles.upcomingTitle}>Community garden build</Text>
+              <View style={styles.upcomingMeta}>
+                <Feather name="users" size={12} color={Colors.dark.textSecondary} />
+                <Text style={styles.upcomingMetaText}>24 volunteers confirmed</Text>
+              </View>
+            </View>
+            <StatusPill status="pending" label="6 spots" size="small" />
           </View>
         </Card>
       </Animated.View>
@@ -170,35 +243,219 @@ export default function OrgDashboard() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.dark.base },
-  loadingContainer: { flex: 1, backgroundColor: Colors.dark.base, alignItems: 'center', justifyContent: 'center' },
-  content: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 40, gap: 20 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  greeting: { fontSize: 14, color: Colors.dark.textSecondary, marginBottom: 4 },
-  title: { fontSize: 28, fontWeight: '500', color: Colors.dark.textPrimary, letterSpacing: -0.3 },
-  fallbackNote: { fontSize: 12, color: Colors.purple, fontWeight: '600', marginTop: 4 },
-  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.purpleSoft, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 22 },
-  statsRow: { flexDirection: 'row', gap: 12 },
-  statCard: { flex: 1, alignItems: 'center', padding: 20, borderRadius: 20 },
-  statValue: { fontSize: 28, fontWeight: '500', color: Colors.dark.textPrimary, marginBottom: 6 },
-  statLabel: { fontSize: 11, color: Colors.dark.textSecondary, textTransform: 'uppercase', letterSpacing: 0.3, textAlign: 'center' },
-  sectionTitle: { fontSize: 13, fontWeight: '500', color: Colors.dark.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 8 },
-  listingCard: { marginTop: 12, padding: 20, borderRadius: 20, gap: 10 },
-  listingHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  listingTitle: { fontSize: 16, fontWeight: '500', color: Colors.dark.textPrimary, flex: 1, marginRight: 12 },
-  listingDate: { fontSize: 13, color: Colors.dark.textSecondary },
-  listingProgress: { height: 4, borderRadius: 2, backgroundColor: Colors.dark.element, overflow: 'hidden' },
-  listingBar: { height: '100%', borderRadius: 2, backgroundColor: Colors.purple },
-  listingApplicants: { fontSize: 13, color: Colors.purple, fontWeight: '500' },
-  listingPressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.985 }],
+  container: { 
+    flex: 1, 
+    backgroundColor: Colors.dark.base,
   },
-  upcomingCard: { marginTop: 12, padding: 0 },
-  upcomingRow: { padding: 18, gap: 4 },
-  upcomingDate: { fontSize: 12, color: Colors.dark.textSecondary, textTransform: 'uppercase', letterSpacing: 0.3 },
-  upcomingTitle: { fontSize: 15, fontWeight: '500', color: Colors.dark.textPrimary },
-  upcomingVolunteers: { fontSize: 13, color: Colors.purple },
-  upcomingDivider: { height: 1, backgroundColor: Colors.dark.element },
+  loadingContainer: { 
+    flex: 1, 
+    backgroundColor: Colors.dark.base, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    ...Typography.body,
+    color: Colors.dark.textSecondary,
+  },
+  content: { 
+    paddingTop: 60, 
+    paddingHorizontal: 20, 
+    paddingBottom: 40,
+  },
+  header: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  greeting: { 
+    ...Typography.header,
+    marginBottom: 4,
+  },
+  title: { 
+    ...Typography.title,
+    color: Colors.dark.textPrimary,
+  },
+  avatar: { 
+    width: 52, 
+    height: 52, 
+    borderRadius: 26, 
+    backgroundColor: Colors.accentSoft, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    ...Shadows.button,
+  },
+  avatarText: { 
+    fontSize: 24,
+  },
+  demoNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 20,
+    backgroundColor: Colors.accentSoft,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  demoNoticeText: {
+    color: Colors.accent,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  statsGrid: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+  },
+  statCard: { 
+    width: '48%',
+  },
+  ctaCard: {
+    backgroundColor: Colors.dark.textPrimary,
+    borderRadius: CardStyle.borderRadius,
+    padding: 20,
+    marginBottom: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...Shadows.card,
+  },
+  ctaContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  ctaIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaText: {
+    gap: 2,
+  },
+  ctaTitle: {
+    ...Typography.subtitle,
+    color: Colors.dark.base,
+  },
+  ctaSubtitle: {
+    ...Typography.caption,
+    color: Colors.dark.textTertiary,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionTitle: { 
+    ...Typography.header,
+  },
+  sectionCount: {
+    ...Typography.caption,
+  },
+  listingCard: { 
+    marginBottom: 12, 
+    padding: CardStyle.paddingSmall,
+  },
+  listingHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  listingTitle: { 
+    ...Typography.label,
+    color: Colors.dark.textPrimary, 
+    flex: 1, 
+    marginRight: 12,
+  },
+  listingDate: { 
+    ...Typography.caption,
+    marginBottom: 12,
+  },
+  listingProgress: { 
+    height: 6, 
+    borderRadius: 3, 
+    backgroundColor: Colors.dark.element, 
+    overflow: 'hidden',
+    marginBottom: 14,
+  },
+  listingBar: { 
+    height: '100%', 
+    borderRadius: 3, 
+    backgroundColor: Colors.accent,
+  },
+  listingFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  applicantsInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  applicantsText: { 
+    fontSize: 13, 
+    color: Colors.accent, 
+    fontWeight: '500',
+  },
+  upcomingCard: { 
+    padding: 0,
+    marginBottom: 20,
+  },
+  upcomingRow: { 
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  upcomingDate: {
+    width: 48,
+    height: 56,
+    backgroundColor: Colors.dark.element,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  upcomingDay: { 
+    ...Typography.tiny,
+    color: Colors.dark.textSecondary,
+    marginBottom: 2,
+  },
+  upcomingDateNum: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: Colors.dark.textPrimary,
+  },
+  upcomingDetails: {
+    flex: 1,
+  },
+  upcomingTitle: { 
+    ...Typography.label,
+    color: Colors.dark.textPrimary,
+    marginBottom: 4,
+  },
+  upcomingMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  upcomingMetaText: { 
+    ...Typography.caption,
+  },
+  upcomingDivider: { 
+    height: 1, 
+    backgroundColor: Colors.dark.divider,
+    marginHorizontal: 20,
+  },
 });
