@@ -8,9 +8,12 @@ import Animated, {
   withSpring,
   withSequence,
   withDelay,
+  withTiming,
 } from 'react-native-reanimated';
-import { Colors } from '../constants/colors';
+import { Colors, CardStyle, Shadows } from '../constants/colors';
+import { Typography } from '../constants/typography';
 import { Badge } from '../types';
+import { MOTION, PRESS_FEEDBACK } from '../lib/motion';
 
 interface BadgeGridProps {
   badges: Badge[];
@@ -27,24 +30,40 @@ export function BadgeGrid({ badges }: BadgeGridProps) {
 }
 
 function BadgeItem({ badge, index }: { badge: Badge; index: number }) {
-  const scale = useSharedValue(badge.isNew ? 0.95 : 1);
+  const scale = useSharedValue(badge.isNew ? 0.9 : 1);
+  const opacity = useSharedValue(badge.isNew ? 0 : 1);
+  const pressScale = useSharedValue(1);
   const earned = !!badge.earnedAt;
 
   useEffect(() => {
     if (badge.isNew) {
+      // Staggered entrance animation
+      opacity.value = withDelay(
+        index * 60,
+        withTiming(1, { duration: MOTION.duration.emphasized })
+      );
       scale.value = withDelay(
-        index * 70,
+        index * 60,
         withSequence(
-          withSpring(1.08, { damping: 14, stiffness: 260, mass: 0.8 }),
-          withSpring(1, { damping: 18, stiffness: 220, mass: 0.9 })
+          withSpring(1.1, MOTION.springSnappy),
+          withSpring(1, MOTION.spring)
         )
       );
     }
-  }, [badge.isNew]);
+  }, [badge.isNew, index, opacity, scale]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [{ scale: scale.value * pressScale.value }],
+    opacity: opacity.value,
   }));
+
+  const handlePressIn = () => {
+    pressScale.value = withTiming(PRESS_FEEDBACK.scale, { duration: MOTION.duration.instant });
+  };
+
+  const handlePressOut = () => {
+    pressScale.value = withTiming(1, { duration: MOTION.duration.quick });
+  };
 
   const handlePress = () => {
     if (earned) {
@@ -59,16 +78,23 @@ function BadgeItem({ badge, index }: { badge: Badge; index: number }) {
     <Animated.View style={animatedStyle}>
       <Pressable
         onPress={handlePress}
-        style={({ pressed }) => [
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={[
           styles.badge,
           !earned && styles.badgeLocked,
-          pressed && styles.badgePressed,
         ]}
       >
-        <Text style={[styles.icon, !earned && styles.iconLocked]}>{badge.icon}</Text>
-        <Text style={[styles.label, !earned && styles.labelLocked]}>{badge.label}</Text>
+        <View style={[styles.iconContainer, earned && styles.iconContainerEarned]}>
+          <Text style={[styles.icon, !earned && styles.iconLocked]}>{badge.icon}</Text>
+        </View>
+        <Text style={[styles.label, !earned && styles.labelLocked]} numberOfLines={2}>
+          {badge.label}
+        </Text>
         {badge.isNew && earned && (
-          <View style={styles.newDot} />
+          <View style={styles.newIndicator}>
+            <View style={styles.newDot} />
+          </View>
         )}
       </Pressable>
     </Animated.View>
@@ -82,44 +108,55 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   badge: {
-    width: 90,
-    height: 90,
-    borderRadius: 20,
+    width: 100,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    borderRadius: CardStyle.borderRadiusTiny,
     backgroundColor: Colors.dark.element,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 10,
     position: 'relative',
   },
-  badgePressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.98 }],
-  },
   badgeLocked: {
-    opacity: 0.35,
+    opacity: 0.4,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.dark.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconContainerEarned: {
+    backgroundColor: Colors.accentSoft,
   },
   icon: {
-    fontSize: 28,
+    fontSize: 24,
   },
   iconLocked: {
     opacity: 0.5,
   },
   label: {
-    fontSize: 11,
-    fontWeight: '500',
+    ...Typography.tiny,
     color: Colors.dark.textPrimary,
     textAlign: 'center',
+    fontWeight: '600',
   },
   labelLocked: {
     color: Colors.dark.textTertiary,
   },
-  newDot: {
+  newIndicator: {
     position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.teal,
+    top: 8,
+    right: 8,
+  },
+  newDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.accent,
+    ...Shadows.button,
   },
 });
