@@ -1,21 +1,64 @@
 // Events tab — org's list of posted events
-import React from 'react';
-import { View, ScrollView, StyleSheet, Pressable } from 'react-native';
-import { Text } from '@/components/Themed';;
+import React, { useEffect, useState } from 'react';
+import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';
 import { PillBadge } from '../../components/ui/PillBadge';
 import { PillButton } from '../../components/ui/PillButton';
+import { trpc } from '../../lib/trpc';
 import { mockOpportunities } from '../../mocks/opportunities';
 
 export default function EventsScreen() {
   const router = useRouter();
-  const orgOpps = mockOpportunities.filter(o => o.orgId === 'org-001');
+  const [useFallback, setUseFallback] = useState(false);
+
+  const opportunitiesQuery = trpc.org.listOpportunities.useQuery();
+
+  useEffect(() => {
+    if (!opportunitiesQuery.isLoading) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setUseFallback(true);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [opportunitiesQuery.isLoading]);
+
+  useEffect(() => {
+    if (opportunitiesQuery.error) {
+      setUseFallback(true);
+    }
+  }, [opportunitiesQuery.error]);
+
+  useEffect(() => {
+    if (opportunitiesQuery.isSuccess) {
+      setUseFallback(false);
+    }
+  }, [opportunitiesQuery.isSuccess]);
+
+  const shouldUseFallback = useFallback || Boolean(opportunitiesQuery.error);
+  const orgOpps = shouldUseFallback
+    ? mockOpportunities.filter(o => o.orgId === 'org-001')
+    : (opportunitiesQuery.data ?? []);
+
+  if (opportunitiesQuery.isLoading && !shouldUseFallback) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.purple} />
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Events</Text>
+      {shouldUseFallback && (
+        <Text style={styles.fallbackNote}>Demo mode: showing local events</Text>
+      )}
       <PillButton variant="primary" accent="purple" fullWidth size="large" onPress={() => router.push('/org/create-role')}>
         + Post a new event
       </PillButton>
@@ -49,8 +92,10 @@ export default function EventsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.dark.base },
+  loadingContainer: { flex: 1, backgroundColor: Colors.dark.base, alignItems: 'center', justifyContent: 'center' },
   content: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 40, gap: 16 },
   title: { fontSize: 28, fontWeight: '500', color: Colors.dark.textPrimary, letterSpacing: -0.3 },
+  fallbackNote: { fontSize: 12, color: Colors.purple, fontWeight: '600', marginTop: -8 },
   sectionTitle: { fontSize: 13, fontWeight: '500', color: Colors.dark.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 8 },
   eventCard: { padding: 20, borderRadius: 20, gap: 8 },
   eventTitle: { fontSize: 16, fontWeight: '500', color: Colors.dark.textPrimary },

@@ -1,6 +1,6 @@
 // Org Dashboard — main organizer home screen
-import React from 'react';
-import { View, ScrollView, StyleSheet, Pressable } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
 import Animated from 'react-native-reanimated';
@@ -8,13 +8,60 @@ import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';
 import { PillButton } from '../../components/ui/PillButton';
 import { PillBadge } from '../../components/ui/PillBadge';
+import { trpc } from '../../lib/trpc';
 import { mockOrgStats } from '../../mocks/data';
 import { mockOpportunities } from '../../mocks/opportunities';
 import { enterRise } from '../../lib/motion';
 
 export default function OrgDashboard() {
   const router = useRouter();
-  const orgOpps = mockOpportunities.filter(o => o.orgId === 'org-001');
+  const [useFallback, setUseFallback] = useState(false);
+
+  const statsQuery = trpc.org.getStats.useQuery();
+  const opportunitiesQuery = trpc.org.listOpportunities.useQuery();
+
+  const isLoadingRemote = statsQuery.isLoading || opportunitiesQuery.isLoading;
+  const shouldUseFallback =
+    useFallback ||
+    Boolean(statsQuery.error) ||
+    Boolean(opportunitiesQuery.error);
+
+  useEffect(() => {
+    if (!isLoadingRemote) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setUseFallback(true);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [isLoadingRemote]);
+
+  useEffect(() => {
+    if (statsQuery.error || opportunitiesQuery.error) {
+      setUseFallback(true);
+    }
+  }, [statsQuery.error, opportunitiesQuery.error]);
+
+  useEffect(() => {
+    if (statsQuery.isSuccess && opportunitiesQuery.isSuccess) {
+      setUseFallback(false);
+    }
+  }, [statsQuery.isSuccess, opportunitiesQuery.isSuccess]);
+
+  const stats = shouldUseFallback ? mockOrgStats : (statsQuery.data ?? mockOrgStats);
+  const orgOpps = shouldUseFallback
+    ? mockOpportunities.filter(o => o.orgId === 'org-001')
+    : (opportunitiesQuery.data ?? []);
+
+  if (isLoadingRemote && !shouldUseFallback) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.purple} />
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -22,6 +69,9 @@ export default function OrgDashboard() {
         <View>
           <Text style={styles.greeting}>Green Earth Foundation</Text>
           <Text style={styles.title}>Dashboard</Text>
+          {shouldUseFallback && (
+            <Text style={styles.fallbackNote}>Demo mode: showing local data</Text>
+          )}
         </View>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>🌿</Text>
@@ -31,22 +81,22 @@ export default function OrgDashboard() {
       {/* Quick stats */}
       <Animated.View entering={enterRise(80)} style={styles.statsRow}>
         <Card style={styles.statCard}>
-          <Text style={styles.statValue}>{mockOrgStats.volunteersThisMonth}</Text>
+          <Text style={styles.statValue}>{stats.volunteersThisMonth}</Text>
           <Text style={styles.statLabel}>Volunteers this month</Text>
         </Card>
         <Card style={styles.statCard}>
-          <Text style={styles.statValue}>{mockOrgStats.totalHours.toLocaleString()}</Text>
+          <Text style={styles.statValue}>{stats.totalHours.toLocaleString()}</Text>
           <Text style={styles.statLabel}>Total hours</Text>
         </Card>
       </Animated.View>
 
       <Animated.View entering={enterRise(140)} style={styles.statsRow}>
         <Card style={styles.statCard}>
-          <Text style={styles.statValue}>{Math.round(mockOrgStats.retentionRate * 100)}%</Text>
+          <Text style={styles.statValue}>{Math.round(stats.retentionRate * 100)}%</Text>
           <Text style={styles.statLabel}>Retention rate</Text>
         </Card>
         <Card style={styles.statCard}>
-          <Text style={styles.statValue}>★ {mockOrgStats.avgRating}</Text>
+          <Text style={styles.statValue}>★ {stats.avgRating}</Text>
           <Text style={styles.statLabel}>Avg rating</Text>
         </Card>
       </Animated.View>
@@ -89,7 +139,9 @@ export default function OrgDashboard() {
                 <View style={styles.listingProgress}>
                   <View style={[styles.listingBar, { width: `${(opp.filledSpots / opp.totalSpots) * 100}%` }]} />
                 </View>
-                <Text style={styles.listingApplicants}>4 pending applicants →</Text>
+                <Text style={styles.listingApplicants}>
+                  {(opp as { pendingApplicants?: number }).pendingApplicants ?? 0} pending applicants →
+                </Text>
               </Card>
             </Pressable>
           );
@@ -119,10 +171,12 @@ export default function OrgDashboard() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.dark.base },
+  loadingContainer: { flex: 1, backgroundColor: Colors.dark.base, alignItems: 'center', justifyContent: 'center' },
   content: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 40, gap: 20 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   greeting: { fontSize: 14, color: Colors.dark.textSecondary, marginBottom: 4 },
   title: { fontSize: 28, fontWeight: '500', color: Colors.dark.textPrimary, letterSpacing: -0.3 },
+  fallbackNote: { fontSize: 12, color: Colors.purple, fontWeight: '600', marginTop: 4 },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.purpleSoft, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 22 },
   statsRow: { flexDirection: 'row', gap: 12 },
