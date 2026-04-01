@@ -7,85 +7,113 @@ import Animated from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { PillButton } from '../../components/ui/PillButton';
-import { useSignUp } from '@clerk/expo/legacy';
+import { useSignUp } from '@clerk/expo';
 import { enterFade, enterRise } from '../../lib/motion';
 
 export default function SignUpScreen() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role: string }>();
-  const { signUp, setActive, isLoaded } = useSignUp();
+  const { signUp, fetchStatus } = useSignUp();
 
   const selectedRole = role === 'organizer' ? 'organizer' : 'student';
   const onboardingRoute = `/onboarding?role=${selectedRole}`;
-  const clerkKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
-  const isClerkConfigured = clerkKey.length > 0 && !clerkKey.includes('PLACEHOLDER');
   
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
-  const [pendingVerification, setPendingVerification] = useState(false);
   const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmitting = fetchStatus === 'fetching';
+  const pendingVerification =
+    signUp.status === 'missing_requirements' &&
+    signUp.unverifiedFields.includes('email_address') &&
+    signUp.missingFields.length === 0;
 
   const getClerkError = (err: unknown) => {
     if (
       typeof err === 'object' &&
       err !== null &&
       'errors' in err &&
-      Array.isArray((err as { errors?: Array<{ message?: string }> }).errors)
+      Array.isArray((err as { errors?: Array<{ longMessage?: string; message?: string }> }).errors)
     ) {
-      return (err as { errors: Array<{ message?: string }> }).errors[0]?.message;
+      const first = (err as { errors: Array<{ longMessage?: string; message?: string }> }).errors[0];
+      return first?.longMessage ?? first?.message;
     }
     return null;
   };
 
   const handleSignUp = async () => {
-    if (!isClerkConfigured) {
-      router.replace(onboardingRoute as never);
+    const normalizedFirstName = firstName.trim();
+    const normalizedLastName = lastName.trim();
+    const normalizedEmail = email.trim();
+
+    if (!normalizedFirstName || !normalizedLastName || !normalizedEmail || !password) {
+      setError('Please fill out every field to create your account.');
       return;
     }
-    if (!isLoaded) return;
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
 
     setError('');
-    setIsSubmitting(true);
 
-    try {
-      await signUp.create({
-        emailAddress: email.trim(),
-        password,
-      });
+    const { error: passwordError } = await signUp.password({
+      firstName: normalizedFirstName,
+      lastName: normalizedLastName,
+      emailAddress: normalizedEmail,
+      password,
+      unsafeMetadata: {
+        role: selectedRole,
+      },
+    });
 
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
-      setPendingVerification(true);
-    } catch (err: unknown) {
-      setError(getClerkError(err) ?? 'Sign up failed');
-    } finally {
-      setIsSubmitting(false);
+    if (passwordError) {
+      setError(getClerkError(passwordError) ?? 'Sign up failed');
+      return;
+    }
+
+    const { error: codeError } = await signUp.verifications.sendEmailCode();
+
+    if (codeError) {
+      setError(getClerkError(codeError) ?? 'Could not send verification code');
     }
   };
 
   const handleVerify = async () => {
-    if (!isLoaded) return;
+    const normalizedCode = code.trim();
+
+    if (!normalizedCode) {
+      setError('Enter the verification code from your email.');
+      return;
+    }
 
     setError('');
-    setIsSubmitting(true);
 
-    try {
-      const result = await signUp.attemptEmailAddressVerification({ code: code.trim() });
+    const { error: verifyError } = await signUp.verifications.verifyEmailCode({
+      code: normalizedCode,
+    });
 
-      if (result.status === 'complete' && result.createdSessionId) {
-        await setActive({ session: result.createdSessionId });
-        router.replace(onboardingRoute as never);
-      } else {
-        setError('Verification could not be completed.');
-      }
-    } catch (err: unknown) {
-      setError(getClerkError(err) ?? 'Verification failed');
-    } finally {
-      setIsSubmitting(false);
+    if (verifyError) {
+      setError(getClerkError(verifyError) ?? 'Verification failed');
+      return;
     }
+
+    if (signUp.status !== 'complete') {
+      setError('Verification could not be completed.');
+      return;
+    }
+
+    const { error: finalizeError } = await signUp.finalize();
+
+    if (finalizeError) {
+      setError(getClerkError(finalizeError) ?? 'Could not finish sign up');
+      return;
+    }
+
+    router.replace(onboardingRoute as never);
   };
 
   const handleGoogleSignUp = () => {
@@ -177,7 +205,7 @@ export default function SignUpScreen() {
                 fullWidth
                 size="large"
                 onPress={handleSignUp}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !email.trim() || !password}
               >
                 {isSubmitting ? 'Creating account...' : 'Create account'}
               </PillButton>
@@ -214,7 +242,7 @@ export default function SignUpScreen() {
                 fullWidth
                 size="large"
                 onPress={handleVerify}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !code.trim()}
               >
                 {isSubmitting ? 'Verifying...' : 'Verify email'}
               </PillButton>
@@ -222,12 +250,17 @@ export default function SignUpScreen() {
                 variant="ghost"
                 fullWidth
                 size="medium"
-                onPress={() => setPendingVerification(false)}
+                onPress={() => {
+                  void signUp.reset();
+                  setCode('');
+                }}
               >
                 Use a different email
               </PillButton>
             </>
           )}
+
+          <View nativeID="clerk-captcha" />
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </Animated.View>

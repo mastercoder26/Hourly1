@@ -3,32 +3,15 @@ import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StyleSheet, View, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Colors } from '@/constants/colors';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 import { TRPCProvider } from '@/lib/TRPCProvider';
 import { ClerkProvider } from '@clerk/expo';
-import * as SecureStore from 'expo-secure-store';
+import { tokenCache } from '@clerk/expo/token-cache';
 
 SplashScreen.preventAutoHideAsync();
-
-const tokenCache = {
-  async getToken(key: string) {
-    try {
-      return await SecureStore.getItemAsync(key);
-    } catch {
-      return null;
-    }
-  },
-  async saveToken(key: string, value: string) {
-    try {
-      await SecureStore.setItemAsync(key, value);
-    } catch {
-      // Ignore secure store write errors in demo/dev flows.
-    }
-  },
-};
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -47,16 +30,15 @@ export default function RootLayout() {
     return null;
   }
 
-  const rawClerkPublishableKey =
-    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() ?? '';
-  const clerkPublishableKey =
-    rawClerkPublishableKey.length > 0
-      ? rawClerkPublishableKey
-      : 'pk_test_PLACEHOLDER_PUBLISHABLE_KEY';
+  const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim();
+
+  if (!publishableKey) {
+    throw new Error('Add your Clerk Publishable Key to apps/mobile/.env as EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY');
+  }
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={tokenCache}>
+      <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
         <TRPCProvider>
           <StatusBar style="light" />
           <Stack
@@ -67,8 +49,7 @@ export default function RootLayout() {
             }}
           >
             <Stack.Screen name="index" />
-            <Stack.Screen name="(auth)/sign-in" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="(auth)/sign-up" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="(auth)" options={{ presentation: 'modal' }} />
             <Stack.Screen name="admin/login" options={{ presentation: 'modal' }} />
             <Stack.Screen name="admin/dashboard" />
             <Stack.Screen name="onboarding" />

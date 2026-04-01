@@ -3,24 +3,110 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import Animated from 'react-native-reanimated';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  interpolateColor,
+} from 'react-native-reanimated';
+import { Feather } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { CauseIcons, IconSizes } from '../../constants/icons';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { PillButton } from '../../components/ui/PillButton';
 import { CauseTag } from '../../types';
-import { enterFade, enterRise, stagger } from '../../lib/motion';
+import { enterFade, enterRise, stagger, MOTION } from '../../lib/motion';
 
-const CAUSES: { tag: CauseTag; emoji: string }[] = [
-  { tag: 'Environment', emoji: '🌿' },
-  { tag: 'Education', emoji: '📚' },
-  { tag: 'Food', emoji: '🍎' },
-  { tag: 'Animals', emoji: '🐾' },
-  { tag: 'Seniors', emoji: '☀️' },
-  { tag: 'Youth', emoji: '🧒' },
-  { tag: 'Health', emoji: '❤️' },
-  { tag: 'Arts', emoji: '🎨' },
+const CAUSES: { tag: CauseTag; icon: keyof typeof Feather.glyphMap }[] = [
+  { tag: 'Environment', icon: CauseIcons.Environment },
+  { tag: 'Education', icon: CauseIcons.Education },
+  { tag: 'Food', icon: CauseIcons.Food },
+  { tag: 'Animals', icon: CauseIcons.Animals },
+  { tag: 'Seniors', icon: CauseIcons.Seniors },
+  { tag: 'Youth', icon: CauseIcons.Youth },
+  { tag: 'Health', icon: CauseIcons.Health },
+  { tag: 'Arts', icon: CauseIcons.Arts },
 ];
+
+// Animated cause bubble with spring feedback
+interface CauseBubbleProps {
+  tag: CauseTag;
+  icon: keyof typeof Feather.glyphMap;
+  isSelected: boolean;
+  causeColor: string;
+  onPress: () => void;
+}
+
+function CauseBubble({ tag, icon, isSelected, causeColor, onPress }: CauseBubbleProps) {
+  const scale = useSharedValue(1);
+  const selected = useSharedValue(isSelected ? 1 : 0);
+
+  React.useEffect(() => {
+    selected.value = withSpring(isSelected ? 1 : 0, MOTION.springSnappy);
+  }, [isSelected]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    backgroundColor: interpolateColor(
+      selected.value,
+      [0, 1],
+      [Colors.dark.element, causeColor + '25']
+    ),
+    borderColor: interpolateColor(
+      selected.value,
+      [0, 1],
+      ['transparent', causeColor]
+    ),
+  }));
+
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: withSpring(selected.value ? 1.1 : 1, MOTION.springSnappy) },
+    ],
+  }));
+
+  const checkStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: withSpring(selected.value, MOTION.springSnappy) },
+    ],
+    opacity: selected.value,
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.95, MOTION.springSnappy);
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, MOTION.spring);
+  };
+
+  return (
+    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
+      <Animated.View style={[styles.bubble, animatedStyle]}>
+        <Animated.View style={iconStyle}>
+          <Feather
+            name={icon}
+            size={IconSizes.medium}
+            color={isSelected ? causeColor : Colors.dark.textSecondary}
+          />
+        </Animated.View>
+        <Text
+          style={[
+            styles.bubbleText,
+            isSelected && { color: causeColor },
+          ]}
+        >
+          {tag}
+        </Text>
+        <Animated.View style={[styles.checkmark, { backgroundColor: causeColor }, checkStyle]}>
+          <Feather name="check" size={10} color="#000000" />
+        </Animated.View>
+      </Animated.View>
+    </Pressable>
+  );
+}
 
 export default function InterestsStep() {
   const router = useRouter();
@@ -57,36 +143,18 @@ export default function InterestsStep() {
         </Animated.View>
 
         <View style={styles.bubbleGrid}>
-          {CAUSES.map(({ tag, emoji }, index) => {
+          {CAUSES.map(({ tag, icon }, index) => {
             const isSelected = selected.includes(tag);
+            const causeColor = Colors.causeTags[tag];
             return (
               <Animated.View key={tag} entering={enterRise(stagger(index, 200, 35, 420))}>
-                <Pressable
+                <CauseBubble
+                  tag={tag}
+                  icon={icon}
+                  isSelected={isSelected}
+                  causeColor={causeColor}
                   onPress={() => toggle(tag)}
-                  style={({ pressed }) => [
-                    styles.bubble,
-                    pressed && styles.bubblePressed,
-                    isSelected && {
-                      backgroundColor: Colors.causeTags[tag] + '25',
-                      borderColor: Colors.causeTags[tag],
-                    },
-                  ]}
-                >
-                  <Text style={styles.bubbleEmoji}>{emoji}</Text>
-                  <Text
-                    style={[
-                      styles.bubbleText,
-                      isSelected && { color: Colors.causeTags[tag] },
-                    ]}
-                  >
-                    {tag}
-                  </Text>
-                  {isSelected && (
-                    <View style={[styles.checkmark, { backgroundColor: Colors.causeTags[tag] }]}>
-                      <Text style={styles.checkmarkText}>✓</Text>
-                    </View>
-                  )}
-                </Pressable>
+                />
               </Animated.View>
             );
           })}
@@ -168,13 +236,6 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     position: 'relative',
   },
-  bubblePressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.98 }],
-  },
-  bubbleEmoji: {
-    fontSize: 20,
-  },
   bubbleText: {
     fontFamily: Typography.label.fontFamily,
     fontSize: Typography.label.fontSize,
@@ -188,12 +249,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 4,
-  },
-  checkmarkText: {
-    fontFamily: Typography.caption.fontFamily,
-    fontSize: Typography.caption.fontSize,
-    fontWeight: '700',
-    color: '#000000',
   },
   footer: {
     paddingHorizontal: 24,

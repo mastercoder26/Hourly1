@@ -7,20 +7,31 @@ import Animated from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { PillButton } from '../../components/ui/PillButton';
-import { useSignIn } from '@clerk/expo/legacy';
+import { useSignIn } from '@clerk/expo';
 import { enterFade, enterRise } from '../../lib/motion';
 
 export default function SignInScreen() {
   const router = useRouter();
-  const { signIn, setActive, isLoaded } = useSignIn();
-
-  const clerkKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
-  const isClerkConfigured = clerkKey.length > 0 && !clerkKey.includes('PLACEHOLDER');
+  const { signIn, fetchStatus } = useSignIn();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmitting = fetchStatus === 'fetching';
+
+  const getClerkError = (err: unknown) => {
+    if (
+      typeof err === 'object' &&
+      err !== null &&
+      'errors' in err &&
+      Array.isArray((err as { errors?: Array<{ longMessage?: string; message?: string }> }).errors)
+    ) {
+      const first = (err as { errors: Array<{ longMessage?: string; message?: string }> }).errors[0];
+      return first?.longMessage ?? first?.message;
+    }
+
+    return null;
+  };
 
   const handleForgotPassword = () => {
     Alert.alert(
@@ -37,38 +48,38 @@ export default function SignInScreen() {
   };
 
   const handleSignIn = async () => {
-    if (!isClerkConfigured) {
-      router.replace('/(student-tabs)/feed');
+    const normalizedEmail = email.trim();
+
+    if (!normalizedEmail || !password) {
+      setError('Enter your email and password.');
       return;
     }
-    if (!isLoaded) return;
 
     setError('');
-    setIsSubmitting(true);
-    try {
-      const result = await signIn.create({
-        identifier: email.trim(),
-        password,
-      });
 
-      if (result.status === 'complete' && result.createdSessionId) {
-        await setActive({ session: result.createdSessionId });
-        router.replace('/(student-tabs)/feed');
-      } else {
-        setError('Sign in could not be completed.');
-      }
-    } catch (err: unknown) {
-      const message =
-        typeof err === 'object' &&
-        err !== null &&
-        'errors' in err &&
-        Array.isArray((err as { errors?: Array<{ message?: string }> }).errors)
-          ? (err as { errors: Array<{ message?: string }> }).errors[0]?.message
-          : null;
-      setError(message ?? 'Sign in failed');
-    } finally {
-      setIsSubmitting(false);
+    const { error: signInError } = await signIn.password({
+      emailAddress: normalizedEmail,
+      password,
+    });
+
+    if (signInError) {
+      setError(getClerkError(signInError) ?? 'Sign in failed');
+      return;
     }
+
+    if (signIn.status !== 'complete') {
+      setError('Sign in needs additional verification.');
+      return;
+    }
+
+    const { error: finalizeError } = await signIn.finalize();
+
+    if (finalizeError) {
+      setError(getClerkError(finalizeError) ?? 'Could not finish sign in');
+      return;
+    }
+
+    router.replace('/(student-tabs)/feed');
   };
 
   return (
@@ -136,7 +147,7 @@ export default function SignInScreen() {
             fullWidth
             size="large"
             onPress={handleSignIn}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !email.trim() || !password}
           >
             {isSubmitting ? 'Signing in...' : 'Sign in'}
           </PillButton>

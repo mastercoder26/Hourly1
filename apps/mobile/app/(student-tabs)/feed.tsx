@@ -1,6 +1,6 @@
 // Opportunity Feed — main student home screen with refined animations
 import React, { useState, useCallback } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, ActivityIndicator, Pressable } from 'react-native';
+import { View, FlatList, StyleSheet, RefreshControl, ActivityIndicator, Pressable, Platform, useWindowDimensions } from 'react-native';
 import { Text } from '@/components/Themed';
 import Animated from 'react-native-reanimated';
 import { Colors, Shadows } from '@/constants/colors';
@@ -10,11 +10,19 @@ import { OpportunityCard } from '../../components/OpportunityCard';
 import { FilterBar, Filters } from '../../components/FilterBar';
 import { useOpportunities } from '../../hooks/useOpportunities';
 import { Opportunity } from '../../types';
-import { enterFade, enterRise, enterRiseSnappy, stagger, createStaggeredEntrance } from '../../lib/motion';
+import { enterFade, enterRise, enterRiseSnappy, stagger, createStaggeredEntrance, listAnimations } from '../../lib/motion';
+import { StatusIcons, ActionIcons } from '../../constants/icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [filters, setFilters] = useState<Filters>({ causes: [], maxDistance: 25, creditEligible: false });
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
+  // Responsive behavior
+  const isWeb = Platform.OS === 'web';
+  const isLargeScreen = width > 768;
 
   const { data: filteredOpportunities, loading, error, refetch, usingFallback } = useOpportunities({
     causes: filters.causes,
@@ -31,17 +39,16 @@ export default function FeedScreen() {
     }
   }, [refetch]);
 
-  const getStaggeredEntrance = createStaggeredEntrance(0, 60);
-
+  // Enhanced stagger for smooth list animations
   const renderItem = useCallback(({ item, index }: { item: Opportunity; index: number }) => (
-    <Animated.View entering={getStaggeredEntrance(index)}>
+    <Animated.View entering={listAnimations.itemEnter(index)}>
       <OpportunityCard opportunity={item} />
     </Animated.View>
-  ), [getStaggeredEntrance]);
+  ), []);
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={Colors.accent} />
         <Text style={styles.loadingText}>Finding opportunities...</Text>
       </View>
@@ -50,30 +57,41 @@ export default function FeedScreen() {
 
   if (error) {
     return (
-      <View style={styles.errorContainer}>
+      <View style={[styles.errorContainer, { paddingTop: insets.top }]}>
         <View style={styles.errorIcon}>
-          <Feather name="alert-circle" size={32} color={Colors.error} />
+          <Feather name={StatusIcons.error} size={32} color={Colors.error} />
         </View>
         <Text style={styles.errorTitle}>Something went wrong</Text>
         <Text style={styles.errorText}>Failed to load opportunities</Text>
         <Pressable style={styles.retryButton} onPress={() => refetch()}>
+          <Feather name={ActionIcons.refresh} size={16} color={Colors.dark.textPrimary} style={{ marginRight: 8 }} />
           <Text style={styles.retryButtonText}>Try again</Text>
         </Pressable>
       </View>
     );
   }
 
+  // Time-based greeting
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'GOOD MORNING';
+    if (hour < 17) return 'GOOD AFTERNOON';
+    return 'GOOD EVENING';
+  };
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: isWeb ? 24 : insets.top + 16 }]}>
       {/* Header */}
       <Animated.View style={styles.header} entering={enterFade(40)}>
         <View style={styles.headerLeft}>
-          <Text style={styles.greeting}>GOOD EVENING</Text>
+          <Text style={styles.greeting}>{getGreeting()}</Text>
           <Text style={styles.title}>Find opportunities</Text>
         </View>
-        <Pressable style={styles.avatar}>
-          <Text style={styles.avatarText}>AR</Text>
-        </Pressable>
+        {!isLargeScreen && (
+          <Pressable style={styles.avatar}>
+            <Text style={styles.avatarText}>AR</Text>
+          </Pressable>
+        )}
       </Animated.View>
 
       {/* Filter bar */}
@@ -84,7 +102,7 @@ export default function FeedScreen() {
       {/* Demo mode notice */}
       {usingFallback ? (
         <Animated.View style={styles.demoNotice} entering={enterFade(120)}>
-          <Feather name="info" size={14} color={Colors.accent} />
+          <Feather name={StatusIcons.info} size={14} color={Colors.accent} />
           <Text style={styles.demoNoticeText}>Demo mode: showing sample opportunities</Text>
         </Animated.View>
       ) : null}
@@ -129,7 +147,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.base,
-    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',
@@ -256,9 +273,11 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.dark.element,
     paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 999,
   },
   retryButtonText: {
