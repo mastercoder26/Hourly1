@@ -14,6 +14,7 @@ import { Text } from '@/components/Themed';
 import { Colors } from '@/constants/colors';
 import { Typography } from '@/constants/typography';
 import { PillButton } from '@/components/ui/PillButton';
+import { errorMessageFromUnknown } from '@/lib/errors';
 import { trpc } from '@/lib/trpc';
 
 function getWebStorageItem(key: string) {
@@ -101,15 +102,7 @@ export default function AdminLoginScreen() {
       setWebStorageItem('hourly_admin_expires_at', result.expiresAt);
       router.replace('/admin/dashboard' as never);
     } catch (err: unknown) {
-      const message =
-        typeof err === 'object' &&
-        err !== null &&
-        'message' in err &&
-        typeof (err as { message?: unknown }).message === 'string'
-          ? (err as { message: string }).message
-          : 'Admin sign in failed';
-
-      setError(message);
+      setError(errorMessageFromUnknown(err) ?? 'Admin sign in failed');
     }
   }
 

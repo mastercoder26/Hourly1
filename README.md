@@ -1,86 +1,70 @@
 # Hourly
 
-Hourly is a monorepo for a volunteer tracking platform with:
+Volunteer-hours platform monorepo: **Expo (mobile + static web export)**, **Next.js (counselor / public pages)**, **Express + tRPC (API)**, **Prisma (schema + migrations)**, shared **TypeScript** types in `@hourly/shared`.
 
-- Mobile app (`apps/mobile`) built with Expo and React Native
-- API service (`packages/api`) built with Express and tRPC
-- Database package (`packages/db`) built with Prisma
+## What ships in this repo
 
-## Repository Structure
+| Area | Path | Role |
+|------|------|------|
+| Mobile shell | [`apps/mobile`](apps/mobile) | Expo Router, student + org flows, admin demo, Clerk + tRPC client |
+| Web surfaces | [`apps/web`](apps/web) | Next.js App Router: counselor views, public org/portfolio-style routes |
+| API | [`packages/api`](packages/api) | Express, tRPC routers, in-memory mock data (swap for Prisma-backed DB when wired) |
+| Database | [`packages/db`](packages/db) | Prisma schema, migration scripts |
+| Shared | [`packages/shared`](packages/shared) | Types and seed data consumed by mobile and web |
 
-```text
-apps/
-  mobile/      Expo app
-  web/         Next.js (counselor + public demo pages)
-packages/
-  shared/      Types + canonical demo seed (mobile + web)
-  api/         Express + tRPC backend
-  db/          Prisma schema and database tooling
-```
+Long-form product context: [`docs/product-vision.md`](docs/product-vision.md). Env names and setup notes: [`docs/environment-variables.md`](docs/environment-variables.md).
 
 ## Prerequisites
 
-- Node.js 20+
-- npm 10+
+- **Node.js 20+** and **npm 10+**
+- For iOS: Xcode / Simulator (local `expo run:ios` if not using EAS)
 
-## Install
-
-From the repository root:
+## Install (from repo root)
 
 ```bash
 npm install
 ```
 
-This runs a `postinstall` step that builds `@hourly/shared` so TypeScript resolves to `dist/`.
+`postinstall` builds `@hourly/shared` so TypeScript resolves its `dist/` output.
 
-## Run the Mobile App
+## Run locally
+
+**Mobile (Expo)**
 
 ```bash
 npm run dev:mobile
-```
-
-Or:
-
-```bash
+# or
 npm run -w mobile start
 ```
 
-Other mobile targets:
+Platform targets: `npm run -w mobile ios` · `android` · `web`
 
-```bash
-npm run -w mobile android
-npm run -w mobile ios
-npm run -w mobile web
-```
-
-## Run the Next.js web app (counselor + public pages)
+**Next.js (`apps/web`, port 3002)**
 
 ```bash
 npm run dev:web
 ```
 
-Uses port **3002** by default. Set `NEXT_PUBLIC_WEB_BASE_URL` if you need absolute links in server output (optional for local demo).
-
-## Run the API
+**API (Express + tRPC, default port 3001)**
 
 ```bash
 npm run dev:api
 ```
 
-Or:
+Mobile expects the API at `EXPO_PUBLIC_API_URL` (see env doc); default client URL is `http://localhost:3001/trpc`.
+
+## Build / quality
 
 ```bash
-npm run -w api dev
+npm run build:shared    # shared package only
+npm run build:web       # shared + Next production build
+npm run build:mobile-web # shared + Expo static web export
+npm run -w api build    # API TypeScript compile
+npm run -w web lint     # ESLint (`next` is also a root devDependency so hoisted eslint-config-next resolves)
+npm run verify          # shared build + API compile + web lint/build + mobile typecheck
 ```
 
-Build and start:
-
-```bash
-npm run -w api build
-npm run -w api start
-```
-
-## Database Commands
+## Database (Prisma)
 
 ```bash
 npm run -w db prisma:generate
@@ -89,44 +73,25 @@ npm run -w db prisma:push
 npm run -w db prisma:migrate:dev
 ```
 
-## Deploy (demo)
+Requires `DATABASE_URL` in `packages/db` and `packages/api` as appropriate.
 
-### iOS (EAS)
+## Admin demo (API)
 
-From `apps/mobile`:
+- Local dev can use defaults documented in [`docs/environment-variables.md`](docs/environment-variables.md) for `ADMIN_DASHBOARD_*`.
+- **Production** must set `ADMIN_DASHBOARD_EMAIL` and `ADMIN_DASHBOARD_PASSWORD`; the API refuses misconfiguration on admin login otherwise.
 
-1. Copy `.env.example` to `.env` and fill production values (`EXPO_PUBLIC_DATA_MODE`, Clerk, API URL, Maps key) as needed.
-2. Update placeholder Apple / App Store Connect values in `eas.json` before store submission.
-3. Build and submit:
+## Deploy (outline)
 
-```bash
-cd apps/mobile
-eas build --platform ios --profile production
-eas submit --platform ios
-```
+- **Next.js:** deploy `web` workspace (root `apps/web` in Vercel). Run `npm run build:web` in CI so `@hourly/shared` builds first.
+- **Expo iOS:** EAS profiles in `apps/mobile` — see env example and `eas.json` there.
+- **Static Expo web:** `npm run build:mobile-web` → host `apps/mobile/dist`.
 
-### Static Expo web (main app shell)
+## Technical notes for reviewers
 
-From the repo root (outputs under `apps/mobile/dist` per Expo):
+- **tRPC** defines the contract between mobile/web and `packages/api`; `AppRouter` type is imported on the client for end-to-end typing.
+- **Clerk** on the API is optional in dev (`CLERK_SECRET_KEY` empty or placeholder skips `clerkMiddleware`); demo auth can use `x-demo-user-id` when `ALLOW_DEMO_AUTH` is not `false`.
+- **Tests:** root `npm test` is still a placeholder; add `vitest`/`jest` per package when you formalize CI.
 
-```bash
-npm run build:mobile-web
-```
+## License
 
-Host the exported static files on Vercel, Netlify, or any static host.
-
-### Next.js (`apps/web`)
-
-```bash
-npm run build:web
-```
-
-Deploy the `web` workspace to Vercel (framework: Next.js, root directory `apps/web`). Ensure `@hourly/shared` is built before CI `next build` (the root `build:web` script does this).
-
-## Notes
-
-- Root `npm test` is currently a placeholder script.
-- For full product and deployment planning docs, see:
-  - `project.md`
-  - `plan.md`
-  - `stillneeded.md`
+ISC (see [`package.json`](package.json)).

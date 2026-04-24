@@ -1,16 +1,10 @@
 import { useMemo } from 'react';
+import { errorMessageFromUnknown } from '../lib/errors';
 import { trpc } from '../lib/trpc';
 import { ApiOpportunityLike, toMobileOpportunity } from '../lib/opportunity-adapter';
 import { isDemoMode, isLiveMode } from '../lib/dataMode';
 import { filterDemoOpportunities, useDemoStore } from '../lib/demo/demoStore';
 import { Opportunity } from '../types';
-
-function trpcErrorMessage(err: unknown): string | null {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message?: string }).message ?? '');
-  }
-  return null;
-}
 
 export function useOpportunities(filters?: {
   causes?: string[];
@@ -52,7 +46,7 @@ export function useOpportunities(filters?: {
   return {
     data: apiData,
     loading: query.isLoading,
-    error: trpcErrorMessage(query.error),
+    error: errorMessageFromUnknown(query.error),
     refetch: query.refetch,
     isFetching: query.isFetching,
     usingFallback: false,

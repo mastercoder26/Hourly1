@@ -1,10 +1,46 @@
+# Environment
 .env
-.env.local
-.env.production
+.env.*
+!.env.example
 packages/*/.env
 apps/*/.env
+
+# Dependencies
 node_modules/
+
+# Build outputs
 dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Logs and temp
 *.log
-node_modules
-.expo
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.bak
+*.swp
+*~
+
+# OS
+.DS_Store
+**/.DS_Store
+
+# Expo / React Native
+.expo/
+apps/mobile/.expo/
+apps/mobile/web-build/
+apps/mobile/dist/
+
+# IDE (repo-root only; app-level .vscode may be committed on purpose)
+.idea/
+/.vscode/
+
+# Prisma generated (package-local; keep schema)
+packages/db/generated/
+
+# Misc
+coverage/
+.turbo/

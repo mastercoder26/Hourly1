@@ -11,7 +11,8 @@
     "dev:api": "npm run dev -w api",
     "build:web": "npm run build:shared && npm run build -w web",
     "build:mobile-web": "npm run build:shared && npm run export:web -w mobile",
-    "postinstall": "npm run build -w @hourly/shared --if-present"
+    "postinstall": "npm run build -w @hourly/shared --if-present",
+    "verify": "npm run build:shared && npm run -w api build && npm run -w web lint && npm run -w web build && npm run typecheck -w mobile"
   },
   "repository": {
     "type": "git",
@@ -29,10 +30,7 @@
     "apps/*",
     "packages/*"
   ],
-  "dependencies": {
-    "@clerk/nextjs": "^7.0.7",
-    "@tanstack/query-core": "4.43.0",
-    "@tanstack/react-query": "4.43.0",
-    "expo-router": "~55.0.8"
+  "devDependencies": {
+    "next": "15.5.15"
   }
 }

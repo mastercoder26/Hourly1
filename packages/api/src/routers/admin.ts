@@ -1,52 +1,16 @@
 import { randomUUID } from 'crypto';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import {
-  adminSessions,
-  mockOpportunities,
-  mockOrganizations,
-  type OrganizationModerationStatus,
-} from '../mock-data';
+import { getResolvedAdminCredentials } from '../lib/admin-credentials';
+import { ensurePostDefaults, syncOpportunityOrgApproval } from '../lib/admin-post-sync';
+import { matchesSearch } from '../lib/search';
+import { nowIso } from '../lib/time';
+import { adminSessions, mockOpportunities, mockOrganizations } from '../mock-data';
 import { adminProcedure, publicProcedure, router } from '../trpc';
 
 const ORG_FILTER_STATUS = ['ALL', 'PENDING', 'APPROVED', 'DENIED', 'APPEALED'] as const;
 const APPEAL_FILTER_STATUS = ['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const;
 const POST_FILTER_STATUS = ['ALL', 'VISIBLE', 'REMOVED'] as const;
-
-function nowIso() {
-  return new Date().toISOString();
-}
-
-function matchesSearch(haystack: string, search?: string) {
-  if (!search?.trim()) return true;
-  return haystack.toLowerCase().includes(search.trim().toLowerCase());
-}
-
-function getAdminCredentials() {
-  const email = process.env.ADMIN_DASHBOARD_EMAIL ?? 'admin@hourly.app';
-  const password = process.env.ADMIN_DASHBOARD_PASSWORD ?? 'HourlyAdmin!2026';
-  return { email, password };
-}
-
-function ensurePostDefaults() {
-  for (const post of mockOpportunities) {
-    if (!post.postStatus) {
-      post.postStatus = 'VISIBLE';
-    }
-  }
-}
-
-function syncOpportunityOrgApproval(orgId: string, status: OrganizationModerationStatus) {
-  const approved = status === 'APPROVED';
-  for (const post of mockOpportunities) {
-    if (post.orgId === orgId) {
-      post.orgVerified = approved;
-      if (!post.postStatus) {
-        post.postStatus = 'VISIBLE';
-      }
-    }
-  }
-}
 
 export const adminRouter = router({
   login: publicProcedure
@@ -57,7 +21,16 @@ export const adminRouter = router({
       })
     )
     .mutation(({ input }) => {
-      const { email, password } = getAdminCredentials();
+      let email: string;
+      let password: string;
+      try {
+        ({ email, password } = getResolvedAdminCredentials());
+      } catch {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Admin login is not configured.',
+        });
+      }
 
       const matches = input.email.toLowerCase() === email.toLowerCase() && input.password === password;
       if (!matches) {
@@ -93,7 +66,7 @@ export const adminRouter = router({
   }),
 
   getOverview: adminProcedure.query(() => {
-    ensurePostDefaults();
+    ensurePostDefaults(mockOpportunities);
 
     const orgCounts = {
       total: mockOrganizations.length,
@@ -189,7 +162,7 @@ export const adminRouter = router({
       }
 
       org.updatedAt = nowIso();
-      syncOpportunityOrgApproval(org.id, org.status);
+      syncOpportunityOrgApproval(mockOpportunities, org.id, org.status);
 
       return org;
     }),
@@ -290,7 +263,7 @@ export const adminRouter = router({
       }
 
       org.updatedAt = nowIso();
-      syncOpportunityOrgApproval(org.id, org.status);
+      syncOpportunityOrgApproval(mockOpportunities, org.id, org.status);
 
       return org;
     }),
@@ -307,7 +280,7 @@ export const adminRouter = router({
         .optional()
     )
     .query(({ input }) => {
-      ensurePostDefaults();
+      ensurePostDefaults(mockOpportunities);
 
       const status = input?.status ?? 'ALL';
       const search = input?.search;
@@ -347,7 +320,7 @@ export const adminRouter = router({
       })
     )
     .mutation(({ input }) => {
-      ensurePostDefaults();
+      ensurePostDefaults(mockOpportunities);
 
       const post = mockOpportunities.find(item => item.id === input.opportunityId);
       if (!post) {

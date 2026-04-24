@@ -1,4 +1,4 @@
-// Opportunity Feed - main student home screen with refined animations
+// Student home: opportunity list + filters (tRPC in live mode, mock store in demo).
 import React, { useState, useCallback } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, ActivityIndicator, Pressable, Platform, useWindowDimensions } from 'react-native';
 import { Text } from '@/components/Themed';
