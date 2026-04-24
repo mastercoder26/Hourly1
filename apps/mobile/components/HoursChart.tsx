@@ -1,4 +1,4 @@
-// HoursChart — bar chart showing hours by cause with refined styling
+// HoursChart - bar chart showing hours by cause with refined styling
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from '@/components/Themed';
@@ -11,12 +11,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Colors } from '../constants/colors';
 import { Typography } from '../constants/typography';
-import { CauseTag, AttendanceRecord } from '../types';
-import { mockOpportunities } from '../mocks/opportunities';
+import { AttendanceRecord, Opportunity } from '../types';
+import { demoOpportunities } from '@hourly/shared';
 import { MOTION } from '../lib/motion';
 
 interface HoursChartProps {
   attendance: AttendanceRecord[];
+  /** Defaults to canonical demo opportunities for lookup. */
+  opportunities?: Opportunity[];
 }
 
 function AnimatedBar({ 
@@ -50,13 +52,13 @@ function AnimatedBar({
   );
 }
 
-export function HoursChart({ attendance }: HoursChartProps) {
-  // Calculate hours by cause
+export function HoursChart({ attendance, opportunities }: HoursChartProps) {
+  const opps = opportunities ?? demoOpportunities;
   const hoursByCause: Record<string, number> = {};
-  
+
   attendance.forEach(record => {
     if (record.verificationStatus === 'VERIFIED') {
-      const opp = mockOpportunities.find(o => o.id === record.opportunityId);
+      const opp = opps.find(o => o.id === record.opportunityId);
       if (opp) {
         opp.causeTags.forEach(tag => {
           hoursByCause[tag] = (hoursByCause[tag] || 0) + record.hoursLogged;

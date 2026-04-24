@@ -1,4 +1,4 @@
-// ProgressBar — animated step progress indicator
+// ProgressBar - animated step progress indicator
 import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Animated, {

@@ -1,20 +1,44 @@
-// Check-In Screen — QR code display for student
-import React from 'react';
+// Check-In Screen - QR code display for student
+import React, { useMemo } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
 import Animated from 'react-native-reanimated';
+import QRCode from 'react-native-qrcode-svg';
 import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';
 import { PillButton } from '../../components/ui/PillButton';
-import { mockApplications } from '../../mocks/data';
-import { mockOpportunities } from '../../mocks/opportunities';
 import { enterFade, enterRise } from '../../lib/motion';
+import { useDemoStore } from '../../lib/demo/demoStore';
+import { DEMO_STUDENT_ID } from '@hourly/shared';
 
 export default function CheckInScreen() {
   const router = useRouter();
-  const app = mockApplications[0]; // Mock: use first application
-  const opp = mockOpportunities.find(o => o.id === app.opportunityId);
+  const applications = useDemoStore(s => s.applications);
+  const opportunities = useDemoStore(s => s.opportunities);
+
+  const app = useMemo(
+    () =>
+      applications.find(a => a.status === 'APPROVED' && a.studentId === DEMO_STUDENT_ID) ??
+      applications[0],
+    [applications],
+  );
+
+  const opp = useMemo(
+    () => opportunities.find(o => o.id === app?.opportunityId),
+    [opportunities, app?.opportunityId],
+  );
+
+  if (!app) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.missing}>No shift to check in for. Apply to an opportunity first.</Text>
+        <PillButton variant="primary" accent="teal" onPress={() => router.back()}>
+          Go back
+        </PillButton>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -31,19 +55,13 @@ export default function CheckInScreen() {
         <Text style={styles.title}>Check in</Text>
         <Text style={styles.subtitle}>Show this QR code to the coordinator</Text>
 
-        {/* QR Code placeholder */}
         <Card style={styles.qrCard}>
           <View style={styles.qrContainer}>
-            <View style={styles.qrPlaceholder}>
-              <Text style={styles.qrIcon}>📱</Text>
-              <Text style={styles.qrText}>QR Code</Text>
-              <Text style={styles.qrData}>{app.qrCodeData}</Text>
-            </View>
+            <QRCode value={app.qrCodeData} size={180} color="#000000" backgroundColor="#FFFFFF" />
           </View>
           <Text style={styles.qrHint}>Your QR code works offline</Text>
         </Card>
 
-        {/* Shift info */}
         {opp && (
           <Card style={styles.shiftInfo}>
             <View style={styles.shiftRow}>
@@ -59,18 +77,23 @@ export default function CheckInScreen() {
               <View style={styles.shiftDetailRow}>
                 <Text style={styles.detailIcon}>📅</Text>
                 <Text style={styles.detailText}>
-                  {new Date(opp.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                  {new Date(opp.date).toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                  })}
                 </Text>
               </View>
               <View style={styles.shiftDetailRow}>
                 <Text style={styles.detailIcon}>🕐</Text>
-                <Text style={styles.detailText}>{opp.startTime} – {opp.endTime}</Text>
+                <Text style={styles.detailText}>
+                  {opp.startTime} – {opp.endTime}
+                </Text>
               </View>
             </View>
           </Card>
         )}
 
-        {/* Simulate check-in button (for testing) */}
         <PillButton
           variant="primary"
           accent="teal"
@@ -90,6 +113,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.base,
     paddingTop: 60,
+  },
+  missing: {
+    color: Colors.dark.textSecondary,
+    padding: 24,
+    textAlign: 'center',
   },
   closeButton: {
     width: 40,
@@ -131,29 +159,9 @@ const styles = StyleSheet.create({
   },
   qrContainer: {
     marginBottom: 16,
-  },
-  qrPlaceholder: {
-    width: 200,
-    height: 200,
-    borderRadius: 20,
+    padding: 12,
     backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  qrIcon: {
-    fontSize: 48,
-  },
-  qrText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
-  },
-  qrData: {
-    fontSize: 8,
-    color: '#888888',
-    textAlign: 'center',
-    paddingHorizontal: 20,
+    borderRadius: 20,
   },
   qrHint: {
     fontSize: 13,

@@ -1,5 +1,5 @@
-// Org Dashboard — main organizer home screen with refined stats grid
-import React, { useEffect, useMemo, useState } from 'react';
+// Org Dashboard - main organizer home screen with refined stats grid
+import React, { useMemo } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
@@ -12,54 +12,47 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { PillButton } from '../../components/ui/PillButton';
 import { PillBadge } from '../../components/ui/PillBadge';
 import { trpc } from '../../lib/trpc';
-import { mockOrgStats } from '../../mocks/data';
-import { mockOpportunities } from '../../mocks/opportunities';
+import { ApiOpportunityLike, toMobileOpportunity } from '../../lib/opportunity-adapter';
+import { demoOrgStats } from '@hourly/shared';
 import { enterRise, enterRiseSnappy, enterFade, stagger } from '../../lib/motion';
 import { Feather } from '@expo/vector-icons';
+import { isDemoMode, isLiveMode } from '../../lib/dataMode';
+import { useDemoStore } from '../../lib/demo/demoStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { tabBarScrollContentPadding, tabScreenContentTopPadding } from '../../constants/tabBar';
 
 export default function OrgDashboard() {
   const router = useRouter();
-  const [useFallback, setUseFallback] = useState(false);
+  const insets = useSafeAreaInsets();
+  const demoOpportunities = useDemoStore(s => s.opportunities);
+  const demoAttendance = useDemoStore(s => s.attendance);
 
-  const statsQuery = trpc.org.getStats.useQuery();
-  const opportunitiesQuery = trpc.org.listOpportunities.useQuery();
+  const statsQuery = trpc.org.getStats.useQuery(undefined, { enabled: isLiveMode() });
+  const opportunitiesQuery = trpc.org.listOpportunities.useQuery(undefined, { enabled: isLiveMode() });
 
-  const isLoadingRemote = statsQuery.isLoading || opportunitiesQuery.isLoading;
-  const shouldUseFallback =
-    useFallback ||
-    Boolean(statsQuery.error) ||
-    Boolean(opportunitiesQuery.error);
+  const isLoadingRemote = isLiveMode() && (statsQuery.isLoading || opportunitiesQuery.isLoading);
 
-  useEffect(() => {
-    if (!isLoadingRemote) {
-      return;
+  const stats = isDemoMode() ? demoOrgStats : (statsQuery.data ?? demoOrgStats);
+  const orgOpps = useMemo(() => {
+    if (isDemoMode()) {
+      return demoOpportunities.filter(o => o.orgId === 'org-001');
     }
+    return (opportunitiesQuery.data ?? []).map(item =>
+      toMobileOpportunity(item as ApiOpportunityLike),
+    );
+  }, [demoOpportunities, opportunitiesQuery.data]);
 
-    const timer = setTimeout(() => {
-      setUseFallback(true);
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [isLoadingRemote]);
-
-  useEffect(() => {
-    if (statsQuery.error || opportunitiesQuery.error) {
-      setUseFallback(true);
+  const pendingHoursVerification = useMemo(() => {
+    if (!isDemoMode()) {
+      return 0;
     }
-  }, [statsQuery.error, opportunitiesQuery.error]);
+    const orgOppIds = new Set(orgOpps.map(o => o.id));
+    return demoAttendance.filter(
+      a => orgOppIds.has(a.opportunityId) && a.verificationStatus === 'PENDING',
+    ).length;
+  }, [demoAttendance, orgOpps]);
 
-  useEffect(() => {
-    if (statsQuery.isSuccess && opportunitiesQuery.isSuccess) {
-      setUseFallback(false);
-    }
-  }, [statsQuery.isSuccess, opportunitiesQuery.isSuccess]);
-
-  const stats = shouldUseFallback ? mockOrgStats : (statsQuery.data ?? mockOrgStats);
-  const orgOpps = shouldUseFallback
-    ? mockOpportunities.filter(o => o.orgId === 'org-001')
-    : (opportunitiesQuery.data ?? []);
-
-  if (isLoadingRemote && !shouldUseFallback) {
+  if (isLoadingRemote) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.accent} />
@@ -69,7 +62,16 @@ export default function OrgDashboard() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: tabScreenContentTopPadding(insets),
+          paddingBottom: tabBarScrollContentPadding(insets),
+        },
+      ]}
+    >
       {/* Header */}
       <Animated.View style={styles.header} entering={enterFade(40)}>
         <View style={styles.headerLeft}>
@@ -80,14 +82,6 @@ export default function OrgDashboard() {
           <Text style={styles.avatarText}>🌿</Text>
         </View>
       </Animated.View>
-
-      {/* Demo mode notice */}
-      {shouldUseFallback && (
-        <Animated.View style={styles.demoNotice} entering={enterFade(60)}>
-          <Feather name="info" size={14} color={Colors.accent} />
-          <Text style={styles.demoNoticeText}>Demo mode: showing sample data</Text>
-        </Animated.View>
-      )}
 
       {/* Stats grid */}
       <Animated.View style={styles.statsGrid} entering={enterRise(100)}>
@@ -120,6 +114,28 @@ export default function OrgDashboard() {
           style={styles.statCard}
         />
       </Animated.View>
+
+      {isDemoMode() && (
+        <Animated.View entering={enterRiseSnappy(240)}>
+          <Pressable
+            style={styles.verifyHoursCard}
+            onPress={() => router.push('/org/verify-hours')}
+          >
+            <View style={styles.verifyHoursIconWrap}>
+              <Feather name="check-square" size={22} color={Colors.accent} />
+            </View>
+            <View style={styles.verifyHoursText}>
+              <Text style={styles.verifyHoursTitle}>Pending hours verification</Text>
+              <Text style={styles.verifyHoursSub}>
+                {pendingHoursVerification === 0
+                  ? 'All shifts reviewed. Open to see history and tips.'
+                  : `${pendingHoursVerification} shift${pendingHoursVerification === 1 ? '' : 's'} waiting for sign-off`}
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={20} color={Colors.dark.textTertiary} />
+          </Pressable>
+        </Animated.View>
+      )}
 
       {/* Post a role CTA */}
       <Animated.View entering={enterRiseSnappy(280)}>
@@ -258,10 +274,8 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textSecondary,
   },
-  content: { 
-    paddingTop: 60, 
-    paddingHorizontal: 20, 
-    paddingBottom: 40,
+  content: {
+    paddingHorizontal: 20,
   },
   header: { 
     flexDirection: 'row', 
@@ -292,21 +306,6 @@ const styles = StyleSheet.create({
   avatarText: { 
     fontSize: 24,
   },
-  demoNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 20,
-    backgroundColor: Colors.accentSoft,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  demoNoticeText: {
-    color: Colors.accent,
-    fontSize: 13,
-    fontWeight: '500',
-  },
   statsGrid: { 
     flexDirection: 'row', 
     flexWrap: 'wrap',
@@ -315,6 +314,38 @@ const styles = StyleSheet.create({
   },
   statCard: { 
     width: '48%',
+  },
+  verifyHoursCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: Colors.dark.card,
+    borderRadius: CardStyle.borderRadius,
+    borderWidth: 1,
+    borderColor: Colors.accent + '55',
+    padding: 18,
+    marginBottom: 16,
+    ...Shadows.card,
+  },
+  verifyHoursIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: Colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verifyHoursText: {
+    flex: 1,
+    gap: 4,
+  },
+  verifyHoursTitle: {
+    ...Typography.label,
+    color: Colors.dark.textPrimary,
+  },
+  verifyHoursSub: {
+    ...Typography.caption,
+    color: Colors.dark.textSecondary,
   },
   ctaCard: {
     backgroundColor: Colors.dark.textPrimary,

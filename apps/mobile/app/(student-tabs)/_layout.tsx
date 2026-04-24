@@ -1,6 +1,6 @@
 // Student Tabs Layout
 import React from 'react';
-import { Tabs, useRouter, usePathname, Link, Redirect } from 'expo-router';
+import { Tabs, usePathname, Link, Redirect } from 'expo-router';
 import { View, StyleSheet, Platform, useWindowDimensions, Pressable } from 'react-native';
 import { Text } from '@/components/Themed';
 import { Feather } from '@expo/vector-icons';
@@ -10,13 +10,19 @@ import Animated, {
   withSpring,
   withTiming,
   interpolate,
+  interpolateColor,
   Extrapolation,
 } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { NavIcons } from '../../constants/icons';
-import { MOTION, haptic, microSpring } from '../../lib/motion';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { SlidingTabBar } from '../../components/navigation/SlidingTabBar';
+import { MOTION, microSpring } from '../../lib/motion';
 import { useAuth } from '@clerk/expo';
+import { isDemoMode } from '../../lib/dataMode';
+import { isClerkConfigured } from '../../lib/clerkConfig';
+import { useDemoAuth } from '../../context/DemoAuthContext';
 
 // Types for our navigation items
 type TabName = 'feed' | 'my-shifts' | 'portfolio' | 'profile';
@@ -34,12 +40,11 @@ function SideNavItem({ route, focused }: { route: typeof ROUTES[0]; focused: boo
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-    backgroundColor: interpolate(
+    backgroundColor: interpolateColor(
       hovered.value,
       [0, 1],
-      [focused ? 1 : 0, 1],
-      Extrapolation.CLAMP
-    ) > 0.5 ? Colors.dark.card : 'transparent',
+      [focused ? Colors.dark.card : 'transparent', Colors.dark.card],
+    ),
   }));
 
   return (
@@ -83,122 +88,140 @@ function SideNav() {
 }
 
 // Animated tab icon with selection effect
-function TabIcon({ name, focused, iconName }: { name: string; focused: boolean; iconName: keyof typeof Feather.glyphMap }) {
+function TabIcon({ focused, iconName }: { focused: boolean; iconName: keyof typeof Feather.glyphMap }) {
   const focusAnim = useSharedValue(focused ? 1 : 0);
   
   React.useEffect(() => {
     focusAnim.value = withSpring(focused ? 1 : 0, MOTION.springSnappy);
-    if (focused) {
-      haptic.selection();
-    }
   }, [focused]);
 
   const iconStyle = useAnimatedStyle(() => ({
     transform: [
-      { scale: interpolate(focusAnim.value, [0, 1], [1, 1.1], Extrapolation.CLAMP) },
-      { translateY: interpolate(focusAnim.value, [0, 1], [0, -2], Extrapolation.CLAMP) },
+      { scale: interpolate(focusAnim.value, [0, 1], [1, 1.04], Extrapolation.CLAMP) },
     ],
-    opacity: interpolate(focusAnim.value, [0, 1], [0.6, 1], Extrapolation.CLAMP),
-  }));
-
-  const dotStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: focusAnim.value },
-    ],
-    opacity: focusAnim.value,
+    opacity: interpolate(focusAnim.value, [0, 1], [0.55, 1], Extrapolation.CLAMP),
   }));
 
   return (
     <View style={styles.tabItem}>
       <Animated.View style={iconStyle}>
-        <Feather 
-          name={iconName} 
-          size={22} 
-          color={focused ? Colors.dark.textPrimary : Colors.dark.textTertiary} 
+        <Feather
+          name={iconName}
+          size={22}
+          color={focused ? Colors.dark.textPrimary : Colors.dark.textTertiary}
         />
       </Animated.View>
-      <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>{name}</Text>
-      <Animated.View style={[styles.activeDot, dotStyle]} />
     </View>
   );
 }
 
-export default function StudentTabsLayout() {
+function StudentTabNavigator() {
   const { width } = useWindowDimensions();
-  const { isLoaded, isSignedIn } = useAuth();
-
-  const clerkKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
-  const isClerkConfigured = clerkKey.length > 0 && !clerkKey.includes('PLACEHOLDER');
-
-  if (isClerkConfigured && isLoaded && !isSignedIn) {
-    return <Redirect href="/(auth)/sign-in" />;
-  }
-
-  // Breakpoints for responsive layout
   const isWebWide = Platform.OS === 'web' && width > 768;
-  const isWebDesktop = Platform.OS === 'web' && width > 1024;
 
-  const content = (
+  return (
     <Tabs
+      tabBar={isWebWide ? () => null : (props: BottomTabBarProps) => <SlidingTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarStyle: isWebWide ? { display: 'none' } : styles.tabBar,
         tabBarShowLabel: false,
+        ...(isWebWide ? { tabBarStyle: { display: 'none' } } : {}),
       }}
     >
       <Tabs.Screen
         name="feed"
         options={{
           title: 'Explore',
-          tabBarIcon: ({ focused }) => <TabIcon name="Explore" focused={focused} iconName={NavIcons.explore} />,
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} iconName={NavIcons.explore} />,
         }}
       />
       <Tabs.Screen
         name="my-shifts"
         options={{
           title: 'My shifts',
-          tabBarIcon: ({ focused }) => <TabIcon name="Shifts" focused={focused} iconName={NavIcons.shifts} />,
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} iconName={NavIcons.shifts} />,
         }}
       />
       <Tabs.Screen
         name="portfolio"
         options={{
           title: 'Portfolio',
-          tabBarIcon: ({ focused }) => <TabIcon name="Portfolio" focused={focused} iconName={NavIcons.portfolio} />,
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} iconName={NavIcons.portfolio} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ focused }) => <TabIcon name="Profile" focused={focused} iconName={NavIcons.profile} />,
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} iconName={NavIcons.profile} />,
         }}
       />
     </Tabs>
   );
+}
+
+function StudentTabsWebShell({ children }: { children: React.ReactNode }) {
+  const { width } = useWindowDimensions();
+  const isWebDesktop = Platform.OS === 'web' && width > 1024;
+
+  return (
+    <View style={styles.webContainer}>
+      <View style={[styles.leftColumn, isWebDesktop && styles.leftColumnWide]}>
+        <SideNav />
+      </View>
+      <View style={[styles.centerColumn, isWebDesktop && styles.centerColumnWide]}>
+        <View style={styles.centerContentWrapper}>{children}</View>
+      </View>
+      {isWebDesktop && <View style={styles.rightColumn} />}
+    </View>
+  );
+}
+
+function StudentTabsLayoutWithClerk() {
+  const { width } = useWindowDimensions();
+  const { isLoaded, isSignedIn } = useAuth();
+  const { demoSignedIn } = useDemoAuth();
+
+  if (isClerkConfigured() && isLoaded && !isSignedIn && !demoSignedIn) {
+    return <Redirect href="/(auth)/sign-in" />;
+  }
+
+  const isWebWide = Platform.OS === 'web' && width > 768;
+  const content = <StudentTabNavigator />;
 
   if (isWebWide) {
-    return (
-      <View style={styles.webContainer}>
-        {/* Left Sidebar */}
-        <View style={[styles.leftColumn, isWebDesktop && styles.leftColumnWide]}>
-          <SideNav />
-        </View>
-
-        {/* Center Feed (Fixed max width so contents don't stretch) */}
-        <View style={[styles.centerColumn, isWebDesktop && styles.centerColumnWide]}>
-          <View style={styles.centerContentWrapper}>
-            {content}
-          </View>
-        </View>
-
-        {/* Right Rail (Empty breathing room for premium feel - only on desktop) */}
-        {isWebDesktop && <View style={styles.rightColumn} />}
-      </View>
-    );
+    return <StudentTabsWebShell>{content}</StudentTabsWebShell>;
   }
 
   return content;
+}
+
+function StudentTabsLayoutDemoBare() {
+  const { width } = useWindowDimensions();
+  const { demoSignedIn, demoRole } = useDemoAuth();
+
+  if (!demoSignedIn) {
+    return <Redirect href="/" />;
+  }
+  if (demoRole === 'organizer') {
+    return <Redirect href="/(org-tabs)/dashboard" />;
+  }
+
+  const isWebWide = Platform.OS === 'web' && width > 768;
+  const content = <StudentTabNavigator />;
+
+  if (isWebWide) {
+    return <StudentTabsWebShell>{content}</StudentTabsWebShell>;
+  }
+
+  return content;
+}
+
+export default function StudentTabsLayout() {
+  if (isDemoMode() && !isClerkConfigured()) {
+    return <StudentTabsLayoutDemoBare />;
+  }
+  return <StudentTabsLayoutWithClerk />;
 }
 
 const styles = StyleSheet.create({
@@ -273,40 +296,11 @@ const styles = StyleSheet.create({
     color: Colors.dark.textPrimary,
     fontWeight: '600',
   },
-  // Native Bottom Tab styling
-  tabBar: {
-    backgroundColor: Colors.dark.base,
-    borderTopWidth: 1,
-    borderTopColor: Colors.dark.divider,
-    height: 88,
-    paddingTop: 8,
-    paddingBottom: 24,
-    elevation: 0,
-    shadowOpacity: 0,
-  },
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingTop: 4,
-    minHeight: 48,
-  },
-  tabLabel: {
-    fontFamily: Typography.caption.fontFamily,
-    fontSize: 11,
-    fontWeight: '500',
-    color: Colors.dark.textTertiary,
-    marginTop: 2,
-  },
-  tabLabelActive: {
-    color: Colors.dark.textPrimary,
-    fontWeight: '600',
-  },
-  activeDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.accent,
-    marginTop: 4,
+    width: '100%',
+    maxWidth: 96,
+    paddingHorizontal: 2,
   },
 });

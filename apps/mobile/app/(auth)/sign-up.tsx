@@ -1,4 +1,4 @@
-// Auth — Sign Up Screen
+// Auth - Sign Up Screen
 import React, { useState } from 'react';
 import { View, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Pressable, ScrollView, Alert } from 'react-native';
 import { Text } from '@/components/Themed';
@@ -218,6 +218,15 @@ export default function SignUpScreen() {
 
               <PillButton variant="default" fullWidth size="large" onPress={handleGoogleSignUp}>
                 Sign up with Google
+              </PillButton>
+
+              <PillButton
+                variant="ghost"
+                fullWidth
+                size="medium"
+                onPress={() => router.replace('/role-selection?guest=1')}
+              >
+                Continue as guest
               </PillButton>
 
               <Text style={styles.terms}>

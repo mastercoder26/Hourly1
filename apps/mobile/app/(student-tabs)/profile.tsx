@@ -1,52 +1,48 @@
-// Profile Screen — student profile and settings
-import React, { useEffect, useState } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator, Alert } from 'react-native';
-import { Text } from '@/components/Themed';;
+// Profile Screen - student profile and settings
+import React from 'react';
+import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';
 import { PillBadge } from '../../components/ui/PillBadge';
 import { PillButton } from '../../components/ui/PillButton';
-import { mockStudent } from '../../mocks/data';
+import { ClerkSignOutButton } from '../../components/ClerkSignOutButton';
+import { demoStudent } from '@hourly/shared';
 import { trpc } from '../../lib/trpc';
+import { isDemoMode, isLiveMode } from '../../lib/dataMode';
+import { isClerkConfigured } from '../../lib/clerkConfig';
+import { useDemoAuth } from '../../context/DemoAuthContext';
+import { useAuth } from '@clerk/expo';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { tabBarScrollContentPadding, tabScreenContentTopPadding } from '../../constants/tabBar';
+
+const SETTINGS_ROUTE: Record<string, string> = {
+  Notifications: 'notifications',
+  Appearance: 'appearance',
+  Privacy: 'privacy',
+  'Help & support': 'help',
+  'Terms of service': 'terms',
+};
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const [useFallback, setUseFallback] = useState(false);
-  const profileQuery = trpc.user.me.useQuery();
+  const insets = useSafeAreaInsets();
+  const { enterDemo, exitDemo, demoSignedIn } = useDemoAuth();
+  const { isLoaded: authLoaded, isSignedIn } = useAuth();
+  const browsingAsGuest = Boolean(
+    demoSignedIn && isClerkConfigured() && authLoaded && !isSignedIn,
+  );
+  const preferLocalStudentProfile = isDemoMode() || browsingAsGuest;
+  const profileQuery = trpc.user.me.useQuery(undefined, {
+    enabled: isLiveMode() && !preferLocalStudentProfile,
+  });
 
-  useEffect(() => {
-    if (!profileQuery.isLoading) {
-      return;
-    }
+  const profile = preferLocalStudentProfile ? demoStudent : profileQuery.data;
+  const demoBare = isDemoMode() && !isClerkConfigured();
+  const showLocalSessionControls = demoBare || browsingAsGuest;
 
-    const timer = setTimeout(() => {
-      setUseFallback(true);
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [profileQuery.isLoading]);
-
-  useEffect(() => {
-    if (profileQuery.error) {
-      setUseFallback(true);
-    }
-  }, [profileQuery.error]);
-
-  useEffect(() => {
-    if (profileQuery.isSuccess) {
-      setUseFallback(false);
-    }
-  }, [profileQuery.isSuccess]);
-
-  const shouldUseFallback = useFallback || Boolean(profileQuery.error);
-  const profile = shouldUseFallback ? mockStudent : profileQuery.data;
-
-  const showComingSoon = (label: string) => {
-    Alert.alert(label, 'This section is coming soon in a future update.');
-  };
-
-  if (profileQuery.isLoading && !shouldUseFallback) {
+  if (isLiveMode() && !preferLocalStudentProfile && profileQuery.isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.teal} />
@@ -63,11 +59,17 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: tabScreenContentTopPadding(insets),
+          paddingBottom: tabBarScrollContentPadding(insets),
+        },
+      ]}
+    >
       <Text style={styles.title}>Profile</Text>
-      {shouldUseFallback && (
-        <Text style={styles.fallbackNote}>Demo mode: showing local profile</Text>
-      )}
 
       {/* Profile card */}
       <Card style={styles.profileCard}>
@@ -87,7 +89,7 @@ export default function ProfileScreen() {
           variant="default"
           size="small"
           fullWidth
-          onPress={() => showComingSoon('Edit profile')}
+          onPress={() => router.push('/settings/edit' as never)}
         >
           Edit profile
         </PillButton>
@@ -120,7 +122,12 @@ export default function ProfileScreen() {
         ].map((item, i, arr) => (
           <Pressable
             key={item.label}
-            onPress={() => showComingSoon(item.label)}
+            onPress={() => {
+              const slug = SETTINGS_ROUTE[item.label];
+              if (slug) {
+                router.push(`/settings/${slug}` as never);
+              }
+            }}
             style={[styles.menuItem, i < arr.length - 1 && styles.menuItemBorder]}
           >
             <Text style={styles.menuIcon}>{item.icon}</Text>
@@ -135,13 +142,30 @@ export default function ProfileScreen() {
         variant="default"
         fullWidth
         size="medium"
-        onPress={() => router.replace('/(org-tabs)/dashboard')}
+        onPress={() => {
+          if (showLocalSessionControls) {
+            enterDemo('organizer');
+          }
+          router.dismissTo('/(org-tabs)/dashboard');
+        }}
       >
         Switch to organizer view
       </PillButton>
-      <PillButton variant="ghost" fullWidth size="medium" onPress={() => router.replace('/')}>
-        Sign out
-      </PillButton>
+      {showLocalSessionControls ? (
+        <PillButton
+          variant="ghost"
+          fullWidth
+          size="medium"
+          onPress={() => {
+            exitDemo();
+            router.dismissTo('/');
+          }}
+        >
+          {browsingAsGuest ? 'Exit guest mode' : 'Sign out'}
+        </PillButton>
+      ) : (
+        <ClerkSignOutButton />
+      )}
     </ScrollView>
   );
 }
@@ -162,9 +186,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
   },
   content: {
-    paddingTop: 60,
     paddingHorizontal: 20,
-    paddingBottom: 40,
     gap: 16,
   },
   title: {
@@ -258,11 +280,5 @@ const styles = StyleSheet.create({
   menuArrow: {
     fontSize: 20,
     color: Colors.dark.textTertiary,
-  },
-  fallbackNote: {
-    fontSize: 12,
-    color: Colors.teal,
-    fontWeight: '600',
-    marginTop: -6,
   },
 });

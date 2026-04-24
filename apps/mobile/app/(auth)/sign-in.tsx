@@ -1,4 +1,4 @@
-// Auth — Sign In Screen
+// Auth - Sign In Screen
 import React, { useState } from 'react';
 import { View, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Pressable, Alert } from 'react-native';
 import { Text } from '@/components/Themed';
@@ -36,14 +36,22 @@ export default function SignInScreen() {
   const handleForgotPassword = () => {
     Alert.alert(
       'Reset password',
-      'Password reset is not available in this demo yet. Use your email/password or continue as guest.',
+      'Enable Clerk password reset and email templates in the Clerk dashboard. Until then, use email/password or continue as guest.',
+      [
+        { text: 'Close', style: 'cancel' },
+        { text: 'View help', onPress: () => router.push('/settings/help' as never) },
+      ],
     );
   };
 
   const handleGoogleSignIn = () => {
     Alert.alert(
       'Google sign-in',
-      'Google sign-in is coming soon. Use email/password for now.',
+      'Turn on the Google OAuth provider in Clerk and complete the Expo OAuth configuration to enable this button.',
+      [
+        { text: 'Close', style: 'cancel' },
+        { text: 'View help', onPress: () => router.push('/settings/help' as never) },
+      ],
     );
   };
 
@@ -79,7 +87,8 @@ export default function SignInScreen() {
       return;
     }
 
-    router.replace('/(student-tabs)/feed');
+    // Clear auth/welcome from history so the user cannot swipe back to sign-in
+    router.dismissTo('/(student-tabs)/feed');
   };
 
   return (
@@ -171,7 +180,7 @@ export default function SignInScreen() {
             variant="ghost"
             fullWidth
             size="medium"
-            onPress={() => router.replace('/(student-tabs)/feed')}
+            onPress={() => router.replace('/role-selection?guest=1')}
           >
             Continue as guest
           </PillButton>

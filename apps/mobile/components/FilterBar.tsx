@@ -1,4 +1,4 @@
-// FilterBar — sticky filter bar for opportunity feed with refined styling
+// FilterBar - sticky filter bar for opportunity feed with refined styling
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/Themed';

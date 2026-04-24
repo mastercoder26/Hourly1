@@ -1,4 +1,4 @@
-// Active Shift — timer and progress during shift
+// Active Shift - timer and progress during shift
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { Text } from '@/components/Themed';
@@ -7,14 +7,19 @@ import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-na
 import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';
 import { PillButton } from '../../components/ui/PillButton';
-import { mockOpportunities } from '../../mocks/opportunities';
+import { useDemoStore } from '../../lib/demo/demoStore';
+import { DEMO_STUDENT_ID } from '@hourly/shared';
 import { enterFade, enterRise, MOTION } from '../../lib/motion';
 
 export default function ActiveShiftScreen() {
   const router = useRouter();
-  const opp = mockOpportunities[0]; // Mock
+  const applications = useDemoStore(s => s.applications);
+  const opportunities = useDemoStore(s => s.opportunities);
+  const app =
+    applications.find(a => a.status === 'APPROVED' && a.studentId === DEMO_STUDENT_ID) ?? applications[0];
+  const opp = opportunities.find(o => o.id === app?.opportunityId) ?? opportunities[0]!;
   const [elapsed, setElapsed] = useState(4980); // Mock: 1h 23m in seconds
-  const totalDuration = opp.durationHours * 3600;
+  const totalDuration = Math.max(opp.durationHours, 0.25) * 3600;
   const progress = useSharedValue(elapsed / totalDuration);
 
   useEffect(() => {

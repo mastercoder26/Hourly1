@@ -1,4 +1,4 @@
-// QR Scanner — org-side camera scanner
+// QR Scanner - org-side camera scanner
 import React, { useState } from 'react';
 import { View, StyleSheet, Pressable, Alert } from 'react-native';
 import { Text } from '@/components/Themed';;

@@ -1,4 +1,4 @@
-// Card component — floating dark card with press feedback
+// Card component - floating dark card with press feedback
 import React from 'react';
 import { View, StyleSheet, ViewStyle, StyleProp, Pressable } from 'react-native';
 import Animated, {

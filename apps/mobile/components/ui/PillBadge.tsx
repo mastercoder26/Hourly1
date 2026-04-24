@@ -1,4 +1,4 @@
-// Pill Badge — colored cause tag pills with optional icons
+// Pill Badge - colored cause tag pills with optional icons
 import React from 'react';
 import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { Text } from '@/components/Themed';

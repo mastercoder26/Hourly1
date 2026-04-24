@@ -1,4 +1,4 @@
-// Onboarding Step 4 — Availability Selection
+// Onboarding Step 4 - Availability Selection
 import React, { useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from '@/components/Themed';

@@ -1,4 +1,4 @@
-// Opportunity Feed — main student home screen with refined animations
+// Opportunity Feed - main student home screen with refined animations
 import React, { useState, useCallback } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, ActivityIndicator, Pressable, Platform, useWindowDimensions } from 'react-native';
 import { Text } from '@/components/Themed';
@@ -13,6 +13,7 @@ import { Opportunity } from '../../types';
 import { enterFade, enterRise, enterRiseSnappy, stagger, createStaggeredEntrance, listAnimations } from '../../lib/motion';
 import { StatusIcons, ActionIcons } from '../../constants/icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { tabBarScrollContentPadding } from '../../constants/tabBar';
 
 export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
@@ -24,7 +25,7 @@ export default function FeedScreen() {
   const isWeb = Platform.OS === 'web';
   const isLargeScreen = width > 768;
 
-  const { data: filteredOpportunities, loading, error, refetch, usingFallback } = useOpportunities({
+  const { data: filteredOpportunities, loading, error, refetch } = useOpportunities({
     causes: filters.causes,
     creditEligible: filters.creditEligible,
     maxDistance: filters.maxDistance,
@@ -99,14 +100,6 @@ export default function FeedScreen() {
         <FilterBar onFiltersChange={setFilters} />
       </Animated.View>
 
-      {/* Demo mode notice */}
-      {usingFallback ? (
-        <Animated.View style={styles.demoNotice} entering={enterFade(120)}>
-          <Feather name={StatusIcons.info} size={14} color={Colors.accent} />
-          <Text style={styles.demoNoticeText}>Demo mode: showing sample opportunities</Text>
-        </Animated.View>
-      ) : null}
-
       {/* Results count */}
       <Animated.View style={styles.resultsHeader} entering={enterFade(140)}>
         <Text style={styles.resultsCount}>
@@ -119,7 +112,7 @@ export default function FeedScreen() {
         data={filteredOpportunities}
         renderItem={renderItem}
         keyExtractor={item => item.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: tabBarScrollContentPadding(insets) }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl 
@@ -192,23 +185,6 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: 20,
     paddingTop: 4,
-    paddingBottom: 24,
-  },
-  demoNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginHorizontal: 24,
-    marginBottom: 12,
-    backgroundColor: Colors.accentSoft,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  demoNoticeText: {
-    color: Colors.accent,
-    fontSize: 13,
-    fontWeight: '500',
   },
   empty: {
     alignItems: 'center',

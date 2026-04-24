@@ -1,4 +1,4 @@
-// Create Role — multi-step form for posting volunteer opportunities
+// Create Role - multi-step form for posting volunteer opportunities
 import React, { useState } from 'react';
 import { View, TextInput, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { Text } from '@/components/Themed';

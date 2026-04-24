@@ -1,6 +1,6 @@
-// Hourly Design System — Icons
+// Hourly Design System - Icons
 // Purposeful, nonchalant line icons using Feather
-// No emojis — clean, professional aesthetic
+// No emojis - clean, professional aesthetic
 
 import { Feather } from '@expo/vector-icons';
 

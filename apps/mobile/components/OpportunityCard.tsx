@@ -1,4 +1,4 @@
-// OpportunityCard — main feed card component with premium animations
+// OpportunityCard - main feed card component with premium animations
 import React from 'react';
 import { View, StyleSheet, Pressable, Platform } from 'react-native';
 import { Text } from '@/components/Themed';

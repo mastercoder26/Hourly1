@@ -1,4 +1,4 @@
-// MapPreview — Google Maps integration for opportunity detail view
+// MapPreview - Google Maps integration for opportunity detail view
 import React from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { Text } from '@/components/Themed';;

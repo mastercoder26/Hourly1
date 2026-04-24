@@ -1,4 +1,4 @@
-// Pill Button — rounded action buttons with premium animations
+// Pill Button - rounded action buttons with premium animations
 import React from 'react';
 import { Pressable, StyleSheet, ViewStyle, TextStyle, StyleProp, Platform } from 'react-native';
 import Animated, {

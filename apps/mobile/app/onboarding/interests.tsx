@@ -1,4 +1,4 @@
-// Onboarding Step 3 — Interest/Cause Selection (up to 5 bubbles)
+// Onboarding Step 3 - Interest/Cause Selection (up to 5 bubbles)
 import React, { useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from '@/components/Themed';

@@ -1,4 +1,4 @@
-// BadgeGrid — milestone badge display with unlock animation
+// BadgeGrid - milestone badge display with unlock animation
 import React, { useEffect } from 'react';
 import { View, StyleSheet, Pressable, Alert } from 'react-native';
 import { Text } from '@/components/Themed';

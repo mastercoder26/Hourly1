@@ -1,4 +1,4 @@
-// Hourly Design System — Colors
+// Hourly Design System - Colors
 // Premium dark theme inspired by fintech dashboards
 
 const tintColorLight = '#2f95dc';

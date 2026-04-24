@@ -1,4 +1,4 @@
-// Onboarding Step 2 — School confirmation (intermediate step)
+// Onboarding Step 2 - School confirmation (intermediate step)
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from '@/components/Themed';

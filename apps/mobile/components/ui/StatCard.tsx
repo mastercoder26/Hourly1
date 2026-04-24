@@ -1,4 +1,4 @@
-// StatCard — reusable stat display with label + value
+// StatCard - reusable stat display with label + value
 import React from 'react';
 import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { Text } from '@/components/Themed';

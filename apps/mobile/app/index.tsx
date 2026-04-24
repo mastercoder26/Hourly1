@@ -1,4 +1,4 @@
-// Welcome Screen — "Welcome to Hourly" landing page with refined animations
+// Welcome Screen - "Welcome to Hourly" landing page with refined animations
 import React, { useEffect } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { Text } from '@/components/Themed';
@@ -10,49 +10,31 @@ import { PillButton } from '../components/ui/PillButton';
 import { useAuth, useUser } from '@clerk/expo';
 import { enterRise, enterFade } from '../lib/motion';
 import { Feather } from '@expo/vector-icons';
+import { isDemoMode } from '../lib/dataMode';
+import { isClerkConfigured } from '../lib/clerkConfig';
+import { useDemoAuth } from '../context/DemoAuthContext';
 
 const { width } = Dimensions.get('window');
 
-export default function WelcomeScreen() {
-  const router = useRouter();
-  const { isLoaded: authLoaded, isSignedIn } = useAuth();
-  const { user } = useUser();
-
-  useEffect(() => {
-    if (!authLoaded || !isSignedIn) {
-      return;
-    }
-
-    const role =
-      typeof user?.unsafeMetadata?.role === 'string'
-        ? user.unsafeMetadata.role
-        : null;
-
-    if (role === 'organizer') {
-      router.replace('/(org-tabs)/dashboard');
-      return;
-    }
-
-    router.replace('/(student-tabs)/feed');
-  }, [authLoaded, isSignedIn, router, user?.unsafeMetadata?.role]);
-
+function WelcomeChrome({
+  bottomActions,
+}: {
+  bottomActions: React.ReactNode;
+}) {
   return (
     <View style={styles.container}>
-      {/* Background decoration */}
       <View style={styles.bgDecoration}>
         <View style={styles.bgCircle1} />
         <View style={styles.bgCircle2} />
       </View>
 
       <View style={styles.content}>
-        {/* Logo */}
         <Animated.View style={styles.logoContainer} entering={enterRise(80)}>
           <View style={styles.brandCircle}>
             <Text style={styles.logoText}>H</Text>
           </View>
         </Animated.View>
 
-        {/* Title & subtitle */}
         <Animated.View style={styles.titleContainer} entering={enterRise(160)}>
           <Text style={styles.title}>Hourly.</Text>
           <Text style={styles.subtitle}>
@@ -60,7 +42,6 @@ export default function WelcomeScreen() {
           </Text>
         </Animated.View>
 
-        {/* Features */}
         <Animated.View style={styles.features} entering={enterFade(280)}>
           <View style={styles.featureItem}>
             <View style={styles.featureIcon}>
@@ -83,35 +64,103 @@ export default function WelcomeScreen() {
         </Animated.View>
       </View>
 
-      {/* Bottom actions */}
       <Animated.View style={styles.bottomActions} entering={enterRise(360)}>
-        <PillButton
-          variant="primary"
-          fullWidth
-          size="large"
-          onPress={() => router.push('/role-selection')}
-        >
-          Get Started
-        </PillButton>
-        <PillButton
-          variant="secondary"
-          fullWidth
-          size="large"
-          onPress={() => router.push('/(auth)/sign-in')}
-        >
-          Sign In
-        </PillButton>
-        <PillButton
-          variant="ghost"
-          fullWidth
-          size="medium"
-          onPress={() => router.push('/admin/login' as never)}
-        >
-          Admin Portal
-        </PillButton>
+        {bottomActions}
       </Animated.View>
     </View>
   );
+}
+
+function WelcomeDemoBare() {
+  const router = useRouter();
+  const { enterDemo } = useDemoAuth();
+
+  return (
+    <WelcomeChrome
+      bottomActions={
+        <>
+          <PillButton
+            variant="primary"
+            fullWidth
+            size="large"
+            onPress={() => {
+              enterDemo('student');
+              router.dismissTo('/(student-tabs)/feed');
+            }}
+          >
+            Explore as student
+          </PillButton>
+          <PillButton
+            variant="secondary"
+            fullWidth
+            size="large"
+            onPress={() => {
+              enterDemo('organizer');
+              router.replace('/(org-tabs)/dashboard');
+            }}
+          >
+            Explore as organizer
+          </PillButton>
+          <PillButton variant="ghost" fullWidth size="large" onPress={() => router.push('/role-selection')}>
+            Get Started
+          </PillButton>
+          <PillButton variant="ghost" fullWidth size="medium" onPress={() => router.push('/admin/login' as never)}>
+            Admin Portal
+          </PillButton>
+        </>
+      }
+    />
+  );
+}
+
+function WelcomeWithClerk() {
+  const router = useRouter();
+  const { isLoaded: authLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
+  const { exitDemo } = useDemoAuth();
+
+  useEffect(() => {
+    if (!authLoaded || !isSignedIn) {
+      return;
+    }
+
+    exitDemo();
+
+    const role =
+      typeof user?.unsafeMetadata?.role === 'string' ? user.unsafeMetadata.role : null;
+
+    if (role === 'organizer') {
+      router.dismissTo('/(org-tabs)/dashboard');
+      return;
+    }
+
+    router.dismissTo('/(student-tabs)/feed');
+  }, [authLoaded, isSignedIn, exitDemo, router, user?.unsafeMetadata?.role]);
+
+  return (
+    <WelcomeChrome
+      bottomActions={
+        <>
+          <PillButton variant="primary" fullWidth size="large" onPress={() => router.push('/role-selection')}>
+            Get Started
+          </PillButton>
+          <PillButton variant="secondary" fullWidth size="large" onPress={() => router.push('/(auth)/sign-in')}>
+            Sign In
+          </PillButton>
+          <PillButton variant="ghost" fullWidth size="medium" onPress={() => router.push('/admin/login' as never)}>
+            Admin Portal
+          </PillButton>
+        </>
+      }
+    />
+  );
+}
+
+export default function WelcomeScreen() {
+  if (isDemoMode() && !isClerkConfigured()) {
+    return <WelcomeDemoBare />;
+  }
+  return <WelcomeWithClerk />;
 }
 
 const styles = StyleSheet.create({

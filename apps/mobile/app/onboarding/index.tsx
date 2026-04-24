@@ -1,4 +1,4 @@
-// Onboarding Step 1 — School & Grade Selection
+// Onboarding Step 1 - School & Grade Selection
 import React, { useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { Text } from '@/components/Themed';

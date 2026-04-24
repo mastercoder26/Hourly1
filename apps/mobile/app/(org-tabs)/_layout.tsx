@@ -1,12 +1,17 @@
 // Org Tabs Layout
 import React from 'react';
-import { Tabs, useRouter, usePathname, Link, Redirect } from 'expo-router';
+import { Tabs, usePathname, Link, Redirect } from 'expo-router';
 import { View, StyleSheet, Platform, useWindowDimensions, Pressable } from 'react-native';
 import { Text } from '@/components/Themed';
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { SlidingTabBar } from '../../components/navigation/SlidingTabBar';
 import { useAuth, useUser } from '@clerk/expo';
+import { isDemoMode } from '../../lib/dataMode';
+import { isClerkConfigured } from '../../lib/clerkConfig';
+import { useDemoAuth } from '../../context/DemoAuthContext';
 
 // Types for our navigation items
 type TabName = 'dashboard' | 'events' | 'applicants' | 'org-profile';
@@ -46,103 +51,148 @@ function SideNav() {
   );
 }
 
-function TabIcon({ name, focused, iconName }: { name: string; focused: boolean; iconName: keyof typeof Feather.glyphMap }) {
+function TabIcon({ focused, iconName }: { focused: boolean; iconName: keyof typeof Feather.glyphMap }) {
   return (
     <View style={styles.tabItem}>
-      <Feather 
-        name={iconName} 
-        size={22} 
-        color={focused ? Colors.dark.textPrimary : Colors.dark.textTertiary} 
+      <Feather
+        name={iconName}
+        size={22}
+        color={focused ? Colors.dark.textPrimary : Colors.dark.textTertiary}
         style={[styles.tabIcon, focused && styles.tabIconActive]}
       />
-      <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>{name}</Text>
-      {focused && <View style={styles.activeDot} />}
     </View>
   );
 }
 
-export default function OrgTabsLayout() {
+function OrgTabNavigator() {
   const { width } = useWindowDimensions();
-  const { isLoaded, isSignedIn } = useAuth();
-  const { user } = useUser();
-
-  const clerkKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
-  const isClerkConfigured = clerkKey.length > 0 && !clerkKey.includes('PLACEHOLDER');
-
-  if (isClerkConfigured && isLoaded && !isSignedIn) {
-    return <Redirect href="/(auth)/sign-in" />;
-  }
-
-  const role =
-    typeof user?.unsafeMetadata?.role === 'string'
-      ? user.unsafeMetadata.role
-      : null;
-
-  if (isClerkConfigured && isLoaded && isSignedIn && role && role !== 'organizer') {
-    return <Redirect href="/(student-tabs)/feed" />;
-  }
-
-  // We trigger the premium desktop layout on screens wider than 768px
   const isWebWide = Platform.OS === 'web' && width > 768;
 
-  const content = (
+  return (
     <Tabs
+      tabBar={isWebWide ? () => null : (props: BottomTabBarProps) => <SlidingTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarStyle: isWebWide ? { display: 'none' } : styles.tabBar,
         tabBarShowLabel: false,
+        ...(isWebWide ? { tabBarStyle: { display: 'none' } } : {}),
       }}
     >
       <Tabs.Screen
         name="dashboard"
         options={{
           title: 'Dashboard',
-          tabBarIcon: ({ focused }) => <TabIcon name="Dashboard" focused={focused} iconName="grid" />,
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} iconName="grid" />,
         }}
       />
       <Tabs.Screen
         name="events"
         options={{
           title: 'Events',
-          tabBarIcon: ({ focused }) => <TabIcon name="Events" focused={focused} iconName="calendar" />,
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} iconName="calendar" />,
         }}
       />
       <Tabs.Screen
         name="applicants"
         options={{
           title: 'People',
-          tabBarIcon: ({ focused }) => <TabIcon name="People" focused={focused} iconName="users" />,
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} iconName="users" />,
         }}
       />
       <Tabs.Screen
         name="org-profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ focused }) => <TabIcon name="Profile" focused={focused} iconName="briefcase" />,
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} iconName="briefcase" />,
         }}
       />
     </Tabs>
   );
+}
+
+function OrgTabsWebShell({ children }: { children: React.ReactNode }) {
+  return (
+    <View style={styles.webContainer}>
+      <View style={styles.leftColumn}>
+        <SideNav />
+      </View>
+      <View style={styles.centerColumn}>
+        <View style={styles.centerContentWrapper}>{children}</View>
+      </View>
+      <View style={styles.rightColumn} />
+    </View>
+  );
+}
+
+function OrgTabsLayoutWithClerk() {
+  const { width } = useWindowDimensions();
+  const { isLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
+  const { demoSignedIn, demoRole } = useDemoAuth();
+
+  if (isClerkConfigured() && isLoaded && !isSignedIn && !demoSignedIn) {
+    return <Redirect href="/(auth)/sign-in" />;
+  }
+
+  const role =
+    typeof user?.unsafeMetadata?.role === 'string' ? user.unsafeMetadata.role : null;
+
+  if (
+    isClerkConfigured() &&
+    isLoaded &&
+    isSignedIn &&
+    role &&
+    role !== 'organizer'
+  ) {
+    return <Redirect href="/(student-tabs)/feed" />;
+  }
+
+  if (
+    isClerkConfigured() &&
+    isLoaded &&
+    !isSignedIn &&
+    demoSignedIn &&
+    demoRole &&
+    demoRole !== 'organizer'
+  ) {
+    return <Redirect href="/(student-tabs)/feed" />;
+  }
+
+  const isWebWide = Platform.OS === 'web' && width > 768;
+  const content = <OrgTabNavigator />;
 
   if (isWebWide) {
-    return (
-      <View style={styles.webContainer}>
-        <View style={styles.leftColumn}>
-          <SideNav />
-        </View>
-
-        <View style={styles.centerColumn}>
-          <View style={styles.centerContentWrapper}>
-            {content}
-          </View>
-        </View>
-
-        <View style={styles.rightColumn} />
-      </View>
-    );
+    return <OrgTabsWebShell>{content}</OrgTabsWebShell>;
   }
 
   return content;
+}
+
+function OrgTabsLayoutDemoBare() {
+  const { width } = useWindowDimensions();
+  const { demoSignedIn, demoRole } = useDemoAuth();
+
+  if (!demoSignedIn) {
+    return <Redirect href="/" />;
+  }
+  if (demoRole !== 'organizer') {
+    return <Redirect href="/(student-tabs)/feed" />;
+  }
+
+  const isWebWide = Platform.OS === 'web' && width > 768;
+  const content = <OrgTabNavigator />;
+
+  if (isWebWide) {
+    return <OrgTabsWebShell>{content}</OrgTabsWebShell>;
+  }
+
+  return content;
+}
+
+export default function OrgTabsLayout() {
+  if (isDemoMode() && !isClerkConfigured()) {
+    return <OrgTabsLayoutDemoBare />;
+  }
+  return <OrgTabsLayoutWithClerk />;
 }
 
 const styles = StyleSheet.create({
@@ -156,7 +206,7 @@ const styles = StyleSheet.create({
   leftColumn: {
     width: 280,
     borderRightWidth: 1,
-    borderColor: '#1C1C1E',
+    borderColor: Colors.dark.divider,
     height: '100%',
   },
   centerColumn: {
@@ -168,7 +218,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRightWidth: 1,
     borderLeftWidth: 1,
-    borderColor: '#1C1C1E',
+    borderColor: Colors.dark.divider,
     overflow: 'hidden',
   },
   rightColumn: {
@@ -178,7 +228,8 @@ const styles = StyleSheet.create({
   },
   // Side Nav styling
   sideNav: {
-    padding: 32,
+    padding: 24,
+    paddingTop: 28,
     flex: 1,
   },
   sideNavLogo: {
@@ -186,10 +237,11 @@ const styles = StyleSheet.create({
     fontSize: Typography.title.fontSize,
     fontWeight: Typography.title.fontWeight,
     color: Colors.dark.textPrimary,
-    marginBottom: 48,
+    marginBottom: 36,
+    paddingLeft: 4,
   },
   sideNavLinks: {
-    gap: 16,
+    gap: 8,
   },
   sideNavItem: {
     flexDirection: 'row',
@@ -212,43 +264,18 @@ const styles = StyleSheet.create({
     color: Colors.dark.textPrimary,
     fontWeight: '600',
   },
-  // Native Bottom Tab styling
-  tabBar: {
-    backgroundColor: Colors.dark.base,
-    borderTopWidth: 1,
-    borderTopColor: '#1C1C1E',
-    height: 85,
-    paddingTop: 8,
-    paddingBottom: 20,
-    elevation: 0,
-    shadowOpacity: 0,
-  },
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    paddingTop: 4,
+    width: '100%',
+    maxWidth: 96,
+    paddingHorizontal: 2,
   },
   tabIcon: {
     opacity: 0.8,
   },
   tabIconActive: {
     opacity: 1,
-  },
-  tabLabel: {
-    fontFamily: Typography.caption.fontFamily,
-    fontSize: Typography.caption.fontSize,
-    fontWeight: '500',
-    color: Colors.dark.textTertiary,
-  },
-  tabLabelActive: {
-    color: Colors.dark.textPrimary,
-  },
-  activeDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.dark.textPrimary,
-    marginTop: 2,
   },
 });

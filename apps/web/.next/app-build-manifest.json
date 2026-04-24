@@ -1,0 +1,59 @@
+{
+  "pages": {
+    "/_not-found/page": [
+      "static/chunks/webpack-74c939c87fa0092a.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-53b83832e767544f.js",
+      "static/chunks/main-app-99f11fa6ad0117f9.js",
+      "static/chunks/app/_not-found/page-ae974b8ccc147a9f.js"
+    ],
+    "/layout": [
+      "static/chunks/webpack-74c939c87fa0092a.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-53b83832e767544f.js",
+      "static/chunks/main-app-99f11fa6ad0117f9.js",
+      "static/css/f28f45adafbd2ab0.css",
+      "static/chunks/app/layout-dfed3a0f15051b4b.js"
+    ],
+    "/counselor/[studentId]/page": [
+      "static/chunks/webpack-74c939c87fa0092a.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-53b83832e767544f.js",
+      "static/chunks/main-app-99f11fa6ad0117f9.js",
+      "static/chunks/619-ba102abea3e3d0e4.js",
+      "static/chunks/app/counselor/[studentId]/page-186f1da5c157cc80.js"
+    ],
+    "/p/[slug]/page": [
+      "static/chunks/webpack-74c939c87fa0092a.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-53b83832e767544f.js",
+      "static/chunks/main-app-99f11fa6ad0117f9.js",
+      "static/chunks/619-ba102abea3e3d0e4.js",
+      "static/chunks/app/p/[slug]/page-186f1da5c157cc80.js"
+    ],
+    "/org/[slug]/page": [
+      "static/chunks/webpack-74c939c87fa0092a.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-53b83832e767544f.js",
+      "static/chunks/main-app-99f11fa6ad0117f9.js",
+      "static/chunks/619-ba102abea3e3d0e4.js",
+      "static/chunks/app/org/[slug]/page-186f1da5c157cc80.js"
+    ],
+    "/counselor/page": [
+      "static/chunks/webpack-74c939c87fa0092a.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-53b83832e767544f.js",
+      "static/chunks/main-app-99f11fa6ad0117f9.js",
+      "static/chunks/619-ba102abea3e3d0e4.js",
+      "static/chunks/app/counselor/page-238647c7d6f4dcf6.js"
+    ],
+    "/page": [
+      "static/chunks/webpack-74c939c87fa0092a.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-53b83832e767544f.js",
+      "static/chunks/main-app-99f11fa6ad0117f9.js",
+      "static/chunks/619-ba102abea3e3d0e4.js",
+      "static/chunks/app/page-186f1da5c157cc80.js"
+    ]
+  }
+}

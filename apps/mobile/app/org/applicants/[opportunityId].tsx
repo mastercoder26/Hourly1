@@ -1,20 +1,35 @@
-// Applicant Management — per-opportunity applicant list
-import React, { useMemo, useState } from 'react';
+// Applicant Management - per-opportunity applicant list
+import React, { useMemo } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
-import { Text } from '@/components/Themed';;
+import { Text } from '@/components/Themed';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors } from '../../../constants/colors';
 import { Card } from '../../../components/ui/Card';
 import { PillBadge } from '../../../components/ui/PillBadge';
 import { PillButton } from '../../../components/ui/PillButton';
-import { mockApplicants } from '../../../mocks/data';
-import { getOpportunityById } from '../../../mocks/opportunities';
+import { getOpportunityById, demoApplicants } from '@hourly/shared';
+import { useDemoStore } from '../../../lib/demo/demoStore';
+import { isDemoMode } from '../../../lib/dataMode';
 
 export default function ApplicantManagement() {
   const { opportunityId } = useLocalSearchParams<{ opportunityId: string }>();
   const router = useRouter();
-  const opp = getOpportunityById(opportunityId || '');
-  const [applicants, setApplicants] = useState(mockApplicants);
+  const oppId = Array.isArray(opportunityId) ? opportunityId[0] : opportunityId;
+  const opportunityFromStore = useDemoStore(s =>
+    oppId ? s.opportunities.find(o => o.id === oppId) : undefined,
+  );
+  const opp = opportunityFromStore ?? (oppId ? getOpportunityById(oppId) : undefined);
+
+  const applicantOverride = useDemoStore(s => (oppId ? s.applicantsByOppId[oppId] : undefined));
+  const setApplicantStatus = useDemoStore(s => s.setApplicantStatus);
+  const applications = useDemoStore(s => s.applications);
+
+  const applicants = useMemo(() => {
+    if (applicantOverride && applicantOverride.length > 0) {
+      return applicantOverride;
+    }
+    return demoApplicants;
+  }, [applicantOverride]);
 
   const statusGroups = useMemo(
     () => ({
@@ -27,21 +42,15 @@ export default function ApplicantManagement() {
   );
 
   const handleDecision = (applicantId: string, decision: 'APPROVED' | 'DECLINED') => {
+    if (!oppId) return;
     const applicant = applicants.find(a => a.id === applicantId);
     if (!applicant) {
       return;
     }
 
-    setApplicants(prev =>
-      prev.map(item =>
-        item.id === applicantId
-          ? {
-              ...item,
-              status: decision,
-            }
-          : item,
-      ),
-    );
+    if (isDemoMode()) {
+      setApplicantStatus(oppId, applicantId, decision);
+    }
 
     const decisionVerb = decision === 'APPROVED' ? 'approved' : 'declined';
     Alert.alert(
@@ -50,11 +59,21 @@ export default function ApplicantManagement() {
     );
   };
 
-  const handleMessageApplicant = (applicantId: string) => {
-    router.push(`/messages/${applicantId}` as never);
+  const handleMessageApplicant = (applicantStudentId: string) => {
+    const app =
+      applications.find(
+        a => a.opportunityId === oppId && a.studentId === applicantStudentId,
+      ) ?? applications.find(a => a.opportunityId === oppId);
+    const routeId = app?.id ?? 'app-001';
+    router.push(`/messages/${routeId}` as never);
   };
 
-  const statusColors = { PENDING: Colors.warning, APPROVED: Colors.success, WAITLISTED: Colors.purple, DECLINED: Colors.error };
+  const statusColors = {
+    PENDING: Colors.warning,
+    APPROVED: Colors.success,
+    WAITLISTED: Colors.purple,
+    DECLINED: Colors.error,
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -64,20 +83,30 @@ export default function ApplicantManagement() {
       <Text style={styles.title}>{opp?.title || 'Applicants'}</Text>
       <Text style={styles.subtitle}>{applicants.length} applicants total</Text>
 
-      {Object.entries(statusGroups).map(([status, applicants]) => {
-        if (applicants.length === 0) return null;
+      {Object.entries(statusGroups).map(([status, group]) => {
+        if (group.length === 0) return null;
         return (
           <View key={status}>
-            <Text style={styles.section}>{status} ({applicants.length})</Text>
-            {applicants.map(a => (
+            <Text style={styles.section}>
+              {status} ({group.length})
+            </Text>
+            {group.map(a => (
               <Card key={a.id} style={styles.applicantCard}>
                 <View style={styles.row}>
                   <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{a.firstName[0]}{a.lastName[0]}</Text>
+                    <Text style={styles.avatarText}>
+                      {a.firstName[0]}
+                      {a.lastName[0]}
+                    </Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.name}>{a.firstName} {a.lastName}</Text>
-                    <Text style={styles.details}>Grade {a.grade} • {a.totalHours}h total{a.rating ? ` • ★ ${a.rating}` : ''}</Text>
+                    <Text style={styles.name}>
+                      {a.firstName} {a.lastName}
+                    </Text>
+                    <Text style={styles.details}>
+                      Grade {a.grade} • {a.totalHours}h total
+                      {a.rating ? ` • ★ ${a.rating}` : ''}
+                    </Text>
                   </View>
                   <PillBadge label={status} color={statusColors[status as keyof typeof statusColors]} />
                 </View>
@@ -119,12 +148,31 @@ const styles = StyleSheet.create({
   content: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 40, gap: 12 },
   backButton: { alignSelf: 'flex-start', paddingVertical: 8, paddingRight: 16 },
   backText: { fontSize: 16, color: Colors.purple, fontWeight: '500' },
-  title: { fontSize: 24, fontWeight: '500', color: Colors.dark.textPrimary, letterSpacing: -0.3 },
+  title: {
+    fontSize: 24,
+    fontWeight: '500',
+    color: Colors.dark.textPrimary,
+    letterSpacing: -0.3,
+  },
   subtitle: { fontSize: 14, color: Colors.dark.textSecondary },
-  section: { fontSize: 13, fontWeight: '500', color: Colors.dark.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 12 },
+  section: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.dark.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 12,
+  },
   applicantCard: { padding: 16, borderRadius: 20, gap: 14, marginTop: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.purpleSoft, alignItems: 'center', justifyContent: 'center' },
+  avatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: Colors.purpleSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   avatarText: { fontSize: 15, fontWeight: '600', color: Colors.purple },
   name: { fontSize: 15, fontWeight: '500', color: Colors.dark.textPrimary },
   details: { fontSize: 12, color: Colors.dark.textSecondary, marginTop: 2 },

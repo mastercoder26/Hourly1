@@ -1,4 +1,4 @@
-// MessageThread — in-app messaging UI
+// MessageThread - in-app messaging UI
 import React, { useEffect, useState } from 'react';
 import { View, TextInput, StyleSheet, FlatList, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text } from '@/components/Themed';;

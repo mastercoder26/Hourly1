@@ -1,4 +1,4 @@
-// Opportunity Detail — full detail view with map, reviews, and apply
+// Opportunity Detail - full detail view with map, reviews, and apply
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/Themed';
@@ -12,65 +12,66 @@ import { MapPreview } from '../../components/MapPreview';
 import { Feather } from '@expo/vector-icons';
 import { trpc } from '../../lib/trpc';
 import { ApiOpportunityLike, toMobileOpportunity } from '../../lib/opportunity-adapter';
-import { getOpportunityById } from '../../mocks/opportunities';
 import { enterFade, enterRise, exitDrop, exitFade, MOTION } from '../../lib/motion';
+import { isDemoMode, isLiveMode } from '../../lib/dataMode';
+import { applicationForStudentOnOpportunity, useDemoStore } from '../../lib/demo/demoStore';
+import { DEMO_STUDENT_ID } from '@hourly/shared';
 
 export default function OpportunityDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const opportunityId = Array.isArray(id) ? id[0] : id;
-  const [useFallback, setUseFallback] = useState(false);
 
-  const { data: rawOpportunity, isLoading, error } = trpc.opportunity.getById.useQuery({
-    id: opportunityId ?? '',
-  });
+  const demoOpportunities = useDemoStore(s => s.opportunities);
+  const applications = useDemoStore(s => s.applications);
+  const applyToOpportunity = useDemoStore(s => s.applyToOpportunity);
+  const setSaved = useDemoStore(s => s.setSaved);
+  const savedFromStore = useDemoStore(s =>
+    opportunityId ? Boolean(s.savedOpportunityIds[opportunityId]) : false,
+  );
+
+  const { data: rawOpportunity, isLoading, error } = trpc.opportunity.getById.useQuery(
+    { id: opportunityId ?? '' },
+    { enabled: isLiveMode() && Boolean(opportunityId) },
+  );
   const applyMutation = trpc.application.apply.useMutation();
 
-  useEffect(() => {
-    if (!isLoading) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setUseFallback(true);
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [isLoading]);
-
-  useEffect(() => {
-    if (error) {
-      setUseFallback(true);
-    }
-  }, [error]);
-
-  useEffect(() => {
-    if (rawOpportunity) {
-      setUseFallback(false);
-    }
-  }, [rawOpportunity]);
-
-  const fallbackOpportunity = useMemo(() => {
+  const opportunity = useMemo(() => {
     if (!opportunityId) {
-      return undefined;
+      return null;
     }
+    if (isDemoMode()) {
+      return demoOpportunities.find(o => o.id === opportunityId) ?? null;
+    }
+    if (rawOpportunity) {
+      return toMobileOpportunity(rawOpportunity as ApiOpportunityLike);
+    }
+    return null;
+  }, [demoOpportunities, opportunityId, rawOpportunity]);
 
-    return getOpportunityById(opportunityId);
-  }, [opportunityId]);
-
-  const shouldUseFallback = useFallback || Boolean(error);
-  const opportunity = rawOpportunity
-    ? toMobileOpportunity(rawOpportunity as ApiOpportunityLike)
-    : (shouldUseFallback ? fallbackOpportunity ?? null : null);
+  const existingApplication = useMemo(
+    () =>
+      opportunityId
+        ? applicationForStudentOnOpportunity(applications, opportunityId, DEMO_STUDENT_ID)
+        : undefined,
+    [applications, opportunityId],
+  );
 
   const [showApplySheet, setShowApplySheet] = useState(false);
-  const [applied, setApplied] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [justApplied, setJustApplied] = useState(false);
+  const saved = savedFromStore;
 
   const checkScale = useSharedValue(0.92);
   const checkOpacity = useSharedValue(0);
 
-  if (isLoading && !shouldUseFallback) {
+  useEffect(() => {
+    setJustApplied(false);
+    setShowApplySheet(false);
+    checkScale.value = 0.92;
+    checkOpacity.value = 0;
+  }, [opportunityId, checkScale, checkOpacity]);
+
+  if (isLiveMode() && isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.teal} />
@@ -78,7 +79,7 @@ export default function OpportunityDetailScreen() {
     );
   }
 
-  if (error || !opportunity) {
+  if ((isLiveMode() && error) || !opportunity) {
     return (
       <View style={styles.container}>
         <Text style={styles.errorText}>Opportunity not found</Text>
@@ -89,20 +90,25 @@ export default function OpportunityDetailScreen() {
   const spotsLeft = opportunity.totalSpots - opportunity.filledSpots;
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
+  const playSuccessAnimation = () => {
+    setShowApplySheet(false);
+    checkScale.value = withSequence(
+      withSpring(1.08, { damping: 14, stiffness: 260, mass: 0.8 }),
+      withSpring(1, { damping: 18, stiffness: 220, mass: 0.9 }),
+    );
+    checkOpacity.value = withTiming(1, {
+      duration: MOTION.duration.standard,
+      easing: MOTION.easeOut,
+    });
+  };
+
   const handleApply = async () => {
     if (!opportunityId) return;
 
-    if (shouldUseFallback) {
-      setApplied(true);
-      setShowApplySheet(false);
-      checkScale.value = withSequence(
-        withSpring(1.08, { damping: 14, stiffness: 260, mass: 0.8 }),
-        withSpring(1, { damping: 18, stiffness: 220, mass: 0.9 })
-      );
-      checkOpacity.value = withTiming(1, {
-        duration: MOTION.duration.standard,
-        easing: MOTION.easeOut,
-      });
+    if (isDemoMode()) {
+      applyToOpportunity(opportunityId);
+      setJustApplied(true);
+      playSuccessAnimation();
       return;
     }
 
@@ -111,24 +117,17 @@ export default function OpportunityDetailScreen() {
         opportunityId,
       });
 
-      setApplied(true);
-      setShowApplySheet(false);
-      checkScale.value = withSequence(
-        withSpring(1.08, { damping: 14, stiffness: 260, mass: 0.8 }),
-        withSpring(1, { damping: 18, stiffness: 220, mass: 0.9 })
-      );
-      checkOpacity.value = withTiming(1, {
-        duration: MOTION.duration.standard,
-        easing: MOTION.easeOut,
-      });
+      setJustApplied(true);
+      playSuccessAnimation();
     } catch {
       Alert.alert('Apply failed', 'Please try again in a moment.');
     }
   };
 
   const handleToggleSave = () => {
+    if (!opportunityId) return;
     const nextSaved = !saved;
-    setSaved(nextSaved);
+    setSaved(opportunityId, nextSaved);
     Alert.alert(
       nextSaved ? 'Saved' : 'Removed',
       nextSaved
@@ -171,9 +170,6 @@ export default function OpportunityDetailScreen() {
 
         <Animated.View entering={enterRise(140)}>
           <Text style={styles.title}>{opportunity.title}</Text>
-          {shouldUseFallback && (
-            <Text style={styles.fallbackNote}>Demo mode: showing local opportunity</Text>
-          )}
           <View style={styles.tags}>
             {opportunity.causeTags.map(tag => (
               <PillBadge key={tag} label={tag} causeTag={tag} size="medium" />
@@ -295,9 +291,9 @@ export default function OpportunityDetailScreen() {
               fullWidth
               size="large"
               onPress={handleApply}
-              disabled={applyMutation.isPending}
+              disabled={isLiveMode() && applyMutation.isPending}
             >
-              {applyMutation.isPending ? 'Submitting...' : 'Confirm — apply now'}
+              {isLiveMode() && applyMutation.isPending ? 'Submitting...' : 'Confirm, apply now'}
             </PillButton>
             <PillButton variant="ghost" fullWidth size="medium" onPress={() => setShowApplySheet(false)}>
               Cancel
@@ -306,7 +302,7 @@ export default function OpportunityDetailScreen() {
         </Animated.View>
       )}
 
-      {applied && (
+      {justApplied && (
         <Animated.View style={styles.successOverlay} entering={enterFade(40)}>
           <Animated.View style={[styles.successCircle, successStyle]}>
             <Feather name="check" size={48} color={Colors.teal} style={styles.successCheck} />
@@ -325,20 +321,26 @@ export default function OpportunityDetailScreen() {
         </Animated.View>
       )}
 
-      {!showApplySheet && !applied && (
+      {!showApplySheet && !justApplied && (
         <View style={styles.bottomBar}>
           <PillButton variant="default" size="medium" onPress={handleToggleSave}>
             {saved ? 'Saved' : 'Save for later'}
           </PillButton>
-          <PillButton
-            variant="primary"
-            accent="teal"
-            size="large"
-            style={{ flex: 1 }}
-            onPress={() => setShowApplySheet(true)}
-          >
-            Apply — 1 tap
-          </PillButton>
+          {existingApplication ? (
+            <PillButton variant="secondary" size="large" style={{ flex: 1 }} disabled>
+              {existingApplication.status === 'PENDING' ? 'Application pending' : 'You’re signed up'}
+            </PillButton>
+          ) : (
+            <PillButton
+              variant="primary"
+              accent="teal"
+              size="large"
+              style={{ flex: 1 }}
+              onPress={() => setShowApplySheet(true)}
+            >
+              Apply in 1 tap
+            </PillButton>
+          )}
         </View>
       )}
     </View>
@@ -438,12 +440,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-  },
-  fallbackNote: {
-    fontSize: 12,
-    color: Colors.teal,
-    fontWeight: '600',
-    marginBottom: 14,
   },
   detailsCard: {
     padding: 0,

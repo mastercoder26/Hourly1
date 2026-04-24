@@ -1,4 +1,4 @@
-// Onboarding Complete — animated success screen
+// Onboarding Complete - animated success screen
 import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from '@/components/Themed';
@@ -59,9 +59,9 @@ export default function OnboardingComplete() {
 
   const handleContinue = () => {
     if (isOrg) {
-      router.replace('/(org-tabs)/dashboard');
+      router.dismissTo('/(org-tabs)/dashboard');
     } else {
-      router.replace('/(student-tabs)/feed');
+      router.dismissTo('/(student-tabs)/feed');
     }
   };
 

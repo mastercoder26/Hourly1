@@ -1,15 +1,22 @@
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from '@/components/Themed';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import Animated from 'react-native-reanimated';
 import { Colors } from '../constants/colors';
 import { Typography } from '../constants/typography';
 import { Card } from '../components/ui/Card';
 import { enterFade, enterRise } from '../lib/motion';
+import { isDemoMode } from '../lib/dataMode';
+import { isClerkConfigured } from '../lib/clerkConfig';
+import { useDemoAuth } from '../context/DemoAuthContext';
 
 export default function RoleSelectionScreen() {
   const router = useRouter();
+  const { guest } = useLocalSearchParams<{ guest?: string }>();
+  const { enterDemo } = useDemoAuth();
+  const demoBare = isDemoMode() && !isClerkConfigured();
+  const guestIntent = guest === '1' || guest === 'true';
 
   return (
     <View style={styles.container}>
@@ -25,12 +32,28 @@ export default function RoleSelectionScreen() {
       <View style={styles.content}>
         <Animated.View style={styles.titleContainer} entering={enterRise(120)}>
           <Text style={styles.title}>Welcome to Hourly</Text>
-          <Text style={styles.subtitle}>How will you be using the platform?</Text>
+          <Text style={styles.subtitle}>
+            {guestIntent
+              ? 'No account needed - choose student or organizer to explore the app.'
+              : 'How will you be using the platform?'}
+          </Text>
         </Animated.View>
 
         <Animated.View style={styles.optionsContainer} entering={enterRise(200)}>
           <Pressable
-            onPress={() => router.push('/(auth)/sign-up?role=student')}
+            onPress={() => {
+              if (demoBare) {
+                enterDemo('student');
+                router.replace('/onboarding');
+                return;
+              }
+              if (guestIntent) {
+                enterDemo('student');
+                router.dismissTo('/(student-tabs)/feed');
+                return;
+              }
+              router.push('/(auth)/sign-up?role=student');
+            }}
             style={({ pressed }) => [styles.rolePressable, pressed && styles.pressablePressed]}
           >
             <Card style={styles.roleCard}>
@@ -43,7 +66,19 @@ export default function RoleSelectionScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => router.push('/(auth)/sign-up?role=organizer')}
+            onPress={() => {
+              if (demoBare) {
+                enterDemo('organizer');
+                router.dismissTo('/(org-tabs)/dashboard');
+                return;
+              }
+              if (guestIntent) {
+                enterDemo('organizer');
+                router.dismissTo('/(org-tabs)/dashboard');
+                return;
+              }
+              router.push('/(auth)/sign-up?role=organizer');
+            }}
             style={({ pressed }) => [styles.rolePressable, pressed && styles.pressablePressed]}
           >
             <Card style={styles.roleCard}>

@@ -1,14 +1,12 @@
-// Portfolio — hours tracker with animated counter, badge grid, past shifts
+// Portfolio - hours tracker with animated counter, badge grid, past shifts
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, ScrollView, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, ScrollView, StyleSheet, Alert, ActivityIndicator, Share, Platform } from 'react-native';
 import { Text } from '@/components/Themed';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withDelay,
-  useAnimatedProps,
-  runOnJS,
   Easing,
 } from 'react-native-reanimated';
 import { Colors, CardStyle, Shadows } from '../../constants/colors';
@@ -20,11 +18,16 @@ import { PillButton } from '../../components/ui/PillButton';
 import { HoursChart } from '../../components/HoursChart';
 import { BadgeGrid } from '../../components/BadgeGrid';
 import { trpc } from '../../lib/trpc';
-import { mockStudent, mockAttendance, mockBadges } from '../../mocks/data';
-import { mockOpportunities } from '../../mocks/opportunities';
+import { isDemoMode, isLiveMode } from '../../lib/dataMode';
+import { useDemoStore } from '../../lib/demo/demoStore';
 import { Badge } from '../../types';
 import { enterRise, enterFade, stagger, MOTION } from '../../lib/motion';
 import { Feather } from '@expo/vector-icons';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { getDemoPortfolioShareUrl } from '../../lib/publicUrls';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { tabBarScrollContentPadding, tabScreenContentTopPadding } from '../../constants/tabBar';
 
 // Animated number component
 function AnimatedCounter({ 
@@ -64,71 +67,74 @@ function AnimatedCounter({
 }
 
 export default function PortfolioScreen() {
-  const [useFallback, setUseFallback] = useState(false);
+  const insets = useSafeAreaInsets();
+  const demoAttendance = useDemoStore(s => s.attendance);
+  const demoBadges = useDemoStore(s => s.badges);
+  const demoOpportunities = useDemoStore(s => s.opportunities);
 
-  const attendanceQuery = trpc.user.getAttendance.useQuery();
-  const badgesQuery = trpc.user.getBadges.useQuery();
-  const statsQuery = trpc.user.getPortfolioStats.useQuery();
+  const attendanceQuery = trpc.user.getAttendance.useQuery(undefined, { enabled: isLiveMode() });
+  const badgesQuery = trpc.user.getBadges.useQuery(undefined, { enabled: isLiveMode() });
+  const statsQuery = trpc.user.getPortfolioStats.useQuery(undefined, { enabled: isLiveMode() });
 
-  const isLoadingRemote = attendanceQuery.isLoading || badgesQuery.isLoading || statsQuery.isLoading;
-  const shouldUseFallback =
-    useFallback ||
-    Boolean(attendanceQuery.error) ||
-    Boolean(badgesQuery.error) ||
-    Boolean(statsQuery.error);
+  const isLoadingRemote =
+    isLiveMode() &&
+    (attendanceQuery.isLoading || badgesQuery.isLoading || statsQuery.isLoading);
 
-  useEffect(() => {
-    if (!isLoadingRemote) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setUseFallback(true);
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [isLoadingRemote]);
-
-  useEffect(() => {
-    if (attendanceQuery.error || badgesQuery.error || statsQuery.error) {
-      setUseFallback(true);
-    }
-  }, [attendanceQuery.error, badgesQuery.error, statsQuery.error]);
-
-  useEffect(() => {
-    if (attendanceQuery.isSuccess && badgesQuery.isSuccess && statsQuery.isSuccess) {
-      setUseFallback(false);
-    }
-  }, [attendanceQuery.isSuccess, badgesQuery.isSuccess, statsQuery.isSuccess]);
-
-  const attendance = shouldUseFallback ? mockAttendance : (attendanceQuery.data ?? []);
-  const badges: Badge[] = shouldUseFallback ? mockBadges : ((badgesQuery.data ?? []) as Badge[]);
+  const attendance = isDemoMode() ? demoAttendance : (attendanceQuery.data ?? []);
+  const badges: Badge[] = isDemoMode() ? demoBadges : ((badgesQuery.data ?? []) as Badge[]);
 
   const totalVerified = useMemo(() => {
-    if (shouldUseFallback) {
-      return mockAttendance
+    if (isDemoMode()) {
+      return demoAttendance
         .filter(a => a.verificationStatus === 'VERIFIED')
         .reduce((sum, a) => sum + a.hoursLogged, 0);
     }
     return statsQuery.data?.totalVerifiedHours ?? 0;
-  }, [shouldUseFallback, statsQuery.data]);
+  }, [demoAttendance, statsQuery.data]);
 
   const uniqueShifts = useMemo(() => {
-    if (shouldUseFallback) {
-      return new Set(mockAttendance.map(a => a.opportunityId)).size;
+    if (isDemoMode()) {
+      return new Set(demoAttendance.map(a => a.opportunityId)).size;
     }
     return statsQuery.data?.totalShifts ?? 0;
-  }, [shouldUseFallback, statsQuery.data]);
+  }, [demoAttendance, statsQuery.data]);
 
-  const handleSharePortfolio = () => {
-    Alert.alert('Share portfolio', 'Portfolio sharing is coming soon.');
+  const handleSharePortfolio = async () => {
+    const url = getDemoPortfolioShareUrl();
+    try {
+      await Share.share(
+        Platform.select({
+          ios: { url },
+          default: { message: url },
+        }) ?? { message: url },
+      );
+    } catch {
+      Alert.alert('Share', url);
+    }
   };
 
-  const handleDownloadCertificate = () => {
-    Alert.alert('Download certificate', 'Certificate downloads are coming soon.');
+  const handleDownloadCertificate = async () => {
+    const name = isDemoMode() ? 'Alex Rivera' : 'Volunteer';
+    const hours = totalVerified;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Certificate</title>
+      <style>body{font-family:system-ui;padding:40px;}h1{color:#1D9E75}footer{font-size:12px;color:#666;margin-top:48px}</style>
+      </head><body><h1>Verified volunteer hours</h1><p><strong>${name}</strong></p><p>Total verified hours: <strong>${hours}</strong></p>
+      <p>Sample certificate. Replace with a server PDF in production.</p>
+      <footer>Hourly, verified digital record</footer></body></html>`;
+    try {
+      const { uri } = await Print.printToFileAsync({ html });
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Certificate' });
+      } else {
+        Alert.alert('Certificate', 'Saved PDF; sharing is not available on this device.');
+      }
+    } catch (e) {
+      Alert.alert('Certificate', 'Could not generate PDF in this environment.');
+    }
   };
 
-  if (isLoadingRemote && !shouldUseFallback) {
+  if (isLoadingRemote) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.accent} />
@@ -137,19 +143,22 @@ export default function PortfolioScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: tabScreenContentTopPadding(insets),
+          paddingBottom: tabBarScrollContentPadding(insets),
+        },
+      ]}
+    >
       {/* Header */}
       <Animated.View entering={enterFade(40)} style={styles.header}>
         <View>
           <Text style={styles.headerLabel}>YOUR IMPACT</Text>
           <Text style={styles.title}>Portfolio</Text>
         </View>
-        {shouldUseFallback && (
-          <View style={styles.demoNotice}>
-            <Feather name="info" size={12} color={Colors.accent} />
-            <Text style={styles.demoNoticeText}>Demo mode</Text>
-          </View>
-        )}
       </Animated.View>
 
       {/* Hero hours card */}
@@ -211,7 +220,7 @@ export default function PortfolioScreen() {
       <Animated.View entering={enterRise(200)}>
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>HOURS BY CAUSE</Text>
-          <HoursChart attendance={attendance} />
+          <HoursChart attendance={attendance} opportunities={demoOpportunities} />
         </Card>
       </Animated.View>
 
@@ -234,8 +243,8 @@ export default function PortfolioScreen() {
             <Text style={styles.sectionCount}>{attendance.length} total</Text>
           </View>
           {attendance.slice(0, 5).map((record, index) => {
-            const opp = shouldUseFallback
-              ? mockOpportunities.find(o => o.id === record.opportunityId)
+            const opp = isDemoMode()
+              ? demoOpportunities.find(o => o.id === record.opportunityId)
               : null;
             const title = (record as { opportunityTitle?: string }).opportunityTitle ?? opp?.title ?? 'Shift';
             const orgLogo = (record as { orgLogo?: string }).orgLogo ?? '📋';
@@ -298,9 +307,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   content: {
-    paddingTop: 60,
     paddingHorizontal: 20,
-    paddingBottom: 40,
   },
   header: {
     flexDirection: 'row',
@@ -315,20 +322,6 @@ const styles = StyleSheet.create({
   title: {
     ...Typography.title,
     color: Colors.dark.textPrimary,
-  },
-  demoNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.accentSoft,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  demoNoticeText: {
-    fontSize: 12,
-    color: Colors.accent,
-    fontWeight: '600',
   },
   hoursCard: {
     backgroundColor: Colors.dark.card,
