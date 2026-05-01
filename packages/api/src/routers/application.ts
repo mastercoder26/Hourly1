@@ -18,6 +18,7 @@ export const applicationRouter = router({
         where: {
           id: input.opportunityId,
           isPublished: true,
+          adminHidden: false,
           orgProfile: { isVerified: true },
         },
       });

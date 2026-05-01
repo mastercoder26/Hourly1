@@ -29,8 +29,10 @@ export default function OrgDashboard() {
 
   const statsQuery = trpc.org.getStats.useQuery(undefined, { enabled: isLiveMode() });
   const opportunitiesQuery = trpc.org.listOpportunities.useQuery(undefined, { enabled: isLiveMode() });
+  const pendingLiveQuery = trpc.org.listPendingAttendance.useQuery(undefined, { enabled: isLiveMode() });
 
-  const isLoadingRemote = isLiveMode() && (statsQuery.isLoading || opportunitiesQuery.isLoading);
+  const isLoadingRemote =
+    isLiveMode() && (statsQuery.isLoading || opportunitiesQuery.isLoading || pendingLiveQuery.isLoading);
 
   const stats = isDemoMode() ? demoOrgStats : (statsQuery.data ?? demoOrgStats);
   const orgOpps = useMemo(() => {
@@ -43,14 +45,14 @@ export default function OrgDashboard() {
   }, [demoOpportunities, opportunitiesQuery.data]);
 
   const pendingHoursVerification = useMemo(() => {
-    if (!isDemoMode()) {
-      return 0;
+    if (isLiveMode()) {
+      return pendingLiveQuery.data?.length ?? 0;
     }
     const orgOppIds = new Set(orgOpps.map(o => o.id));
     return demoAttendance.filter(
       a => orgOppIds.has(a.opportunityId) && a.verificationStatus === 'PENDING',
     ).length;
-  }, [demoAttendance, orgOpps]);
+  }, [demoAttendance, isLiveMode, orgOpps, pendingLiveQuery.data?.length]);
 
   if (isLoadingRemote) {
     return (
@@ -115,7 +117,7 @@ export default function OrgDashboard() {
         />
       </Animated.View>
 
-      {isDemoMode() && (
+      {(isDemoMode() || isLiveMode()) && (
         <Animated.View entering={enterRiseSnappy(240)}>
           <Pressable
             style={styles.verifyHoursCard}
@@ -205,6 +207,17 @@ export default function OrgDashboard() {
                       {pendingApplicants} pending applicant{pendingApplicants !== 1 ? 's' : ''}
                     </Text>
                   </View>
+                  {isLiveMode() ? (
+                    <Pressable
+                      onPress={() => {
+                        router.push(`/org/scanner?opportunityId=${opp.id}` as never);
+                      }}
+                      style={styles.scanLink}
+                    >
+                      <Feather name="maximize" size={16} color={Colors.purple} />
+                      <Text style={styles.scanLinkText}>Scan</Text>
+                    </Pressable>
+                  ) : null}
                   <Feather name="chevron-right" size={18} color={Colors.dark.textTertiary} />
                 </View>
               </Card>
@@ -439,6 +452,20 @@ const styles = StyleSheet.create({
     fontSize: 13, 
     color: Colors.accent, 
     fontWeight: '500',
+  },
+  scanLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: Colors.purpleSoft,
+  },
+  scanLinkText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.purple,
   },
   upcomingCard: { 
     padding: 0,

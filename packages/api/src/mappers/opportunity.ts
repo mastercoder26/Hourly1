@@ -46,6 +46,12 @@ export function toApiOpportunity(row: OpportunityWithOrg) {
     creditEligible: row.creditEligible,
     whatToBring: row.whatToBring,
     recurring: row.recurring,
-    postStatus: row.isPublished ? ('VISIBLE' as const) : ('REMOVED' as const),
+    postStatus: row.adminHidden
+      ? ('REMOVED' as const)
+      : row.isPublished
+        ? ('VISIBLE' as const)
+        : ('REMOVED' as const),
+    removedReason: row.adminHidden ? (row.adminHiddenReason ?? undefined) : undefined,
+    moderatedAt: row.adminHiddenAt?.toISOString(),
   };
 }

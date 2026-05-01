@@ -1,5 +1,7 @@
 # Hourly
 
+**Product / engineering plan:** see **[Plan.md](./Plan.md)** (single living document for scope, architecture, QA, and handoff).
+
 Hourly is a monorepo for a volunteer tracking platform with:
 
 - Mobile app (`apps/mobile`) built with Expo and React Native

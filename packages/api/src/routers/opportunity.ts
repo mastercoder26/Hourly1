@@ -3,9 +3,11 @@ import { TRPCError } from '@trpc/server';
 import { prisma } from 'db';
 import { router, publicProcedure } from '../trpc';
 import { toApiOpportunity } from '../mappers/opportunity';
+import { haversineDistanceMeters } from '../lib/geo';
 
 const publishedWhere = {
   isPublished: true,
+  adminHidden: false,
   orgProfile: { isVerified: true },
 } as const;
 
@@ -16,6 +18,9 @@ export const opportunityRouter = router({
         .object({
           causes: z.array(z.string()).optional(),
           maxDistance: z.number().optional(),
+          /** User location for `maxDistance` filtering (WGS84). */
+          lat: z.number().optional(),
+          lng: z.number().optional(),
           creditEligible: z.boolean().optional(),
           search: z.string().optional(),
         })
@@ -46,7 +51,27 @@ export const opportunityRouter = router({
         take: 200,
       });
 
-      return rows.map(toApiOpportunity);
+      let mapped = rows.map(toApiOpportunity);
+
+      if (
+        input?.maxDistance !== undefined &&
+        input.lat !== undefined &&
+        input.lng !== undefined
+      ) {
+        mapped = mapped
+          .map(opp => {
+            const distance = haversineDistanceMeters(
+              input.lat!,
+              input.lng!,
+              opp.location.lat,
+              opp.location.lng
+            );
+            return { ...opp, distance };
+          })
+          .filter(opp => (opp.distance ?? 0) <= input.maxDistance!);
+      }
+
+      return mapped;
     }),
 
   getById: publicProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {

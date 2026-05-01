@@ -1,33 +1,93 @@
-// Check-In Screen - QR code display for student
-import React, { useMemo } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+// Check-In — student QR from live `application.listMine`, optional GPS self check-in.
+import React, { useMemo, useState, useCallback } from 'react';
+import { View, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
 import Animated from 'react-native-reanimated';
 import QRCode from 'react-native-qrcode-svg';
+import * as Location from 'expo-location';
 import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';
 import { PillButton } from '../../components/ui/PillButton';
 import { enterFade, enterRise } from '../../lib/motion';
 import { useDemoStore } from '../../lib/demo/demoStore';
 import { DEMO_STUDENT_ID } from '@hourly/shared';
+import { trpc } from '../../lib/trpc';
+import { isDemoMode, isLiveMode } from '../../lib/dataMode';
+import { ApiOpportunityLike, toMobileOpportunity } from '../../lib/opportunity-adapter';
 
 export default function CheckInScreen() {
   const router = useRouter();
   const applications = useDemoStore(s => s.applications);
   const opportunities = useDemoStore(s => s.opportunities);
 
-  const app = useMemo(
+  const listMineQuery = trpc.application.listMine.useQuery(undefined, { enabled: isLiveMode() });
+  const gpsCheckIn = trpc.attendance.checkInByGps.useMutation();
+
+  const liveApp = useMemo(() => {
+    if (!isLiveMode() || !listMineQuery.data) return undefined;
+    const approved = listMineQuery.data.find(a => a.status === 'APPROVED');
+    return approved ?? listMineQuery.data[0];
+  }, [listMineQuery.data]);
+
+  const liveOppQuery = trpc.opportunity.getById.useQuery(
+    { id: liveApp?.opportunityId ?? '' },
+    { enabled: isLiveMode() && Boolean(liveApp?.opportunityId) },
+  );
+
+  const demoApp = useMemo(
     () =>
       applications.find(a => a.status === 'APPROVED' && a.studentId === DEMO_STUDENT_ID) ??
       applications[0],
     [applications],
   );
 
-  const opp = useMemo(
-    () => opportunities.find(o => o.id === app?.opportunityId),
-    [opportunities, app?.opportunityId],
-  );
+  const app = isLiveMode() ? liveApp : demoApp;
+
+  const opp = useMemo(() => {
+    if (isLiveMode() && liveOppQuery.data) {
+      return toMobileOpportunity(liveOppQuery.data as ApiOpportunityLike);
+    }
+    return opportunities.find(o => o.id === app?.opportunityId);
+  }, [app?.opportunityId, liveOppQuery.data, opportunities]);
+
+  const [locBusy, setLocBusy] = useState(false);
+
+  const onGpsCheckIn = useCallback(async () => {
+    if (!isLiveMode() || !app?.opportunityId) {
+      Alert.alert('GPS check-in', 'Available in live mode with an active application.');
+      return;
+    }
+    setLocBusy(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Location needed', 'Allow location to verify you are at the event site.');
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      await gpsCheckIn.mutateAsync({
+        opportunityId: app.opportunityId,
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+      });
+      Alert.alert('Checked in', 'Your GPS location matched the event. Coordinator can still scan your QR if needed.');
+    } catch (e: unknown) {
+      const msg = e && typeof e === 'object' && 'message' in e ? String((e as Error).message) : 'Unknown error';
+      Alert.alert('GPS check-in failed', msg);
+    } finally {
+      setLocBusy(false);
+    }
+  }, [app?.opportunityId, gpsCheckIn]);
+
+  if (isLiveMode() && listMineQuery.isLoading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color={Colors.teal} />
+        <Text style={styles.missing}>Loading your shifts…</Text>
+      </View>
+    );
+  }
 
   if (!app) {
     return (
@@ -61,6 +121,19 @@ export default function CheckInScreen() {
           </View>
           <Text style={styles.qrHint}>Your QR code works offline</Text>
         </Card>
+
+        {isLiveMode() && (
+          <PillButton
+            variant="primary"
+            accent="teal"
+            fullWidth
+            size="large"
+            onPress={onGpsCheckIn}
+            disabled={locBusy || gpsCheckIn.isPending}
+          >
+            {locBusy || gpsCheckIn.isPending ? 'Checking location…' : 'GPS check-in at venue'}
+          </PillButton>
+        )}
 
         {opp && (
           <Card style={styles.shiftInfo}>
@@ -101,7 +174,7 @@ export default function CheckInScreen() {
           size="large"
           onPress={() => router.replace('/shift/active')}
         >
-          Simulate check-in →
+          {isDemoMode() ? 'Simulate check-in →' : 'Done'}
         </PillButton>
       </Animated.View>
     </View>
@@ -109,6 +182,7 @@ export default function CheckInScreen() {
 }
 
 const styles = StyleSheet.create({
+  center: { justifyContent: 'center', alignItems: 'center', paddingTop: 80 },
   container: {
     flex: 1,
     backgroundColor: Colors.dark.base,

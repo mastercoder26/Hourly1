@@ -21,6 +21,7 @@
     "@trpc/client": "^10.45.4",
     "@trpc/react-query": "^10.45.4",
     "expo": "~55.0.17",
+    "expo-camera": "~55.0.16",
     "expo-constants": "~55.0.15",
     "expo-font": "~55.0.6",
     "expo-haptics": "~55.0.14",

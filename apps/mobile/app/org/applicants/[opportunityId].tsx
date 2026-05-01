@@ -1,6 +1,6 @@
-// Applicant Management - per-opportunity applicant list
-import React, { useMemo } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
+// Applicant Management — per-opportunity list (demo store or live `org.getApplicants` / `org.reviewApplication`).
+import React, { useMemo, useCallback } from 'react';
+import { View, ScrollView, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors } from '../../../constants/colors';
@@ -9,12 +9,24 @@ import { PillBadge } from '../../../components/ui/PillBadge';
 import { PillButton } from '../../../components/ui/PillButton';
 import { getOpportunityById, demoApplicants } from '@hourly/shared';
 import { useDemoStore } from '../../../lib/demo/demoStore';
-import { isDemoMode } from '../../../lib/dataMode';
+import { isDemoMode, isLiveMode } from '../../../lib/dataMode';
+import { trpc } from '../../../lib/trpc';
+
+type ApplicantRow = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  grade: number;
+  totalHours: number;
+  rating: number;
+  status: 'PENDING' | 'APPROVED' | 'DECLINED' | 'WAITLISTED';
+};
 
 export default function ApplicantManagement() {
   const { opportunityId } = useLocalSearchParams<{ opportunityId: string }>();
   const router = useRouter();
   const oppId = Array.isArray(opportunityId) ? opportunityId[0] : opportunityId;
+
   const opportunityFromStore = useDemoStore(s =>
     oppId ? s.opportunities.find(o => o.id === oppId) : undefined,
   );
@@ -22,14 +34,38 @@ export default function ApplicantManagement() {
 
   const applicantOverride = useDemoStore(s => (oppId ? s.applicantsByOppId[oppId] : undefined));
   const setApplicantStatus = useDemoStore(s => s.setApplicantStatus);
-  const applications = useDemoStore(s => s.applications);
 
-  const applicants = useMemo(() => {
+  const liveApplicantsQuery = trpc.org.getApplicants.useQuery(
+    { opportunityId: oppId ?? '' },
+    { enabled: isLiveMode() && Boolean(oppId) },
+  );
+
+  const reviewMutation = trpc.org.reviewApplication.useMutation({
+    onSuccess: async () => {
+      await liveApplicantsQuery.refetch();
+    },
+  });
+
+  const applicants: ApplicantRow[] = useMemo(() => {
+    if (isLiveMode() && liveApplicantsQuery.data) {
+      return liveApplicantsQuery.data.map(a => {
+        const parts = a.studentName.split(' ');
+        return {
+          id: a.id,
+          firstName: parts[0] ?? 'Volunteer',
+          lastName: parts.slice(1).join(' ') ?? '',
+          grade: a.studentGrade,
+          totalHours: a.studentHours,
+          rating: 0,
+          status: a.status,
+        };
+      });
+    }
     if (applicantOverride && applicantOverride.length > 0) {
       return applicantOverride;
     }
     return demoApplicants;
-  }, [applicantOverride]);
+  }, [applicantOverride, liveApplicantsQuery.data]);
 
   const statusGroups = useMemo(
     () => ({
@@ -41,32 +77,49 @@ export default function ApplicantManagement() {
     [applicants],
   );
 
-  const handleDecision = (applicantId: string, decision: 'APPROVED' | 'DECLINED') => {
-    if (!oppId) return;
-    const applicant = applicants.find(a => a.id === applicantId);
-    if (!applicant) {
-      return;
-    }
+  const handleDecision = useCallback(
+    (applicationId: string, decision: 'APPROVED' | 'DECLINED' | 'WAITLISTED') => {
+      if (!oppId) return;
+      const applicant = applicants.find(a => a.id === applicationId);
+      if (!applicant) {
+        return;
+      }
 
-    if (isDemoMode()) {
-      setApplicantStatus(oppId, applicantId, decision);
-    }
+      if (isDemoMode()) {
+        setApplicantStatus(oppId, applicationId, decision === 'DECLINED' ? 'DECLINED' : decision);
+        const decisionVerb = decision === 'APPROVED' ? 'approved' : 'declined';
+        Alert.alert(
+          `Applicant ${decisionVerb}`,
+          `${applicant.firstName} ${applicant.lastName} has been ${decisionVerb}.`,
+        );
+        return;
+      }
 
-    const decisionVerb = decision === 'APPROVED' ? 'approved' : 'declined';
-    Alert.alert(
-      `Applicant ${decisionVerb}`,
-      `${applicant.firstName} ${applicant.lastName} has been ${decisionVerb}.`,
-    );
-  };
+      if (isLiveMode()) {
+        reviewMutation.mutate(
+          { applicationId, decision: decision === 'DECLINED' ? 'DECLINED' : decision },
+          {
+            onSuccess: () => {
+              const verb =
+                decision === 'APPROVED' ? 'approved' : decision === 'DECLINED' ? 'declined' : 'updated';
+              Alert.alert('Updated', `${applicant.firstName} ${applicant.lastName} has been ${verb}.`);
+            },
+            onError: err => {
+              Alert.alert('Update failed', err.message);
+            },
+          },
+        );
+        return;
+      }
 
-  const handleMessageApplicant = (applicantStudentId: string) => {
-    const app =
-      applications.find(
-        a => a.opportunityId === oppId && a.studentId === applicantStudentId,
-      ) ?? applications.find(a => a.opportunityId === oppId);
-    const routeId = app?.id ?? 'app-001';
-    router.push(`/messages/${routeId}` as never);
-  };
+      const decisionVerb = decision === 'APPROVED' ? 'approved' : 'declined';
+      Alert.alert(
+        `Applicant ${decisionVerb}`,
+        `${applicant.firstName} ${applicant.lastName} has been ${decisionVerb}.`,
+      );
+    },
+    [applicants, oppId, reviewMutation, setApplicantStatus],
+  );
 
   const statusColors = {
     PENDING: Colors.warning,
@@ -74,6 +127,15 @@ export default function ApplicantManagement() {
     WAITLISTED: Colors.purple,
     DECLINED: Colors.error,
   };
+
+  if (isLiveMode() && liveApplicantsQuery.isLoading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color={Colors.purple} />
+        <Text style={styles.loadingText}>Loading applicants…</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -96,7 +158,7 @@ export default function ApplicantManagement() {
                   <View style={styles.avatar}>
                     <Text style={styles.avatarText}>
                       {a.firstName[0]}
-                      {a.lastName[0]}
+                      {(a.lastName[0] ?? a.firstName[1] ?? '?').toString()}
                     </Text>
                   </View>
                   <View style={{ flex: 1 }}>
@@ -118,6 +180,7 @@ export default function ApplicantManagement() {
                       size="small"
                       style={{ flex: 1 }}
                       onPress={() => handleDecision(a.id, 'APPROVED')}
+                      disabled={reviewMutation.isPending}
                     >
                       Approve
                     </PillButton>
@@ -126,11 +189,9 @@ export default function ApplicantManagement() {
                       size="small"
                       style={{ flex: 1 }}
                       onPress={() => handleDecision(a.id, 'DECLINED')}
+                      disabled={reviewMutation.isPending}
                     >
                       Decline
-                    </PillButton>
-                    <PillButton variant="ghost" size="small" onPress={() => handleMessageApplicant(a.id)}>
-                      💬
                     </PillButton>
                   </View>
                 )}
@@ -144,6 +205,8 @@ export default function ApplicantManagement() {
 }
 
 const styles = StyleSheet.create({
+  center: { justifyContent: 'center', alignItems: 'center', paddingTop: 120 },
+  loadingText: { marginTop: 12, color: Colors.dark.textSecondary },
   container: { flex: 1, backgroundColor: Colors.dark.base },
   content: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 40, gap: 12 },
   backButton: { alignSelf: 'flex-start', paddingVertical: 8, paddingRight: 16 },

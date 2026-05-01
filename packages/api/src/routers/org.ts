@@ -1,95 +1,132 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
+import { Prisma } from 'db';
+import { prisma } from 'db';
 import { router, protectedProcedure } from '../trpc';
-import { mockOpportunities, mockApplications, mockOrganizations, mockUsers } from '../mock-data';
+import { resolveWritableOrgProfileId, ensureOrgProfileForOrganizer } from '../lib/organizer-user';
+import { recalcOpportunityFilledSpots } from '../lib/student-stats';
+import { orgContactEmail, buildAppealRecord, deriveOrgModerationStatus } from '../lib/org-moderation';
+import { toApiOpportunity } from '../mappers/opportunity';
 
-// Mock applicant data for the org applicants tab
-const mockApplicantsList = [
-  { id: 'stu-001', firstName: 'Alex', lastName: 'R.', grade: 11, totalHours: 47.5, rating: 4.9, status: 'APPROVED' as const },
-  { id: 'stu-002', firstName: 'Jordan', lastName: 'T.', grade: 10, totalHours: 23, rating: 4.5, status: 'APPROVED' as const },
-  { id: 'stu-003', firstName: 'Mia', lastName: 'C.', grade: 12, totalHours: 89, rating: 5.0, status: 'PENDING' as const },
-  { id: 'stu-004', firstName: 'Ethan', lastName: 'P.', grade: 11, totalHours: 15, rating: 4.2, status: 'PENDING' as const },
-  { id: 'stu-005', firstName: 'Sophia', lastName: 'K.', grade: 9, totalHours: 8, rating: 0, status: 'WAITLISTED' as const },
-  { id: 'stu-006', firstName: 'Liam', lastName: 'W.', grade: 10, totalHours: 31, rating: 4.7, status: 'DECLINED' as const },
-];
+const orgIdInput = z.object({ orgId: z.string().optional() });
 
 export const orgRouter = router({
-  // Get stats for an org dashboard
-  getStats: protectedProcedure
-    .input(z.object({ orgId: z.string() }).optional())
-    .query(({ ctx, input }) => {
-      // In a real app, we'd look up the org by the user's profile.
-      // For now, we'll use the provided orgId or default to org-001.
-      const orgId = input?.orgId ?? 'org-001';
+  /** Creates default org profile for the signed-in organizer if missing. */
+  bootstrap: protectedProcedure.mutation(async ({ ctx }) => {
+    const { orgProfileId } = await resolveWritableOrgProfileId(ctx.userId);
+    const org = await prisma.orgProfile.findUniqueOrThrow({
+      where: { id: orgProfileId },
+      include: { user: true },
+    });
+    return {
+      orgId: org.id,
+      name: org.orgName,
+      slug: org.slug,
+      contactEmail: orgContactEmail(org, org.user),
+      isVerified: org.isVerified,
+    };
+  }),
 
-      const orgOpportunities = mockOpportunities.filter(opp => opp.orgId === orgId);
-      const totalSpots = orgOpportunities.reduce((sum, opp) => sum + opp.totalSpots, 0);
-      const filledSpots = orgOpportunities.reduce((sum, opp) => sum + opp.filledSpots, 0);
-      const totalHours = orgOpportunities.reduce((sum, opp) => sum + opp.durationHours * opp.filledSpots, 0);
+  getStats: protectedProcedure.input(orgIdInput.optional()).query(async ({ ctx, input }) => {
+    const { orgProfileId } = await resolveWritableOrgProfileId(ctx.userId, input?.orgId);
 
-      // Count unique volunteers from applications
-      const orgOppIds = new Set(orgOpportunities.map(opp => opp.id));
-      const orgApplications = mockApplications.filter(app => orgOppIds.has(app.opportunityId));
-      const uniqueVolunteers = new Set(orgApplications.map(app => app.userId)).size;
+    const opps = await prisma.opportunity.findMany({
+      where: { orgProfileId },
+    });
 
-      // Calculate average rating
-      const ratingsCount = orgOpportunities.filter(opp => opp.rating !== undefined).length;
-      const avgRating = ratingsCount > 0
-        ? orgOpportunities.reduce((sum, opp) => sum + (opp.rating ?? 0), 0) / ratingsCount
-        : 0;
+    const totalSpots = opps.reduce((s, o) => s + o.totalSpots, 0);
+    const filledSpots = opps.reduce((s, o) => s + o.filledSpots, 0);
 
-      // Mock retention rate - in reality this would be calculated from attendance data
-      const retentionRate = 0.68;
+    const attendanceHours = await prisma.attendanceRecord.aggregate({
+      where: {
+        opportunity: { orgProfileId },
+        verificationStatus: 'VERIFIED',
+      },
+      _sum: { hoursLogged: true },
+    });
+    const totalHours = Number(attendanceHours._sum.hoursLogged ?? 0);
 
-      return {
-        volunteersThisMonth: uniqueVolunteers > 0 ? uniqueVolunteers : filledSpots,
-        totalHours: Math.round(totalHours),
-        retentionRate,
-        avgRating: Math.round(avgRating * 10) / 10,
-        activeListings: orgOpportunities.filter(opp => (opp.postStatus ?? 'VISIBLE') === 'VISIBLE').length,
-        totalSpots,
-        filledSpots,
-      };
-    }),
+    const volunteerIds = await prisma.application.findMany({
+      where: { opportunity: { orgProfileId }, status: { in: ['APPROVED', 'PENDING'] } },
+      select: { studentId: true },
+      distinct: ['studentId'],
+    });
 
-  // List opportunities for an org
-  listOpportunities: protectedProcedure
-    .input(z.object({ orgId: z.string() }).optional())
-    .query(({ ctx, input }) => {
-      const orgId = input?.orgId ?? 'org-001';
+    return {
+      volunteersThisMonth: volunteerIds.length,
+      totalHours: Math.round(totalHours),
+      retentionRate: 0.68,
+      avgRating: 0,
+      activeListings: opps.filter(o => o.isPublished && !o.adminHidden).length,
+      totalSpots,
+      filledSpots,
+    };
+  }),
 
-      return mockOpportunities
-        .filter(opp => opp.orgId === orgId && (opp.postStatus ?? 'VISIBLE') === 'VISIBLE')
-        .map(opp => {
-          // Count pending applicants for this opportunity
-          const pendingApplicants = mockApplications.filter(
-            app => app.opportunityId === opp.id && app.status === 'PENDING'
-          ).length;
+  listOpportunities: protectedProcedure.input(orgIdInput.optional()).query(async ({ ctx, input }) => {
+    const { orgProfileId } = await resolveWritableOrgProfileId(ctx.userId, input?.orgId);
 
-          return {
-            ...opp,
-            pendingApplicants,
-          };
-        })
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    }),
+    const rows = await prisma.opportunity.findMany({
+      where: { orgProfileId },
+      include: { orgProfile: true },
+      orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+    });
 
-  // Get applicants for an opportunity
+    const ids = rows.map(r => r.id);
+    const pendingGroups =
+      ids.length === 0
+        ? []
+        : await prisma.application.groupBy({
+            by: ['opportunityId'],
+            where: { opportunityId: { in: ids }, status: 'PENDING' },
+            _count: { _all: true },
+          });
+    const pendingMap = new Map(pendingGroups.map(g => [g.opportunityId, g._count._all]));
+
+    return rows.map(o => ({
+      ...toApiOpportunity(o),
+      pendingApplicants: pendingMap.get(o.id) ?? 0,
+    }));
+  }),
+
   getApplicants: protectedProcedure
     .input(z.object({ opportunityId: z.string() }))
-    .query(({ input }) => {
-      const applications = mockApplications.filter(app => app.opportunityId === input.opportunityId);
+    .query(async ({ ctx, input }) => {
+      const { orgProfileId } = await resolveWritableOrgProfileId(ctx.userId);
 
-      return applications.map(app => ({
-        ...app,
-        // In a real app, we'd join with user data
-        studentName: 'Alex Rivera',
-        studentSchool: 'Austin High School',
-        studentGrade: 11,
-        studentHours: 24,
-      }));
+      const opp = await prisma.opportunity.findFirst({
+        where: { id: input.opportunityId, orgProfileId },
+      });
+      if (!opp) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Opportunity not found' });
+      }
+
+      const apps = await prisma.application.findMany({
+        where: { opportunityId: input.opportunityId },
+        include: {
+          student: { include: { studentProfile: true } },
+        },
+        orderBy: { appliedAt: 'desc' },
+      });
+
+      return apps.map(app => {
+        const sp = app.student.studentProfile;
+        const name = [app.student.firstName, app.student.lastName].filter(Boolean).join(' ') || 'Volunteer';
+        return {
+          id: app.id,
+          userId: app.student.clerkUserId,
+          opportunityId: app.opportunityId,
+          status: app.status,
+          appliedAt: app.appliedAt.toISOString(),
+          qrCodeData: app.qrCodeData,
+          studentName: name,
+          studentSchool: sp?.schoolName ?? '—',
+          studentGrade: sp?.grade ?? 0,
+          studentHours: sp ? Number(sp.totalVerifiedHours) : 0,
+        };
+      });
     }),
 
-  // Review an application (approve/decline)
   reviewApplication: protectedProcedure
     .input(
       z.object({
@@ -98,43 +135,260 @@ export const orgRouter = router({
         note: z.string().optional(),
       })
     )
-    .mutation(({ input }) => {
-      const application = mockApplications.find(app => app.id === input.applicationId);
-      if (!application) {
-        throw new Error(`Application not found: ${input.applicationId}`);
+    .mutation(async ({ ctx, input }) => {
+      const { orgProfileId } = await resolveWritableOrgProfileId(ctx.userId);
+
+      const appRow = await prisma.application.findFirst({
+        where: { id: input.applicationId, opportunity: { orgProfileId } },
+      });
+      if (!appRow) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Application not found' });
       }
 
-      application.status = input.decision;
-      return application;
-    }),
+      const updated = await prisma.application.update({
+        where: { id: input.applicationId },
+        data: {
+          status: input.decision,
+          decidedAt: new Date(),
+          decisionNote: input.note ?? null,
+        },
+      });
 
-  // Get org profile
-  getProfile: protectedProcedure
-    .input(z.object({ orgId: z.string() }).optional())
-    .query(({ input }) => {
-      const orgId = input?.orgId ?? 'org-001';
-      const org = mockOrganizations.find(o => o.id === orgId);
-
-      if (!org) {
-        throw new Error(`Organization not found: ${orgId}`);
-      }
+      await recalcOpportunityFilledSpots(appRow.opportunityId);
 
       return {
-        id: org.id,
-        name: org.name,
-        email: org.contactEmail,
-        causeTags: org.causeTags,
-        description: org.description,
-        status: org.status,
-        logo: '🌿', // Mock logo
+        id: updated.id,
+        userId: ctx.userId,
+        opportunityId: updated.opportunityId,
+        status: updated.status,
+        appliedAt: updated.appliedAt.toISOString(),
+        qrCodeData: updated.qrCodeData,
       };
     }),
 
-  // List all applicants across all org opportunities
-  listAllApplicants: protectedProcedure
-    .input(z.object({ orgId: z.string() }).optional())
-    .query(({ input }) => {
-      // In a real app, we'd filter by org. For now return the mock list.
-      return mockApplicantsList;
+  getProfile: protectedProcedure.input(orgIdInput.optional()).query(async ({ ctx, input }) => {
+    const { orgProfileId } = await resolveWritableOrgProfileId(ctx.userId, input?.orgId);
+    const org = await prisma.orgProfile.findUniqueOrThrow({
+      where: { id: orgProfileId },
+      include: { user: true },
+    });
+
+    return {
+      id: org.id,
+      name: org.orgName,
+      email: orgContactEmail(org, org.user),
+      causeTags: org.causeTags,
+      description: org.mission ?? '',
+      status: deriveOrgModerationStatus(org),
+      logo: org.logoUrl ?? '🌿',
+    };
+  }),
+
+  listAllApplicants: protectedProcedure.input(orgIdInput.optional()).query(async ({ ctx, input }) => {
+    const { orgProfileId } = await resolveWritableOrgProfileId(ctx.userId, input?.orgId);
+
+    const apps = await prisma.application.findMany({
+      where: { opportunity: { orgProfileId } },
+      include: {
+        student: { include: { studentProfile: true } },
+        opportunity: true,
+      },
+      orderBy: { appliedAt: 'desc' },
+      take: 200,
+    });
+
+    return apps.map(app => {
+      const sp = app.student.studentProfile;
+      const name = [app.student.firstName, app.student.lastName].filter(Boolean).join(' ') || 'Volunteer';
+      return {
+        id: app.student.id,
+        firstName: app.student.firstName ?? name.split(' ')[0] ?? 'Volunteer',
+        lastName: app.student.lastName ?? '',
+        grade: sp?.grade ?? 0,
+        totalHours: sp ? Number(sp.totalVerifiedHours) : 0,
+        rating: 0,
+        status: app.status,
+        opportunityTitle: app.opportunity.title,
+      };
+    });
+  }),
+
+  createOpportunity: protectedProcedure
+    .input(
+      z.object({
+        title: z.string().min(1),
+        description: z.string().default(''),
+        causeTags: z.array(z.string()).min(1),
+        date: z.string(),
+        startTime: z.string(),
+        endTime: z.string(),
+        address: z.string().min(1),
+        city: z.string().optional(),
+        state: z.string().optional(),
+        zipCode: z.string().optional(),
+        lat: z.number(),
+        lng: z.number(),
+        totalSpots: z.number().int().positive(),
+        ageMinimum: z.number().int().optional(),
+        creditEligible: z.boolean().default(false),
+        whatToBring: z.array(z.string()).default([]),
+        recurring: z.boolean().default(false),
+        recurringRule: z.string().optional(),
+        publish: z.boolean().default(false),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { orgProfileId } = await resolveWritableOrgProfileId(ctx.userId);
+
+      const start = new Date(input.startTime);
+      const end = new Date(input.endTime);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid start or end time' });
+      }
+
+      const durationMs = end.getTime() - start.getTime();
+      const durationHours = new Prisma.Decimal(Math.max(durationMs / 3_600_000, 0.25));
+
+      const date = new Date(input.date);
+      if (Number.isNaN(date.getTime())) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid date' });
+      }
+
+      const now = new Date();
+      const row = await prisma.opportunity.create({
+        data: {
+          orgProfileId,
+          title: input.title,
+          description: input.description || 'Volunteer opportunity',
+          causeTags: input.causeTags,
+          date,
+          startTime: start,
+          endTime: end,
+          durationHours,
+          lat: new Prisma.Decimal(input.lat),
+          lng: new Prisma.Decimal(input.lng),
+          address: input.address,
+          city: input.city ?? null,
+          state: input.state ?? null,
+          zipCode: input.zipCode ?? null,
+          totalSpots: input.totalSpots,
+          filledSpots: 0,
+          ageMinimum: input.ageMinimum ?? null,
+          creditEligible: input.creditEligible,
+          whatToBring: input.whatToBring,
+          recurring: input.recurring,
+          recurringRule: input.recurringRule ?? null,
+          isPublished: input.publish,
+          publishedAt: input.publish ? now : null,
+        },
+        include: { orgProfile: true },
+      });
+
+      return toApiOpportunity(row);
+    }),
+
+  publishOpportunity: protectedProcedure
+    .input(z.object({ opportunityId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const { orgProfileId } = await resolveWritableOrgProfileId(ctx.userId);
+
+      const opp = await prisma.opportunity.findFirst({
+        where: { id: input.opportunityId, orgProfileId },
+      });
+      if (!opp) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Opportunity not found' });
+      }
+
+      const row = await prisma.opportunity.update({
+        where: { id: input.opportunityId },
+        data: {
+          isPublished: true,
+          publishedAt: new Date(),
+          adminHidden: false,
+        },
+        include: { orgProfile: true },
+      });
+
+      return toApiOpportunity(row);
+    }),
+
+  ensureOrgProfile: protectedProcedure.mutation(async ({ ctx }) => {
+    const user = await prisma.user.findUnique({ where: { clerkUserId: ctx.userId } });
+    if (!user) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
+    }
+    if (user.role !== 'ORGANIZER') {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Switch to an organizer account to manage organization profile.',
+      });
+    }
+    const org = await ensureOrgProfileForOrganizer(user.id);
+    return { orgId: org.id, slug: org.slug, orgName: org.orgName };
+  }),
+
+  listPendingAttendance: protectedProcedure.input(orgIdInput.optional()).query(async ({ ctx, input }) => {
+    const { orgProfileId } = await resolveWritableOrgProfileId(ctx.userId, input?.orgId);
+
+    const rows = await prisma.attendanceRecord.findMany({
+      where: {
+        verificationStatus: 'PENDING',
+        opportunity: { orgProfileId },
+      },
+      include: {
+        opportunity: true,
+        student: { include: { studentProfile: true } },
+      },
+      orderBy: { checkinTime: 'desc' },
+      take: 100,
+    });
+
+    return rows.map(r => {
+      const name = [r.student.firstName, r.student.lastName].filter(Boolean).join(' ') || 'Volunteer';
+      return {
+        id: r.id,
+        studentId: r.studentId,
+        studentName: name,
+        opportunityId: r.opportunityId,
+        opportunityTitle: r.opportunity.title,
+        checkinTime: r.checkinTime?.toISOString() ?? null,
+        checkoutTime: r.checkoutTime?.toISOString() ?? null,
+        hoursLogged: Number(r.hoursLogged),
+        verificationStatus: r.verificationStatus,
+      };
+    });
+  }),
+
+  getAttendanceRecord: protectedProcedure
+    .input(z.object({ attendanceRecordId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const { orgProfileId } = await resolveWritableOrgProfileId(ctx.userId);
+
+      const row = await prisma.attendanceRecord.findFirst({
+        where: {
+          id: input.attendanceRecordId,
+          opportunity: { orgProfileId },
+        },
+        include: {
+          opportunity: true,
+          student: { include: { studentProfile: true } },
+        },
+      });
+      if (!row) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Attendance record not found' });
+      }
+
+      const name = [row.student.firstName, row.student.lastName].filter(Boolean).join(' ') || 'Volunteer';
+      return {
+        id: row.id,
+        studentId: row.studentId,
+        studentName: name,
+        opportunityId: row.opportunityId,
+        opportunityTitle: row.opportunity.title,
+        checkinTime: row.checkinTime?.toISOString() ?? null,
+        checkoutTime: row.checkoutTime?.toISOString() ?? null,
+        hoursLogged: Number(row.hoursLogged),
+        verificationStatus: row.verificationStatus,
+      };
     }),
 });

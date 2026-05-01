@@ -1,17 +1,24 @@
 import { randomUUID } from 'crypto';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import {
-  adminSessions,
-  mockOpportunities,
-  mockOrganizations,
-  type OrganizationModerationStatus,
-} from '../mock-data';
+import { prisma } from 'db';
+import type { Prisma } from 'db';
+import { adminSessions } from '../mock-data';
 import { adminProcedure, publicProcedure, router } from '../trpc';
+import {
+  buildAppealRecord,
+  deriveOrgModerationStatus,
+  orgContactEmail,
+  type OrganizationModerationStatus,
+} from '../lib/org-moderation';
 
 const ORG_FILTER_STATUS = ['ALL', 'PENDING', 'APPROVED', 'DENIED', 'APPEALED'] as const;
 const APPEAL_FILTER_STATUS = ['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const;
 const POST_FILTER_STATUS = ['ALL', 'VISIBLE', 'REMOVED'] as const;
+
+type OrgWithUserAndOpps = Prisma.OrgProfileGetPayload<{
+  include: { user: true; opportunities: { select: { id: true; adminHidden: true } } };
+}>;
 
 function nowIso() {
   return new Date().toISOString();
@@ -28,24 +35,26 @@ function getAdminCredentials() {
   return { email, password };
 }
 
-function ensurePostDefaults() {
-  for (const post of mockOpportunities) {
-    if (!post.postStatus) {
-      post.postStatus = 'VISIBLE';
-    }
-  }
-}
+function mapOrgToAdminRow(org: OrgWithUserAndOpps) {
+  const status = deriveOrgModerationStatus(org);
+  const posts = org.opportunities ?? [];
+  const postCount = posts.length;
+  const visiblePostCount = posts.filter(p => !p.adminHidden).length;
 
-function syncOpportunityOrgApproval(orgId: string, status: OrganizationModerationStatus) {
-  const approved = status === 'APPROVED';
-  for (const post of mockOpportunities) {
-    if (post.orgId === orgId) {
-      post.orgVerified = approved;
-      if (!post.postStatus) {
-        post.postStatus = 'VISIBLE';
-      }
-    }
-  }
+  return {
+    id: org.id,
+    name: org.orgName,
+    contactEmail: orgContactEmail(org, org.user),
+    causeTags: org.causeTags,
+    description: org.mission ?? '',
+    status: status as OrganizationModerationStatus,
+    denialReason: org.verificationRejectReason ?? undefined,
+    appeal: buildAppealRecord(org),
+    createdAt: org.createdAt.toISOString(),
+    updatedAt: org.updatedAt.toISOString(),
+    postCount,
+    visiblePostCount,
+  };
 }
 
 export const adminRouter = router({
@@ -92,25 +101,26 @@ export const adminRouter = router({
     return { success: true };
   }),
 
-  getOverview: adminProcedure.query(() => {
-    ensurePostDefaults();
+  getOverview: adminProcedure.query(async () => {
+    const orgs = await prisma.orgProfile.findMany();
+    const opps = await prisma.opportunity.findMany();
 
     const orgCounts = {
-      total: mockOrganizations.length,
-      pending: mockOrganizations.filter(org => org.status === 'PENDING').length,
-      approved: mockOrganizations.filter(org => org.status === 'APPROVED').length,
-      denied: mockOrganizations.filter(org => org.status === 'DENIED').length,
-      appealed: mockOrganizations.filter(org => org.status === 'APPEALED').length,
+      total: orgs.length,
+      pending: orgs.filter(o => deriveOrgModerationStatus(o) === 'PENDING').length,
+      approved: orgs.filter(o => deriveOrgModerationStatus(o) === 'APPROVED').length,
+      denied: orgs.filter(o => deriveOrgModerationStatus(o) === 'DENIED').length,
+      appealed: orgs.filter(o => deriveOrgModerationStatus(o) === 'APPEALED').length,
     };
 
     const postCounts = {
-      total: mockOpportunities.length,
-      visible: mockOpportunities.filter(post => post.postStatus === 'VISIBLE').length,
-      removed: mockOpportunities.filter(post => post.postStatus === 'REMOVED').length,
+      total: opps.length,
+      visible: opps.filter(p => !p.adminHidden).length,
+      removed: opps.filter(p => p.adminHidden).length,
     };
 
-    const pendingAppeals = mockOrganizations.filter(
-      org => org.appeal?.status === 'PENDING' && org.status === 'APPEALED'
+    const pendingAppeals = orgs.filter(
+      o => o.appealDecision === 'PENDING' && Boolean(o.appealSubmittedAt)
     ).length;
 
     return {
@@ -131,12 +141,20 @@ export const adminRouter = router({
         })
         .optional()
     )
-    .query(({ input }) => {
+    .query(async ({ input }) => {
       const status = input?.status ?? 'ALL';
       const search = input?.search;
       const cause = input?.cause?.trim();
 
-      return mockOrganizations
+      const rows = await prisma.orgProfile.findMany({
+        include: {
+          user: true,
+          opportunities: { select: { id: true, adminHidden: true } },
+        },
+      });
+
+      return rows
+        .map(org => mapOrgToAdminRow(org))
         .filter(org => (status === 'ALL' ? true : org.status === status))
         .filter(org => (cause ? org.causeTags.includes(cause) : true))
         .filter(org =>
@@ -145,14 +163,6 @@ export const adminRouter = router({
             search
           )
         )
-        .map(org => {
-          const posts = mockOpportunities.filter(post => post.orgId === org.id);
-          return {
-            ...org,
-            postCount: posts.length,
-            visiblePostCount: posts.filter(post => post.postStatus !== 'REMOVED').length,
-          };
-        })
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     }),
 
@@ -164,34 +174,49 @@ export const adminRouter = router({
         reason: z.string().optional(),
       })
     )
-    .mutation(({ input }) => {
-      const org = mockOrganizations.find(item => item.id === input.organizationId);
+    .mutation(async ({ input }) => {
+      const org = await prisma.orgProfile.findUnique({ where: { id: input.organizationId } });
       if (!org) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Organization not found' });
       }
 
+      const now = new Date();
+
       if (input.decision === 'APPROVE') {
-        org.status = 'APPROVED';
-        org.denialReason = undefined;
-        if (org.appeal) {
-          org.appeal.status = 'APPROVED';
-          org.appeal.resolutionNote = input.reason ?? 'Appeal approved by admin.';
-          org.appeal.resolvedAt = nowIso();
-        }
+        await prisma.orgProfile.update({
+          where: { id: org.id },
+          data: {
+            isVerified: true,
+            verificationApprovedAt: now,
+            verificationRejectedAt: null,
+            verificationRejectReason: null,
+            appealMessage: null,
+            appealSubmittedAt: null,
+            appealResolvedAt: null,
+            appealResolutionNote: input.reason ?? 'Approved by admin.',
+            appealDecision: null,
+          },
+        });
       } else {
-        org.status = 'DENIED';
-        org.denialReason = input.reason?.trim() || 'Denied by admin review.';
-        if (org.appeal && org.appeal.status === 'PENDING') {
-          org.appeal.status = 'REJECTED';
-          org.appeal.resolutionNote = org.denialReason;
-          org.appeal.resolvedAt = nowIso();
-        }
+        await prisma.orgProfile.update({
+          where: { id: org.id },
+          data: {
+            isVerified: false,
+            verificationRejectedAt: now,
+            verificationRejectReason: input.reason?.trim() || 'Denied by admin review.',
+            appealDecision: null,
+            appealResolvedAt: null,
+            appealMessage: null,
+            appealSubmittedAt: null,
+          },
+        });
       }
 
-      org.updatedAt = nowIso();
-      syncOpportunityOrgApproval(org.id, org.status);
-
-      return org;
+      const fresh = await prisma.orgProfile.findUniqueOrThrow({
+        where: { id: org.id },
+        include: { user: true, opportunities: { select: { id: true, adminHidden: true } } },
+      });
+      return mapOrgToAdminRow(fresh);
     }),
 
   submitAppeal: publicProcedure
@@ -201,29 +226,37 @@ export const adminRouter = router({
         message: z.string().min(10),
       })
     )
-    .mutation(({ input }) => {
-      const org = mockOrganizations.find(item => item.id === input.organizationId);
+    .mutation(async ({ input }) => {
+      const org = await prisma.orgProfile.findUnique({ where: { id: input.organizationId } });
       if (!org) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Organization not found' });
       }
 
-      if (org.status !== 'DENIED' && org.status !== 'APPEALED') {
+      const st = deriveOrgModerationStatus(org);
+      if (st !== 'DENIED') {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'Appeals are only allowed for denied organizations.',
         });
       }
 
-      org.status = 'APPEALED';
-      org.appeal = {
-        id: `appeal_${randomUUID()}`,
-        message: input.message.trim(),
-        submittedAt: nowIso(),
-        status: 'PENDING',
-      };
-      org.updatedAt = nowIso();
+      const now = new Date();
+      await prisma.orgProfile.update({
+        where: { id: org.id },
+        data: {
+          appealMessage: input.message.trim(),
+          appealSubmittedAt: now,
+          appealResolvedAt: null,
+          appealResolutionNote: null,
+          appealDecision: 'PENDING',
+        },
+      });
 
-      return org;
+      const fresh = await prisma.orgProfile.findUniqueOrThrow({
+        where: { id: org.id },
+        include: { user: true, opportunities: { select: { id: true, adminHidden: true } } },
+      });
+      return mapOrgToAdminRow(fresh);
     }),
 
   listAppeals: adminProcedure
@@ -235,25 +268,37 @@ export const adminRouter = router({
         })
         .optional()
     )
-    .query(({ input }) => {
+    .query(async ({ input }) => {
       const status = input?.status ?? 'ALL';
       const search = input?.search;
 
-      return mockOrganizations
-        .filter(org => Boolean(org.appeal))
-        .filter(org => (status === 'ALL' ? true : org.appeal?.status === status))
-        .filter(org =>
-          matchesSearch(`${org.name} ${org.contactEmail} ${org.appeal?.message ?? ''}`, search)
+      const rows = await prisma.orgProfile.findMany({
+        where: {
+          appealSubmittedAt: { not: null },
+          appealMessage: { not: null },
+        },
+        include: { user: true },
+      });
+
+      return rows
+        .map(org => {
+          const appeal = buildAppealRecord(org);
+          if (!appeal) return null;
+          return {
+            organizationId: org.id,
+            organizationName: org.orgName,
+            organizationEmail: orgContactEmail(org, org.user),
+            currentStatus: deriveOrgModerationStatus(org),
+            denialReason: org.verificationRejectReason,
+            appeal,
+            updatedAt: org.updatedAt.toISOString(),
+          };
+        })
+        .filter((row): row is NonNullable<typeof row> => Boolean(row))
+        .filter(row => (status === 'ALL' ? true : row.appeal.status === status))
+        .filter(row =>
+          matchesSearch(`${row.organizationName} ${row.organizationEmail} ${row.appeal.message}`, search)
         )
-        .map(org => ({
-          organizationId: org.id,
-          organizationName: org.name,
-          organizationEmail: org.contactEmail,
-          currentStatus: org.status,
-          denialReason: org.denialReason,
-          appeal: org.appeal!,
-          updatedAt: org.updatedAt,
-        }))
         .sort((a, b) => b.appeal.submittedAt.localeCompare(a.appeal.submittedAt));
     }),
 
@@ -265,34 +310,48 @@ export const adminRouter = router({
         note: z.string().optional(),
       })
     )
-    .mutation(({ input }) => {
-      const org = mockOrganizations.find(item => item.id === input.organizationId);
-      if (!org || !org.appeal) {
+    .mutation(async ({ input }) => {
+      const org = await prisma.orgProfile.findUnique({ where: { id: input.organizationId } });
+      if (!org || !org.appealSubmittedAt) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Appeal not found for organization' });
       }
 
-      if (org.appeal.status !== 'PENDING') {
+      if (org.appealDecision !== 'PENDING') {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Appeal already resolved' });
       }
 
+      const now = new Date();
+
       if (input.decision === 'APPROVE') {
-        org.status = 'APPROVED';
-        org.denialReason = undefined;
-        org.appeal.status = 'APPROVED';
-        org.appeal.resolutionNote = input.note?.trim() || 'Appeal approved by admin.';
-        org.appeal.resolvedAt = nowIso();
+        await prisma.orgProfile.update({
+          where: { id: org.id },
+          data: {
+            isVerified: true,
+            verificationApprovedAt: now,
+            verificationRejectedAt: null,
+            verificationRejectReason: null,
+            appealResolvedAt: now,
+            appealResolutionNote: input.note?.trim() || 'Appeal approved by admin.',
+            appealDecision: 'APPROVED',
+          },
+        });
       } else {
-        org.status = 'DENIED';
-        org.denialReason = input.note?.trim() || org.denialReason || 'Appeal denied by admin.';
-        org.appeal.status = 'REJECTED';
-        org.appeal.resolutionNote = org.denialReason;
-        org.appeal.resolvedAt = nowIso();
+        await prisma.orgProfile.update({
+          where: { id: org.id },
+          data: {
+            isVerified: false,
+            appealResolvedAt: now,
+            appealResolutionNote: input.note?.trim() || org.verificationRejectReason || 'Appeal rejected.',
+            appealDecision: 'REJECTED',
+          },
+        });
       }
 
-      org.updatedAt = nowIso();
-      syncOpportunityOrgApproval(org.id, org.status);
-
-      return org;
+      const fresh = await prisma.orgProfile.findUniqueOrThrow({
+        where: { id: org.id },
+        include: { user: true, opportunities: { select: { id: true, adminHidden: true } } },
+      });
+      return mapOrgToAdminRow(fresh);
     }),
 
   listPosts: adminProcedure
@@ -306,15 +365,58 @@ export const adminRouter = router({
         })
         .optional()
     )
-    .query(({ input }) => {
-      ensurePostDefaults();
-
+    .query(async ({ input }) => {
       const status = input?.status ?? 'ALL';
       const search = input?.search;
       const organizationId = input?.organizationId;
       const cause = input?.cause?.trim();
 
-      return mockOpportunities
+      const rows = await prisma.opportunity.findMany({
+        include: { orgProfile: { include: { user: true } } },
+        orderBy: [{ date: 'desc' }, { startTime: 'desc' }],
+        take: 500,
+      });
+
+      return rows
+        .map(post => {
+          const org = post.orgProfile;
+          const orgStatus = deriveOrgModerationStatus(org);
+          const postStatus = post.adminHidden ? ('REMOVED' as const) : ('VISIBLE' as const);
+          const canShowToStudents =
+            orgStatus === 'APPROVED' && postStatus === 'VISIBLE' && post.isPublished;
+
+          return {
+            id: post.id,
+            orgId: org.id,
+            orgName: org.orgName,
+            orgVerified: org.isVerified,
+            title: post.title,
+            description: post.description,
+            causeTags: post.causeTags,
+            date: post.date.toISOString().slice(0, 10),
+            startTime: post.startTime.toISOString(),
+            endTime: post.endTime.toISOString(),
+            durationHours: Number(post.durationHours),
+            location: {
+              lat: Number(post.lat),
+              lng: Number(post.lng),
+              address: post.address,
+              city: post.city ?? org.city ?? '',
+              state: post.state ?? org.state ?? '',
+            },
+            totalSpots: post.totalSpots,
+            filledSpots: post.filledSpots,
+            ageMinimum: post.ageMinimum ?? undefined,
+            creditEligible: post.creditEligible,
+            whatToBring: post.whatToBring,
+            recurring: post.recurring,
+            postStatus,
+            removedReason: post.adminHiddenReason ?? undefined,
+            moderatedAt: post.adminHiddenAt?.toISOString(),
+            orgStatus,
+            canShowToStudents,
+          };
+        })
         .filter(post => (status === 'ALL' ? true : post.postStatus === status))
         .filter(post => (organizationId ? post.orgId === organizationId : true))
         .filter(post => (cause ? post.causeTags.includes(cause) : true))
@@ -323,19 +425,7 @@ export const adminRouter = router({
             `${post.title} ${post.description} ${post.orgName} ${post.causeTags.join(' ')} ${post.removedReason ?? ''}`,
             search
           )
-        )
-        .map(post => {
-          const org = mockOrganizations.find(item => item.id === post.orgId);
-          const canShowToStudents =
-            (org?.status ?? 'PENDING') === 'APPROVED' && (post.postStatus ?? 'VISIBLE') === 'VISIBLE';
-
-          return {
-            ...post,
-            orgStatus: org?.status ?? 'PENDING',
-            canShowToStudents,
-          };
-        })
-        .sort((a, b) => b.date.localeCompare(a.date));
+        );
     }),
 
   moderatePost: adminProcedure
@@ -346,24 +436,56 @@ export const adminRouter = router({
         reason: z.string().optional(),
       })
     )
-    .mutation(({ input }) => {
-      ensurePostDefaults();
-
-      const post = mockOpportunities.find(item => item.id === input.opportunityId);
-      if (!post) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Opportunity not found' });
-      }
+    .mutation(async ({ input }) => {
+      const now = new Date();
 
       if (input.action === 'REMOVE') {
-        post.postStatus = 'REMOVED';
-        post.removedReason = input.reason?.trim() || 'Removed by admin moderation.';
-        post.moderatedAt = nowIso();
+        await prisma.opportunity.update({
+          where: { id: input.opportunityId },
+          data: {
+            adminHidden: true,
+            adminHiddenReason: input.reason?.trim() || 'Removed by admin moderation.',
+            adminHiddenAt: now,
+          },
+        });
       } else {
-        post.postStatus = 'VISIBLE';
-        post.removedReason = undefined;
-        post.moderatedAt = nowIso();
+        await prisma.opportunity.update({
+          where: { id: input.opportunityId },
+          data: {
+            adminHidden: false,
+            adminHiddenReason: null,
+            adminHiddenAt: now,
+          },
+        });
       }
 
-      return post;
+      const post = await prisma.opportunity.findUniqueOrThrow({
+        where: { id: input.opportunityId },
+        include: { orgProfile: true },
+      });
+
+      const orgStatus = deriveOrgModerationStatus(post.orgProfile);
+      const postStatus = post.adminHidden ? ('REMOVED' as const) : ('VISIBLE' as const);
+      const canShowToStudents =
+        orgStatus === 'APPROVED' && postStatus === 'VISIBLE' && post.isPublished;
+
+      return {
+        id: post.id,
+        orgId: post.orgProfileId,
+        orgName: post.orgProfile.orgName,
+        orgVerified: post.orgProfile.isVerified,
+        title: post.title,
+        description: post.description,
+        causeTags: post.causeTags,
+        date: post.date.toISOString().slice(0, 10),
+        startTime: post.startTime.toISOString(),
+        endTime: post.endTime.toISOString(),
+        durationHours: Number(post.durationHours),
+        postStatus,
+        removedReason: post.adminHiddenReason ?? undefined,
+        moderatedAt: post.adminHiddenAt?.toISOString(),
+        orgStatus,
+        canShowToStudents,
+      };
     }),
 });

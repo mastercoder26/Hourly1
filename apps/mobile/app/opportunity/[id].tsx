@@ -34,7 +34,15 @@ export default function OpportunityDetailScreen() {
     { id: opportunityId ?? '' },
     { enabled: isLiveMode() && Boolean(opportunityId) },
   );
-  const applyMutation = trpc.application.apply.useMutation();
+  const utils = trpc.useUtils();
+  const applyMutation = trpc.application.apply.useMutation({
+    onSuccess: async () => {
+      await utils.application.listMine.invalidate();
+    },
+  });
+  const listMineQuery = trpc.application.listMine.useQuery(undefined, {
+    enabled: isLiveMode() && Boolean(opportunityId),
+  });
 
   const opportunity = useMemo(() => {
     if (!opportunityId) {
@@ -49,13 +57,15 @@ export default function OpportunityDetailScreen() {
     return null;
   }, [demoOpportunities, opportunityId, rawOpportunity]);
 
-  const existingApplication = useMemo(
-    () =>
-      opportunityId
-        ? applicationForStudentOnOpportunity(applications, opportunityId, DEMO_STUDENT_ID)
-        : undefined,
-    [applications, opportunityId],
-  );
+  const existingApplication = useMemo(() => {
+    if (isLiveMode() && opportunityId && listMineQuery.data) {
+      return listMineQuery.data.find(a => a.opportunityId === opportunityId);
+    }
+    if (!opportunityId) {
+      return undefined;
+    }
+    return applicationForStudentOnOpportunity(applications, opportunityId, DEMO_STUDENT_ID);
+  }, [applications, opportunityId, listMineQuery.data]);
 
   const [showApplySheet, setShowApplySheet] = useState(false);
   const [justApplied, setJustApplied] = useState(false);
@@ -71,7 +81,7 @@ export default function OpportunityDetailScreen() {
     checkOpacity.value = 0;
   }, [opportunityId, checkScale, checkOpacity]);
 
-  if (isLiveMode() && isLoading) {
+  if (isLiveMode() && (isLoading || listMineQuery.isLoading)) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.teal} />
@@ -162,8 +172,8 @@ export default function OpportunityDetailScreen() {
               {opportunity.orgVerified && <Feather name="check-circle" size={14} color={Colors.teal} />}
             </View>
             <View style={styles.ratingRow}>
-              <Text style={styles.ratingStars}>{'★'.repeat(Math.round(opportunity.rating))}</Text>
-              <Text style={styles.ratingText}>{opportunity.rating.toFixed(1)}</Text>
+              <Text style={styles.ratingStars}>{'★'.repeat(Math.round(opportunity.rating ?? 0))}</Text>
+              <Text style={styles.ratingText}>{(opportunity.rating ?? 0).toFixed(1)}</Text>
             </View>
           </View>
         </Animated.View>

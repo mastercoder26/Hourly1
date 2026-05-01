@@ -1,6 +1,6 @@
-// Demo organizer: single shift verification (check-in method, times, approve)
+// Shift verification — demo store or live `org.getAttendanceRecord` + `attendance.verifyHours`.
 import React, { useCallback, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -16,7 +16,21 @@ import { Typography } from '../../../constants/typography';
 import { Card } from '../../../components/ui/Card';
 import { PillButton } from '../../../components/ui/PillButton';
 import { useDemoStore } from '../../../lib/demo/demoStore';
-import { isDemoMode } from '../../../lib/dataMode';
+import { isDemoMode, isLiveMode } from '../../../lib/dataMode';
+import { trpc } from '../../../lib/trpc';
+
+type DemoAttendance = {
+  id: string;
+  studentId: string;
+  opportunityId: string;
+  opportunityTitle?: string;
+  checkinTime?: string;
+  checkoutTime?: string;
+  hoursLogged: number;
+  verificationStatus: 'PENDING' | 'VERIFIED';
+  checkInMethod?: CheckInMethod;
+  checkInDetail?: string;
+};
 
 function volunteerName(studentId: string): string {
   if (studentId === DEMO_STUDENT_ID) {
@@ -41,7 +55,7 @@ function labelForMethod(m?: CheckInMethod): string {
   }
 }
 
-function formatDateTime(iso?: string) {
+function formatDateTime(iso?: string | null) {
   if (!iso) return 'N/A';
   try {
     return new Date(iso).toLocaleString('en-US', {
@@ -66,24 +80,59 @@ export default function VerifyHoursDetailScreen() {
   const attendance = useDemoStore(s => s.attendance);
   const verifyAttendance = useDemoStore(s => s.verifyAttendance);
 
-  const record = useMemo(
-    () => (id ? attendance.find(a => a.id === id) : undefined),
-    [attendance, id],
+  const liveRecordQuery = trpc.org.getAttendanceRecord.useQuery(
+    { attendanceRecordId: id ?? '' },
+    { enabled: isLiveMode() && Boolean(id) },
   );
+
+  const utils = trpc.useUtils();
+  const verifyMutation = trpc.attendance.verifyHours.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.org.listPendingAttendance.invalidate(),
+        utils.user.getAttendance.invalidate(),
+        utils.user.getPortfolioStats.invalidate(),
+      ]);
+    },
+  });
+
+  const record: DemoAttendance | undefined = useMemo(() => {
+    if (isLiveMode() && liveRecordQuery.data) {
+      const r = liveRecordQuery.data;
+      return {
+        id: r.id,
+        studentId: r.studentId,
+        opportunityId: r.opportunityId,
+        opportunityTitle: r.opportunityTitle,
+        checkinTime: r.checkinTime ?? undefined,
+        checkoutTime: r.checkoutTime ?? undefined,
+        hoursLogged: r.hoursLogged,
+        verificationStatus: r.verificationStatus as 'PENDING' | 'VERIFIED',
+        checkInMethod: 'qr_scan',
+        checkInDetail: 'Check-in recorded via Hourly (QR or GPS).',
+      };
+    }
+    if (!id) return undefined;
+    return attendance.find(a => a.id === id) as DemoAttendance | undefined;
+  }, [attendance, id, liveRecordQuery.data]);
 
   const opportunity = useMemo(() => {
     if (!record) return undefined;
     return opportunities.find(o => o.id === record.opportunityId);
   }, [opportunities, record]);
 
-  const orgValid = opportunity?.orgId === DEMO_ORG_PRIMARY_ID;
+  const orgValid = isLiveMode() ? true : opportunity?.orgId === DEMO_ORG_PRIMARY_ID;
   const canAct =
-    isDemoMode() &&
     record &&
     orgValid &&
-    record.verificationStatus === 'PENDING';
+    record.verificationStatus === 'PENDING' &&
+    (isDemoMode() || isLiveMode());
 
-  const name = record ? volunteerName(record.studentId) : '';
+  const name = record
+    ? isLiveMode() && liveRecordQuery.data
+      ? liveRecordQuery.data.studentName
+      : volunteerName(record.studentId)
+    : '';
 
   const onApprove = useCallback(() => {
     if (!record || !canAct) return;
@@ -95,6 +144,20 @@ export default function VerifyHoursDetailScreen() {
         {
           text: 'Approve',
           onPress: () => {
+            if (isLiveMode()) {
+              verifyMutation.mutate(
+                { attendanceRecordId: record.id },
+                {
+                  onSuccess: () => {
+                    Alert.alert('Approved', 'Hours are marked verified.', [
+                      { text: 'OK', onPress: () => router.back() },
+                    ]);
+                  },
+                  onError: e => Alert.alert('Failed', e.message),
+                },
+              );
+              return;
+            }
             verifyAttendance(record.id);
             Alert.alert('Approved', 'Hours are marked verified.', [
               { text: 'OK', onPress: () => router.back() },
@@ -103,7 +166,16 @@ export default function VerifyHoursDetailScreen() {
         },
       ],
     );
-  }, [canAct, name, record, router, verifyAttendance]);
+  }, [canAct, name, record, router, verifyAttendance, verifyMutation]);
+
+  if (isLiveMode() && liveRecordQuery.isLoading) {
+    return (
+      <View style={styles.miss}>
+        <ActivityIndicator size="large" color={Colors.accent} />
+        <Text style={styles.missBody}>Loading record…</Text>
+      </View>
+    );
+  }
 
   if (!id || !record) {
     return (
@@ -144,7 +216,7 @@ export default function VerifyHoursDetailScreen() {
 
       <Text style={styles.kicker}>REVIEW SHIFT</Text>
       <Text style={styles.title}>{name}</Text>
-      <Text style={styles.eventLine}>{opportunity?.title ?? 'Event'}</Text>
+      <Text style={styles.eventLine}>{record.opportunityTitle ?? opportunity?.title ?? 'Event'}</Text>
 
       <Card style={styles.methodCard}>
         <View style={styles.methodHeader}>
@@ -188,19 +260,19 @@ export default function VerifyHoursDetailScreen() {
 
       {canAct && (
         <View style={styles.actions}>
-          <PillButton variant="primary" fullWidth size="large" onPress={onApprove}>
-            Approve hours
+          <PillButton
+            variant="primary"
+            fullWidth
+            size="large"
+            onPress={onApprove}
+            disabled={verifyMutation.isPending}
+          >
+            {verifyMutation.isPending ? 'Submitting…' : 'Approve hours'}
           </PillButton>
           <Text style={styles.legal}>
             By approving, you confirm the check-in method and times are accurate for your organization records.
           </Text>
         </View>
-      )}
-
-      {!isDemoMode() && (
-        <Text style={styles.liveNote}>
-          Live mode will submit approvals to your connected backend. Use demo mode to try this screen.
-        </Text>
       )}
     </ScrollView>
   );
@@ -263,7 +335,6 @@ const styles = StyleSheet.create({
   locText: { ...Typography.caption, color: Colors.dark.textSecondary, lineHeight: 20 },
   actions: { gap: 12, marginTop: 8 },
   legal: { ...Typography.tiny, color: Colors.dark.textTertiary, textAlign: 'center', lineHeight: 16 },
-  liveNote: { ...Typography.caption, color: Colors.dark.textTertiary, textAlign: 'center', marginTop: 12 },
   miss: { flex: 1, backgroundColor: Colors.dark.base, padding: 24, justifyContent: 'center', gap: 12 },
   missTitle: { ...Typography.title, color: Colors.dark.textPrimary },
   missBody: { ...Typography.caption, color: Colors.dark.textSecondary },
