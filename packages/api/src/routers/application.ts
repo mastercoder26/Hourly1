@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { router, protectedProcedure, publicProcedure } from '../trpc';
-import { mockApplications, Application } from '../mock-data';
-
-const applications: Application[] = [...mockApplications];
+import { TRPCError } from '@trpc/server';
+import { prisma } from 'db';
+import { router, protectedProcedure } from '../trpc';
+import { getOrCreateStudentUser } from '../lib/student-user';
 
 export const applicationRouter = router({
   apply: protectedProcedure
@@ -11,35 +11,74 @@ export const applicationRouter = router({
         opportunityId: z.string(),
       })
     )
-    .mutation(({ ctx, input }) => {
-      const existing = applications.find(
-        a => a.opportunityId === input.opportunityId && a.userId === ctx.userId
-      );
-      if (existing) {
-        return existing;
+    .mutation(async ({ ctx, input }) => {
+      const student = await getOrCreateStudentUser(ctx.userId);
+
+      const opportunity = await prisma.opportunity.findFirst({
+        where: {
+          id: input.opportunityId,
+          isPublished: true,
+          orgProfile: { isVerified: true },
+        },
+      });
+      if (!opportunity) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Opportunity not found' });
       }
 
-      const application: Application = {
-        id: `app-${Date.now()}`,
+      const existing = await prisma.application.findUnique({
+        where: {
+          studentId_opportunityId: {
+            studentId: student.id,
+            opportunityId: input.opportunityId,
+          },
+        },
+      });
+      if (existing) {
+        return {
+          id: existing.id,
+          userId: ctx.userId,
+          opportunityId: existing.opportunityId,
+          status: existing.status,
+          appliedAt: existing.appliedAt.toISOString(),
+          qrCodeData: existing.qrCodeData,
+        };
+      }
+
+      const qrCodeData = `hourly://checkin/${input.opportunityId}/${student.id}`;
+
+      const created = await prisma.application.create({
+        data: {
+          studentId: student.id,
+          opportunityId: input.opportunityId,
+          qrCodeData,
+        },
+      });
+
+      return {
+        id: created.id,
         userId: ctx.userId,
-        opportunityId: input.opportunityId,
-        status: 'PENDING',
-        appliedAt: new Date().toISOString(),
-        qrCodeData: `hourly://checkin/${input.opportunityId}/${ctx.userId}`,
+        opportunityId: created.opportunityId,
+        status: created.status,
+        appliedAt: created.appliedAt.toISOString(),
+        qrCodeData: created.qrCodeData,
       };
-
-      applications.push(application);
-      return application;
     }),
 
-  listMine: protectedProcedure.query(({ ctx }) => {
-    return applications.filter(a => a.userId === ctx.userId);
+  listMine: protectedProcedure.query(async ({ ctx }) => {
+    const student = await getOrCreateStudentUser(ctx.userId);
+
+    const rows = await prisma.application.findMany({
+      where: { studentId: student.id },
+      orderBy: { appliedAt: 'desc' },
+    });
+
+    return rows.map(a => ({
+      id: a.id,
+      userId: ctx.userId,
+      opportunityId: a.opportunityId,
+      status: a.status,
+      appliedAt: a.appliedAt.toISOString(),
+      qrCodeData: a.qrCodeData,
+    }));
   }),
-
-  // Legacy route kept temporarily while screens migrate.
-  listByUser: publicProcedure
-    .input(z.object({ userId: z.string() }))
-    .query(({ input }) => {
-      return applications.filter(a => a.userId === input.userId);
-    }),
 });

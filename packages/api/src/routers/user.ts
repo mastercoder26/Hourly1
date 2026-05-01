@@ -1,6 +1,8 @@
 import { z } from 'zod';
-import { router, protectedProcedure, publicProcedure } from '../trpc';
+import { router, protectedProcedure } from '../trpc';
+import { prisma } from 'db';
 import { mockUsers, UserProfile, mockOpportunities } from '../mock-data';
+import { findUserWithStudentByClerk, profileFromDbUser } from '../lib/user-profile-db';
 
 const users: UserProfile[] = [...mockUsers];
 
@@ -26,7 +28,12 @@ const mockBadges = [
 ];
 
 export const userRouter = router({
-  me: protectedProcedure.query(({ ctx }) => {
+  me: protectedProcedure.query(async ({ ctx }) => {
+    const dbRow = await findUserWithStudentByClerk(ctx.userId);
+    if (dbRow) {
+      return profileFromDbUser(dbRow);
+    }
+
     let user = users.find(u => u.id === ctx.userId);
 
     if (!user) {
@@ -46,21 +53,22 @@ export const userRouter = router({
     return user;
   }),
 
-  // Legacy route kept temporarily while screens migrate.
-  getProfile: publicProcedure
-    .input(z.object({ userId: z.string() }))
-    .query(({ input }) => {
-      const user = users.find(u => u.id === input.userId);
-      if (!user) {
-        throw new Error(`User not found: ${input.userId}`);
-      }
-      return user;
-    }),
+  getProfile: protectedProcedure.query(async ({ ctx }) => {
+    const dbRow = await findUserWithStudentByClerk(ctx.userId);
+    if (dbRow) {
+      return profileFromDbUser(dbRow);
+    }
 
-  updateProfile: publicProcedure
+    const user = users.find(u => u.id === ctx.userId);
+    if (!user) {
+      throw new Error(`User not found: ${ctx.userId}`);
+    }
+    return user;
+  }),
+
+  updateProfile: protectedProcedure
     .input(
       z.object({
-        userId: z.string(),
         firstName: z.string().optional(),
         lastName: z.string().optional(),
         school: z.string().optional(),
@@ -68,19 +76,89 @@ export const userRouter = router({
         interests: z.array(z.string()).optional(),
       })
     )
-    .mutation(({ input }) => {
-      const { userId, ...updates } = input;
-      const index = users.findIndex(u => u.id === userId);
-      if (index === -1) {
-        throw new Error(`User not found: ${userId}`);
+    .mutation(async ({ ctx, input }) => {
+      const dbRow = await findUserWithStudentByClerk(ctx.userId);
+      if (dbRow) {
+        const userUpdate: { firstName?: string; lastName?: string } = {};
+        if (input.firstName !== undefined) {
+          userUpdate.firstName = input.firstName;
+        }
+        if (input.lastName !== undefined) {
+          userUpdate.lastName = input.lastName;
+        }
+        if (Object.keys(userUpdate).length > 0) {
+          await prisma.user.update({
+            where: { id: dbRow.id },
+            data: userUpdate,
+          });
+        }
+
+        if (dbRow.role === 'STUDENT') {
+          const profileCreate = {
+            userId: dbRow.id,
+            schoolName: input.school ?? 'Unknown School',
+            grade: input.grade ?? 0,
+            interests: input.interests ?? [],
+          };
+          const profileUpdate: {
+            schoolName?: string;
+            grade?: number;
+            interests?: string[];
+          } = {};
+          if (input.school !== undefined) {
+            profileUpdate.schoolName = input.school;
+          }
+          if (input.grade !== undefined) {
+            profileUpdate.grade = input.grade;
+          }
+          if (input.interests !== undefined) {
+            profileUpdate.interests = input.interests;
+          }
+
+          await prisma.studentProfile.upsert({
+            where: { userId: dbRow.id },
+            create: profileCreate,
+            update: profileUpdate,
+          });
+        }
+
+        const fresh = await findUserWithStudentByClerk(ctx.userId);
+        if (!fresh) {
+          throw new Error(`User not found after update: ${ctx.userId}`);
+        }
+        return profileFromDbUser(fresh);
       }
-      users[index] = { ...users[index], ...updates };
+
+      const index = users.findIndex(u => u.id === ctx.userId);
+      if (index === -1) {
+        throw new Error(`User not found: ${ctx.userId}`);
+      }
+      users[index] = { ...users[index], ...input };
       return users[index];
     }),
 
-  // Get attendance records for portfolio
-  getAttendance: protectedProcedure.query(({ ctx }) => {
-    // Return attendance with opportunity details
+  getAttendance: protectedProcedure.query(async ({ ctx }) => {
+    const dbRow = await findUserWithStudentByClerk(ctx.userId);
+    if (dbRow) {
+      const records = await prisma.attendanceRecord.findMany({
+        where: { studentId: dbRow.id },
+        include: { opportunity: { include: { orgProfile: true } } },
+        orderBy: { checkinTime: 'desc' },
+      });
+      return records.map(r => ({
+        id: r.id,
+        studentId: ctx.userId,
+        opportunityId: r.opportunityId,
+        checkinTime: r.checkinTime?.toISOString() ?? '',
+        checkoutTime: r.checkoutTime?.toISOString() ?? '',
+        hoursLogged: Number(r.hoursLogged),
+        verificationStatus: r.verificationStatus,
+        opportunityTitle: r.opportunity?.title ?? 'Unknown Shift',
+        orgName: r.opportunity?.orgProfile?.orgName ?? 'Unknown Org',
+        orgLogo: '🌿',
+      }));
+    }
+
     return mockAttendance
       .filter(a => a.studentId === ctx.userId || a.studentId === 'user-001')
       .map(record => {
@@ -89,18 +167,55 @@ export const userRouter = router({
           ...record,
           opportunityTitle: opp?.title ?? 'Unknown Shift',
           orgName: opp?.orgName ?? 'Unknown Org',
-          orgLogo: '🌿', // Default logo
+          orgLogo: '🌿',
         };
       });
   }),
 
-  // Get badges for portfolio
-  getBadges: protectedProcedure.query(({ ctx }) => {
+  getBadges: protectedProcedure.query(async ({ ctx }) => {
+    const dbRow = await findUserWithStudentByClerk(ctx.userId);
+    if (dbRow) {
+      const unlocks = await prisma.badgeUnlock.findMany({
+        where: { userId: dbRow.id },
+        include: { badge: true },
+        orderBy: { unlockedAt: 'desc' },
+      });
+      return unlocks.map((u, i) => ({
+        type: u.badge.key,
+        label: u.badge.label,
+        description: u.badge.description,
+        icon: u.badge.icon ?? '⭐',
+        earnedAt: u.unlockedAt.toISOString().slice(0, 10),
+        isNew: i === 0,
+      }));
+    }
+
     return mockBadges;
   }),
 
-  // Get portfolio summary stats
-  getPortfolioStats: protectedProcedure.query(({ ctx }) => {
+  getPortfolioStats: protectedProcedure.query(async ({ ctx }) => {
+    const dbRow = await findUserWithStudentByClerk(ctx.userId);
+    if (dbRow) {
+      const attendance = await prisma.attendanceRecord.findMany({
+        where: { studentId: dbRow.id },
+      });
+      const verifiedHours = attendance
+        .filter(a => a.verificationStatus === 'VERIFIED')
+        .reduce((sum, a) => sum + Number(a.hoursLogged), 0);
+      const uniqueShifts = new Set(attendance.map(a => a.opportunityId)).size;
+      const earnedBadges = await prisma.badgeUnlock.count({ where: { userId: dbRow.id } });
+      const pendingHours = attendance
+        .filter(a => a.verificationStatus === 'PENDING')
+        .reduce((sum, a) => sum + Number(a.hoursLogged), 0);
+
+      return {
+        totalVerifiedHours: verifiedHours,
+        totalShifts: uniqueShifts,
+        earnedBadges,
+        pendingHours,
+      };
+    }
+
     const attendance = mockAttendance.filter(
       a => a.studentId === ctx.userId || a.studentId === 'user-001'
     );

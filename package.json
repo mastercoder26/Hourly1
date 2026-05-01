@@ -8,7 +8,7 @@
     "build:shared": "npm run build -w @hourly/shared",
     "dev:mobile": "npm run start -w mobile",
     "dev:web": "npm run build:shared && npm run dev -w web",
-    "dev:api": "npm run dev -w api",
+    "dev:api": "npm run prisma:generate -w db && npm run build -w db && npm run dev -w api",
     "build:web": "npm run build:shared && npm run build -w web",
     "build:mobile-web": "npm run build:shared && npm run export:web -w mobile",
     "postinstall": "npm run build -w @hourly/shared --if-present"

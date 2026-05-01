@@ -54,7 +54,7 @@
       "privacyPolicyUrl": "https://YOUR_DOMAIN/privacy"
     },
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": false
     }
   }
 }

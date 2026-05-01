@@ -24,7 +24,7 @@ function matchesSearch(haystack: string, search?: string) {
 
 function getAdminCredentials() {
   const email = process.env.ADMIN_DASHBOARD_EMAIL ?? 'admin@hourly.app';
-  const password = process.env.ADMIN_DASHBOARD_PASSWORD ?? 'HourlyAdmin!2026';
+  const password = process.env.ADMIN_DASHBOARD_PASSWORD ?? '';
   return { email, password };
 }
 

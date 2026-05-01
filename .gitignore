@@ -8,3 +8,10 @@ dist/
 *.log
 node_modules
 .expo
+.DS_Store
+.next/
+packages/db/generated/
+packages/db/index.js
+packages/db/index.js.map
+packages/db/index.d.ts
+packages/db/index.d.ts.map

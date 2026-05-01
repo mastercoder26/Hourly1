@@ -16,7 +16,7 @@ function getRequestAuth(req: Request): ClerkAuthResult | null {
 export const createContext = async ({ req }: { req: Request }) => {
 	const auth = getRequestAuth(req);
 
-	const allowDemoAuth = process.env.ALLOW_DEMO_AUTH !== 'false';
+	const allowDemoAuth = process.env.ALLOW_DEMO_AUTH === 'true';
 	const demoUserId = req.header('x-demo-user-id');
 	const userId = auth?.userId ?? (allowDemoAuth && demoUserId ? demoUserId : null);
 	const adminToken = req.header('x-admin-token');
