@@ -71,7 +71,8 @@ export default function RootLayout() {
       <Stack.Screen name="org/create-role" options={{ presentation: 'modal' }} />
       <Stack.Screen name="org/scanner" options={{ presentation: 'modal' }} />
       <Stack.Screen name="org/applicants/[opportunityId]" />
-      <Stack.Screen name="org/verify-hours" />
+      <Stack.Screen name="org/verify-hours/index" />
+      <Stack.Screen name="org/verify-hours/[attendanceId]" />
       <Stack.Screen name="messages/[applicationId]" options={{ presentation: 'modal' }} />
       <Stack.Screen name="settings/[screen]" options={{ presentation: 'modal' }} />
     </Stack>

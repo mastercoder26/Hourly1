@@ -1,6 +1,6 @@
 // Welcome Screen - "Welcome to Hourly" landing page with refined animations
 import React, { useEffect } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions, Alert } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
 import Animated from 'react-native-reanimated';
@@ -103,6 +103,19 @@ function WelcomeDemoBare() {
           </PillButton>
           <PillButton variant="ghost" fullWidth size="large" onPress={() => router.push('/role-selection')}>
             Get Started
+          </PillButton>
+          <PillButton
+            variant="ghost"
+            fullWidth
+            size="medium"
+            onPress={() =>
+              Alert.alert(
+                'Create an account or sign in',
+                'This build is in offline demo mode (no Clerk key). Add EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY to apps/mobile/.env from your Clerk dashboard, restart the app, and you will get Sign in plus email sign-up on the home screen. Until then, use Get Started to explore with sample data.',
+              )
+            }
+          >
+            Create account / Sign in
           </PillButton>
           <PillButton variant="ghost" fullWidth size="medium" onPress={() => router.push('/admin/login' as never)}>
             Admin Portal

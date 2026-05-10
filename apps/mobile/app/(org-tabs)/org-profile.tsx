@@ -23,11 +23,12 @@ const ORG_MENU: { icon: string; label: string; slug: string }[] = [
   { icon: '⚙️', label: 'Settings', slug: 'org-settings' },
 ];
 
-export default function OrgProfileScreen() {
+type OrgProfileAuthState = { authLoaded: boolean; isSignedIn: boolean };
+
+function OrgProfileScreenInner({ authLoaded, isSignedIn }: OrgProfileAuthState) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { enterDemo, exitDemo, demoSignedIn } = useDemoAuth();
-  const { isLoaded: authLoaded, isSignedIn } = useAuth();
   const org = demoOrganizations[0];
   const demoBare = isDemoMode() && !isClerkConfigured();
   const browsingAsGuest = Boolean(
@@ -111,6 +112,18 @@ export default function OrgProfileScreen() {
       )}
     </ScrollView>
   );
+}
+
+function OrgProfileScreenWithClerk() {
+  const { isLoaded: authLoaded, isSignedIn } = useAuth();
+  return <OrgProfileScreenInner authLoaded={authLoaded} isSignedIn={Boolean(isSignedIn)} />;
+}
+
+export default function OrgProfileScreen() {
+  if (isDemoMode() && !isClerkConfigured()) {
+    return <OrgProfileScreenInner authLoaded={true} isSignedIn={false} />;
+  }
+  return <OrgProfileScreenWithClerk />;
 }
 
 const styles = StyleSheet.create({

@@ -25,11 +25,15 @@ const SETTINGS_ROUTE: Record<string, string> = {
   'Terms of service': 'terms',
 };
 
-export default function ProfileScreen() {
+type ProfileAuthState = { authLoaded: boolean; isSignedIn: boolean };
+
+function ProfileScreenInner({
+  authLoaded,
+  isSignedIn,
+}: ProfileAuthState) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { enterDemo, exitDemo, demoSignedIn } = useDemoAuth();
-  const { isLoaded: authLoaded, isSignedIn } = useAuth();
   const browsingAsGuest = Boolean(
     demoSignedIn && isClerkConfigured() && authLoaded && !isSignedIn,
   );
@@ -168,6 +172,18 @@ export default function ProfileScreen() {
       )}
     </ScrollView>
   );
+}
+
+function ProfileScreenWithClerk() {
+  const { isLoaded: authLoaded, isSignedIn } = useAuth();
+  return <ProfileScreenInner authLoaded={authLoaded} isSignedIn={Boolean(isSignedIn)} />;
+}
+
+export default function ProfileScreen() {
+  if (isDemoMode() && !isClerkConfigured()) {
+    return <ProfileScreenInner authLoaded={true} isSignedIn={false} />;
+  }
+  return <ProfileScreenWithClerk />;
 }
 
 const styles = StyleSheet.create({

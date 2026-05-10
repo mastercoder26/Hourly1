@@ -1,7 +1,9 @@
 import { useAuth } from '@clerk/expo';
 import { Redirect, Stack } from 'expo-router';
+import { isDemoMode } from '@/lib/dataMode';
+import { isClerkConfigured } from '@/lib/clerkConfig';
 
-export default function AuthRoutesLayout() {
+function AuthRoutesWithClerk() {
   const { isSignedIn, isLoaded } = useAuth();
 
   if (!isLoaded) {
@@ -13,4 +15,11 @@ export default function AuthRoutesLayout() {
   }
 
   return <Stack screenOptions={{ headerShown: false }} />;
+}
+
+export default function AuthRoutesLayout() {
+  if (isDemoMode() && !isClerkConfigured()) {
+    return <Redirect href="/role-selection" />;
+  }
+  return <AuthRoutesWithClerk />;
 }
