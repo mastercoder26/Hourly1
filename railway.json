@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "cd packages/api && npm run start",
+    "startCommand": "npm run start -w api",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }

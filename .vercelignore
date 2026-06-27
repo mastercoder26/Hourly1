@@ -1,0 +1,5 @@
+apps/web/.next
+packages/db/generated
+**/.env
+**/.env.*
+!**/.env.example

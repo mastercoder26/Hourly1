@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: hourly1-api
+    runtime: node
+    plan: free
+    rootDir: .
+    buildCommand: npm install && npm run prisma:generate -w db
+    startCommand: cd packages/api && npx ts-node --transpile-only src/index.ts
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: ALLOW_DEMO_AUTH
+        value: false
+      - key: DATABASE_URL
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false

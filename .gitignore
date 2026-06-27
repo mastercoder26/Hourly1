@@ -15,3 +15,4 @@ packages/db/index.js
 packages/db/index.js.map
 packages/db/index.d.ts
 packages/db/index.d.ts.map
+.vercel

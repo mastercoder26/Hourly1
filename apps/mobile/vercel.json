@@ -1,5 +1,6 @@
 {
-  "buildCommand": "npx expo export --platform web",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd ../.. && npm run build:mobile-web",
   "outputDirectory": "dist",
-  "installCommand": "npm install"
+  "installCommand": "cd ../.. && npm install"
 }
