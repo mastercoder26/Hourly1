@@ -34,8 +34,8 @@ trpcStack.push(
 
 app.use('/trpc', ...trpcStack);
 
-export function startServer(port = 3001) {
-  return app.listen(port, () => {
-    console.log(`Hourly API server running on http://localhost:${port}`);
+export function startServer(port = Number(process.env.PORT) || 3001) {
+  return app.listen(port, '0.0.0.0', () => {
+    console.log(`Hourly API server running on port ${port}`);
   });
 }
