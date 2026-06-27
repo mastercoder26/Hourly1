@@ -5,6 +5,8 @@ import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
 import Animated from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
+import { Typography } from '../../constants/typography';
+import { Spacing } from '../../constants/spacing';
 import { Card } from '../../components/ui/Card';
 import { PillBadge } from '../../components/ui/PillBadge';
 import { PillButton } from '../../components/ui/PillButton';
@@ -169,6 +171,17 @@ export default function MyShiftsScreen() {
                     </View>
                     <PillBadge label="Pending" color={Colors.warning} />
                   </View>
+                  {demo ? (
+                    <PillButton
+                      variant="default"
+                      size="small"
+                      fullWidth
+                      onPress={() => router.push(`/messages/${app.id}` as never)}
+                      style={{ marginTop: 12 }}
+                    >
+                      Message organizer
+                    </PillButton>
+                  ) : null}
                 </Card>
               </Animated.View>
             );
@@ -191,14 +204,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: Spacing.screenHorizontal,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '500',
+    ...Typography.title,
     color: Colors.dark.textPrimary,
-    letterSpacing: -0.3,
-    marginBottom: 24,
+    marginBottom: Spacing.xxl,
   },
   activeCard: {
     marginBottom: 32,

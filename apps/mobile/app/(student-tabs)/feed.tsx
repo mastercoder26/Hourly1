@@ -2,6 +2,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl, ActivityIndicator, Pressable, Platform, useWindowDimensions } from 'react-native';
 import { Text } from '@/components/Themed';
+import { useRouter } from 'expo-router';
 import Animated from 'react-native-reanimated';
 import { Colors, Shadows } from '@/constants/colors';
 import { Typography } from '@/constants/typography';
@@ -16,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tabBarScrollContentPadding } from '../../constants/tabBar';
 
 export default function FeedScreen() {
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [filters, setFilters] = useState<Filters>({ causes: [], maxDistance: 25, creditEligible: false });
   const { width } = useWindowDimensions();
@@ -89,7 +91,7 @@ export default function FeedScreen() {
           <Text style={styles.title}>Find opportunities</Text>
         </View>
         {!isLargeScreen && (
-          <Pressable style={styles.avatar}>
+          <Pressable style={styles.avatar} onPress={() => router.push('/(student-tabs)/profile')}>
             <Text style={styles.avatarText}>AR</Text>
           </Pressable>
         )}

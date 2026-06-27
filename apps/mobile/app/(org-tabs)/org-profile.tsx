@@ -4,14 +4,16 @@ import { View, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
+import { Typography } from '../../constants/typography';
+import { Spacing } from '../../constants/spacing';
 import { Card } from '../../components/ui/Card';
 import { PillBadge } from '../../components/ui/PillBadge';
 import { PillButton } from '../../components/ui/PillButton';
 import { ClerkSignOutButton } from '../../components/ClerkSignOutButton';
-import { demoOrganizations } from '@hourly/shared';
 import { isDemoMode } from '../../lib/dataMode';
 import { isClerkConfigured } from '../../lib/clerkConfig';
 import { useDemoAuth } from '../../context/DemoAuthContext';
+import { useDemoStore } from '../../lib/demo/demoStore';
 import { useAuth } from '@clerk/expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tabBarScrollContentPadding, tabScreenContentTopPadding } from '../../constants/tabBar';
@@ -28,8 +30,9 @@ type OrgProfileAuthState = { authLoaded: boolean; isSignedIn: boolean };
 function OrgProfileScreenInner({ authLoaded, isSignedIn }: OrgProfileAuthState) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { enterDemo, exitDemo, demoSignedIn } = useDemoAuth();
-  const org = demoOrganizations[0];
+  const { switchRole, exitDemo, demoSignedIn } = useDemoAuth();
+  const orgProfile = useDemoStore(s => s.orgProfile);
+  const org = orgProfile;
   const demoBare = isDemoMode() && !isClerkConfigured();
   const browsingAsGuest = Boolean(
     demoSignedIn && isClerkConfigured() && authLoaded && !isSignedIn,
@@ -88,7 +91,7 @@ function OrgProfileScreenInner({ authLoaded, isSignedIn }: OrgProfileAuthState) 
         size="medium"
         onPress={() => {
           if (showLocalSessionControls) {
-            enterDemo('student');
+            switchRole('student');
           }
           router.dismissTo('/(student-tabs)/feed');
         }}
@@ -128,13 +131,11 @@ export default function OrgProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.dark.base },
-  content: { paddingHorizontal: 20, gap: 16 },
+  content: { paddingHorizontal: Spacing.screenHorizontal, gap: Spacing.lg },
   title: {
-    fontSize: 28,
-    fontWeight: '500',
+    ...Typography.title,
     color: Colors.dark.textPrimary,
-    letterSpacing: -0.3,
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   profileCard: { alignItems: 'center', gap: 12, paddingVertical: 28 },
   logoLarge: {

@@ -9,6 +9,7 @@ import { Card } from '../../components/ui/Card';
 import { PillButton } from '../../components/ui/PillButton';
 import { trpc } from '../../lib/trpc';
 import { isDemoMode, isLiveMode } from '../../lib/dataMode';
+import { useDemoStore } from '../../lib/demo/demoStore';
 
 export default function ScannerScreen() {
   const router = useRouter();
@@ -21,6 +22,8 @@ export default function ScannerScreen() {
   const [checkedInCount, setCheckedInCount] = useState(0);
 
   const checkInMutation = trpc.attendance.checkInByQr.useMutation();
+  const checkInByQrPayload = useDemoStore(s => s.checkInByQrPayload);
+  const demoAttendance = useDemoStore(s => s.attendance);
   const rosterQuery = trpc.attendance.listForOpportunity.useQuery(
     { opportunityId: opportunityId ?? '' },
     { enabled: isLiveMode() && Boolean(opportunityId) },
@@ -34,9 +37,11 @@ export default function ScannerScreen() {
       if (!trimmed) return;
 
       if (isDemoMode()) {
-        setLastPayload(trimmed);
-        setCheckedInCount(c => c + 1);
-        Alert.alert('Checked in (demo)', 'Connect live API for real check-in.');
+        const record = checkInByQrPayload(trimmed, opportunityId);
+        if (record) {
+          setLastPayload(trimmed);
+          setCheckedInCount(c => c + 1);
+        }
         return;
       }
 
@@ -55,7 +60,7 @@ export default function ScannerScreen() {
         },
       );
     },
-    [checkInMutation, rosterQuery],
+    [checkInByQrPayload, checkInMutation, opportunityId, rosterQuery],
   );
 
   const onBarcodeScanned = useCallback(
@@ -135,7 +140,7 @@ export default function ScannerScreen() {
 
       <Card style={styles.rosterCard}>
         <Text style={styles.rosterTitle}>
-          Live roster ({isLiveMode() ? roster.filter(r => r.checkinTime).length : checkedInCount} checked in)
+          Live roster ({isLiveMode() ? roster.filter(r => r.checkinTime).length : demoAttendance.filter(a => a.opportunityId === opportunityId && a.checkinTime).length} checked in)
         </Text>
         {isLiveMode() && roster.length === 0 && <Text style={styles.hint}>No attendance rows yet.</Text>}
         {isLiveMode()

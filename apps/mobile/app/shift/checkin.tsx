@@ -20,6 +20,7 @@ export default function CheckInScreen() {
   const router = useRouter();
   const applications = useDemoStore(s => s.applications);
   const opportunities = useDemoStore(s => s.opportunities);
+  const startStudentCheckIn = useDemoStore(s => s.startStudentCheckIn);
 
   const listMineQuery = trpc.application.listMine.useQuery(undefined, { enabled: isLiveMode() });
   const gpsCheckIn = trpc.attendance.checkInByGps.useMutation();
@@ -172,7 +173,12 @@ export default function CheckInScreen() {
           accent="teal"
           fullWidth
           size="large"
-          onPress={() => router.replace('/shift/active')}
+          onPress={() => {
+            if (isDemoMode() && app) {
+              startStudentCheckIn(app.id);
+            }
+            router.replace('/shift/active');
+          }}
         >
           {isDemoMode() ? 'Simulate check-in →' : 'Done'}
         </PillButton>

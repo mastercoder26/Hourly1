@@ -53,6 +53,7 @@ export default function RootLayout() {
       }}
     >
       <Stack.Screen name="index" />
+      <Stack.Screen name="demo-auth" options={{ presentation: 'modal' }} />
       <Stack.Screen name="(auth)" options={{ presentation: 'modal' }} />
       <Stack.Screen name="admin/login" options={{ presentation: 'modal' }} />
       <Stack.Screen name="admin/dashboard" />

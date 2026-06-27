@@ -4,15 +4,17 @@ import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'reac
 import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
+import { Typography } from '../../constants/typography';
+import { Spacing } from '../../constants/spacing';
 import { Card } from '../../components/ui/Card';
 import { PillBadge } from '../../components/ui/PillBadge';
 import { PillButton } from '../../components/ui/PillButton';
 import { ClerkSignOutButton } from '../../components/ClerkSignOutButton';
-import { demoStudent } from '@hourly/shared';
 import { trpc } from '../../lib/trpc';
 import { isDemoMode, isLiveMode } from '../../lib/dataMode';
 import { isClerkConfigured } from '../../lib/clerkConfig';
 import { useDemoAuth } from '../../context/DemoAuthContext';
+import { useDemoStore } from '../../lib/demo/demoStore';
 import { useAuth } from '@clerk/expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tabBarScrollContentPadding, tabScreenContentTopPadding } from '../../constants/tabBar';
@@ -33,16 +35,17 @@ function ProfileScreenInner({
 }: ProfileAuthState) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { enterDemo, exitDemo, demoSignedIn } = useDemoAuth();
+  const { switchRole, exitDemo, demoSignedIn } = useDemoAuth();
   const browsingAsGuest = Boolean(
     demoSignedIn && isClerkConfigured() && authLoaded && !isSignedIn,
   );
   const preferLocalStudentProfile = isDemoMode() || browsingAsGuest;
+  const studentProfile = useDemoStore(s => s.studentProfile);
   const profileQuery = trpc.user.me.useQuery(undefined, {
     enabled: isLiveMode() && !preferLocalStudentProfile,
   });
 
-  const profile = preferLocalStudentProfile ? demoStudent : profileQuery.data;
+  const profile = preferLocalStudentProfile ? studentProfile : profileQuery.data;
   const demoBare = isDemoMode() && !isClerkConfigured();
   const showLocalSessionControls = demoBare || browsingAsGuest;
 
@@ -148,7 +151,7 @@ function ProfileScreenInner({
         size="medium"
         onPress={() => {
           if (showLocalSessionControls) {
-            enterDemo('organizer');
+            switchRole('organizer');
           }
           router.dismissTo('/(org-tabs)/dashboard');
         }}
@@ -202,15 +205,13 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
   },
   content: {
-    paddingHorizontal: 20,
-    gap: 16,
+    paddingHorizontal: Spacing.screenHorizontal,
+    gap: Spacing.lg,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '500',
+    ...Typography.title,
     color: Colors.dark.textPrimary,
-    letterSpacing: -0.3,
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   profileCard: {
     alignItems: 'center',

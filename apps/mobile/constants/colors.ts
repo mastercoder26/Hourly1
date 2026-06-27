@@ -12,8 +12,8 @@ export const Colors = {
   // Legacy aliases
   teal: '#4CAF50',
   tealSoft: 'rgba(76, 175, 80, 0.12)',
-  purple: '#FFFFFF',
-  purpleSoft: 'rgba(255, 255, 255, 0.08)',
+  purple: '#9C27B0',
+  purpleSoft: 'rgba(156, 39, 176, 0.14)',
   
   // Status colors
   warning: '#FFC107',

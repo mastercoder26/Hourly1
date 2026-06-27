@@ -1,25 +1,58 @@
-// Modal settings sub-screens (local state until API is wired)
+// Modal settings sub-screens (demo store in demo mode)
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, Switch, Linking, Platform } from 'react-native';
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Linking,
+  Platform,
+  TextInput,
+  Alert,
+} from 'react-native';
 import { Text } from '@/components/Themed';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
+import { Typography } from '../../constants/typography';
+import { Spacing } from '../../constants/spacing';
 import { Card } from '../../components/ui/Card';
 import { PillButton } from '../../components/ui/PillButton';
+import { ScreenHeader } from '../../components/ui/ScreenHeader';
+import { useDemoStore } from '../../lib/demo/demoStore';
+import { isDemoMode } from '../../lib/dataMode';
 import Constants from 'expo-constants';
 
 const PRIVACY_URL =
   (Constants.expoConfig?.extra as { privacyPolicyUrl?: string } | undefined)?.privacyPolicyUrl ??
-  'https://example.com/privacy';
+  'https://hourly.app/privacy';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { screen } = useLocalSearchParams<{ screen: string }>();
   const key = Array.isArray(screen) ? screen[0] : screen;
+  const demo = isDemoMode();
 
-  const [pushApps, setPushApps] = useState(true);
-  const [pushReminders, setPushReminders] = useState(true);
-  const [darkMode, setDarkMode] = useState(true);
+  const studentProfile = useDemoStore(s => s.studentProfile);
+  const orgProfile = useDemoStore(s => s.orgProfile);
+  const teamMembers = useDemoStore(s => s.teamMembers);
+  const notificationPrefs = useDemoStore(s => s.notificationPrefs);
+  const appearancePrefs = useDemoStore(s => s.appearancePrefs);
+  const updateStudentProfile = useDemoStore(s => s.updateStudentProfile);
+  const updateOrgProfile = useDemoStore(s => s.updateOrgProfile);
+  const addTeamMember = useDemoStore(s => s.addTeamMember);
+  const removeTeamMember = useDemoStore(s => s.removeTeamMember);
+  const setNotificationPrefs = useDemoStore(s => s.setNotificationPrefs);
+  const setAppearancePrefs = useDemoStore(s => s.setAppearancePrefs);
+  const opportunities = useDemoStore(s => s.opportunities);
+  const attendance = useDemoStore(s => s.attendance);
+
+  const [firstName, setFirstName] = useState(studentProfile.firstName);
+  const [lastName, setLastName] = useState(studentProfile.lastName);
+  const [school, setSchool] = useState(studentProfile.school);
+  const [orgName, setOrgName] = useState(orgProfile.name);
+  const [orgMission, setOrgMission] = useState(orgProfile.mission);
+  const [memberName, setMemberName] = useState('');
+  const [memberEmail, setMemberEmail] = useState('');
 
   const close = () => router.back();
 
@@ -44,29 +77,46 @@ export default function SettingsScreen() {
                       ? 'Organization settings'
                       : 'Settings';
 
+  const verifiedHours = attendance.filter(a => a.verificationStatus === 'VERIFIED').length;
+  const orgHours = attendance
+    .filter(a => opportunities.some(o => o.id === a.opportunityId && o.orgId === orgProfile.id))
+    .reduce((sum, a) => sum + a.hoursLogged, 0);
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Pressable onPress={close} style={styles.closeBtn}>
-          <Text style={styles.closeText}>✕</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>{title}</Text>
-        <View style={{ width: 40 }} />
+      <View style={styles.headerWrap}>
+        <ScreenHeader variant="close" title={title} onPress={close} />
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
         {key === 'notifications' && (
           <Card style={styles.card}>
-            <RowToggle label="Push - application updates" value={pushApps} onChange={setPushApps} />
-            <RowToggle label="Push - shift reminders" value={pushReminders} onChange={setPushReminders} />
-            <Text style={styles.hint}>Notification preferences are saved on this device.</Text>
+            <RowToggle
+              label="Push - application updates"
+              value={notificationPrefs.pushApps}
+              onChange={value => setNotificationPrefs({ pushApps: value })}
+            />
+            <RowToggle
+              label="Push - shift reminders"
+              value={notificationPrefs.pushReminders}
+              onChange={value => setNotificationPrefs({ pushReminders: value })}
+            />
+            <Text style={styles.hint}>
+              {demo ? 'Saved for this demo session only.' : 'Notification preferences are saved on this device.'}
+            </Text>
           </Card>
         )}
 
         {key === 'appearance' && (
           <Card style={styles.card}>
-            <RowToggle label="Dark mode" value={darkMode} onChange={setDarkMode} />
-            <Text style={styles.hint}>Display preference is saved on this device.</Text>
+            <RowToggle
+              label="Dark mode"
+              value={appearancePrefs.darkMode}
+              onChange={value => setAppearancePrefs({ darkMode: value })}
+            />
+            <Text style={styles.hint}>
+              {demo ? 'Saved for this demo session only.' : 'Display preference is saved on this device.'}
+            </Text>
           </Card>
         )}
 
@@ -84,9 +134,7 @@ export default function SettingsScreen() {
 
         {key === 'help' && (
           <Card style={styles.card}>
-            <Text style={styles.para}>
-              For account help, email support@hourly.app (placeholder).
-            </Text>
+            <Text style={styles.para}>For account help, email support@hourly.app.</Text>
             <PillButton variant="secondary" fullWidth onPress={() => Linking.openURL('mailto:support@hourly.app')}>
               Email support
             </PillButton>
@@ -95,11 +143,9 @@ export default function SettingsScreen() {
 
         {key === 'terms' && (
           <Card style={styles.card}>
-            <Text style={styles.para}>
-              Terms of use will live on your marketing site. Open a placeholder page to simulate the flow.
-            </Text>
-            <PillButton variant="secondary" fullWidth onPress={() => Linking.openURL('https://example.com/terms')}>
-              Open terms (placeholder)
+            <Text style={styles.para}>Review the Hourly terms of use for students and organizations.</Text>
+            <PillButton variant="secondary" fullWidth onPress={() => Linking.openURL('https://hourly.app/terms')}>
+              Open terms
             </PillButton>
           </Card>
         )}
@@ -107,46 +153,136 @@ export default function SettingsScreen() {
         {key === 'impact' && (
           <Card style={styles.card}>
             <Text style={styles.para}>
-              Export-ready impact summaries will connect here when your backend is linked. Totals match your
-              dashboard.
+              Impact summary for {orgProfile.name}: {orgHours.toFixed(1)} volunteer hours logged across{' '}
+              {opportunities.filter(o => o.orgId === orgProfile.id).length} active listings. {verifiedHours}{' '}
+              attendance records verified in this session.
             </Text>
-            <PillButton variant="primary" fullWidth onPress={() => Linking.openURL('https://example.com/report.pdf')}>
-              Preview sample PDF (placeholder)
+            <PillButton
+              variant="primary"
+              accent="purple"
+              fullWidth
+              onPress={() =>
+                Alert.alert(
+                  'Impact report ready',
+                  `Exported ${orgHours.toFixed(1)} hours and ${verifiedHours} verified records for this demo session.`,
+                )
+              }
+            >
+              Generate session report
             </PillButton>
           </Card>
         )}
 
         {key === 'team' && (
           <Card style={styles.card}>
-            <Text style={styles.para}>
-              Invite coordinators and viewers by email once your auth provider and API are connected.
-            </Text>
+            {teamMembers.map(member => (
+              <View key={member.id} style={styles.teamRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.teamName}>{member.name}</Text>
+                  <Text style={styles.teamSub}>
+                    {member.role} • {member.email}
+                  </Text>
+                </View>
+                <PillButton variant="ghost" size="small" onPress={() => removeTeamMember(member.id)}>
+                  Remove
+                </PillButton>
+              </View>
+            ))}
+            <Text style={styles.label}>Invite teammate</Text>
+            <TextInput
+              style={styles.input}
+              value={memberName}
+              onChangeText={setMemberName}
+              placeholder="Name"
+              placeholderTextColor={Colors.dark.textTertiary}
+            />
+            <TextInput
+              style={styles.input}
+              value={memberEmail}
+              onChangeText={setMemberEmail}
+              placeholder="Email"
+              placeholderTextColor={Colors.dark.textTertiary}
+              autoCapitalize="none"
+            />
+            <PillButton
+              variant="secondary"
+              fullWidth
+              onPress={() => {
+                if (!memberName.trim() || !memberEmail.trim()) {
+                  Alert.alert('Missing info', 'Enter a name and email.');
+                  return;
+                }
+                addTeamMember({
+                  name: memberName.trim(),
+                  email: memberEmail.trim(),
+                  role: 'Viewer',
+                });
+                setMemberName('');
+                setMemberEmail('');
+              }}
+            >
+              Add teammate
+            </PillButton>
           </Card>
         )}
 
         {key === 'edit' && (
           <Card style={styles.card}>
-            <Text style={styles.para}>
-              Profile fields sync to your backend in live mode. Edit the seed in @hourly/shared or use Clerk user
-              metadata once connected.
-            </Text>
+            <Text style={styles.label}>First name</Text>
+            <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} />
+            <Text style={styles.label}>Last name</Text>
+            <TextInput style={styles.input} value={lastName} onChangeText={setLastName} />
+            <Text style={styles.label}>School</Text>
+            <TextInput style={styles.input} value={school} onChangeText={setSchool} />
+            <PillButton
+              variant="primary"
+              accent="teal"
+              fullWidth
+              onPress={() => {
+                updateStudentProfile({
+                  firstName: firstName.trim(),
+                  lastName: lastName.trim(),
+                  school: school.trim(),
+                });
+                close();
+              }}
+            >
+              Save profile
+            </PillButton>
           </Card>
         )}
 
         {key === 'org-settings' && (
           <Card style={styles.card}>
-            <Text style={styles.para}>
-              Organization defaults, branding, and verification status will be editable here against the API in
-              production.
-            </Text>
+            <Text style={styles.label}>Organization name</Text>
+            <TextInput style={styles.input} value={orgName} onChangeText={setOrgName} />
+            <Text style={styles.label}>Mission</Text>
+            <TextInput
+              style={[styles.input, styles.multiline]}
+              value={orgMission}
+              onChangeText={setOrgMission}
+              multiline
+            />
+            <PillButton
+              variant="primary"
+              accent="purple"
+              fullWidth
+              onPress={() => {
+                updateOrgProfile({
+                  name: orgName.trim(),
+                  mission: orgMission.trim(),
+                });
+                close();
+              }}
+            >
+              Save organization
+            </PillButton>
           </Card>
         )}
 
         {!['notifications', 'appearance', 'privacy', 'help', 'terms', 'impact', 'team', 'edit', 'org-settings'].includes(
           key ?? '',
-        ) && (
-          <Text style={styles.para}>Unknown screen.</Text>
-        )}
+        ) && <Text style={styles.para}>Unknown screen.</Text>}
       </ScrollView>
     </View>
   );
@@ -176,35 +312,36 @@ function RowToggle({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.dark.base },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 56,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.element,
-  },
-  closeBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.dark.element,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeText: { fontSize: 16, color: Colors.dark.textPrimary },
-  headerTitle: { fontSize: 17, fontWeight: '500', color: Colors.dark.textPrimary },
-  body: { padding: 20, paddingBottom: 40 },
-  card: { padding: 20, gap: 16 },
+  headerWrap: { paddingTop: 56 },
+  body: { padding: Spacing.screenHorizontal, paddingBottom: Spacing.xxxl },
+  card: { padding: Spacing.xl, gap: Spacing.lg },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: Spacing.md,
   },
   rowLabel: { flex: 1, fontSize: 15, color: Colors.dark.textPrimary },
-  hint: { fontSize: 13, color: Colors.dark.textSecondary },
-  para: { fontSize: 15, color: Colors.dark.textSecondary, lineHeight: 22 },
+  hint: { ...Typography.bodySmall, color: Colors.dark.textSecondary },
+  para: { ...Typography.body, color: Colors.dark.textSecondary },
+  label: { ...Typography.header },
+  input: {
+    backgroundColor: Colors.dark.element,
+    borderRadius: 16,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
+    fontSize: 16,
+    color: Colors.dark.textPrimary,
+  },
+  multiline: { minHeight: 96, textAlignVertical: 'top' },
+  teamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingBottom: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.divider,
+  },
+  teamName: { ...Typography.label, color: Colors.dark.textPrimary },
+  teamSub: { ...Typography.caption },
 });

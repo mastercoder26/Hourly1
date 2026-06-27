@@ -1,23 +1,30 @@
 // Applicants tab - overview of all applicants across org events
 import React, { useMemo } from 'react';
-import { View, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, ScrollView, StyleSheet, ActivityIndicator, Pressable } from 'react-native';
 import { Text } from '@/components/Themed';
+import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
+import { Typography } from '../../constants/typography';
+import { Spacing } from '../../constants/spacing';
 import { Card } from '../../components/ui/Card';
 import { PillBadge } from '../../components/ui/PillBadge';
 import { trpc } from '../../lib/trpc';
-import { demoApplicants } from '@hourly/shared';
+import { DEMO_ORG_PRIMARY_ID } from '@hourly/shared';
 import { isDemoMode, isLiveMode } from '../../lib/dataMode';
+import { useDemoStore } from '../../lib/demo/demoStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tabBarScrollContentPadding, tabScreenContentTopPadding } from '../../constants/tabBar';
 
 export default function ApplicantsTab() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const applicantsQuery = trpc.org.listAllApplicants.useQuery(undefined, { enabled: isLiveMode() });
+  const demoApplicants = useDemoStore(s => s.getAllApplicantsForOrg(DEMO_ORG_PRIMARY_ID));
+  const applications = useDemoStore(s => s.applications);
 
   const allApplicants = useMemo(
     () => (isDemoMode() ? demoApplicants : (applicantsQuery.data ?? [])),
-    [applicantsQuery.data],
+    [applications, applicantsQuery.data, demoApplicants],
   );
 
   const pending = allApplicants.filter(a => a.status === 'PENDING');
@@ -46,48 +53,52 @@ export default function ApplicantsTab() {
 
       <Text style={styles.section}>Pending review ({pending.length})</Text>
       {pending.map(a => (
-        <Card key={a.id} style={styles.personCard}>
-          <View style={styles.personRow}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {a.firstName[0]}
-                {a.lastName[0]}
-              </Text>
+        <Pressable key={a.id} onPress={() => router.push(`/messages/${a.id}` as never)}>
+          <Card style={styles.personCard}>
+            <View style={styles.personRow}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {a.firstName[0]}
+                  {a.lastName[0]}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.personName}>
+                  {a.firstName} {a.lastName}
+                </Text>
+                <Text style={styles.personSub}>
+                  Grade {a.grade} • {a.totalHours}h total
+                </Text>
+              </View>
+              <PillBadge label="Pending" color={Colors.warning} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.personName}>
-                {a.firstName} {a.lastName}
-              </Text>
-              <Text style={styles.personSub}>
-                Grade {a.grade} • {a.totalHours}h total
-              </Text>
-            </View>
-            <PillBadge label="Pending" color={Colors.warning} />
-          </View>
-        </Card>
+          </Card>
+        </Pressable>
       ))}
 
       <Text style={styles.section}>Approved ({approved.length})</Text>
       {approved.map(a => (
-        <Card key={a.id} style={styles.personCard}>
-          <View style={styles.personRow}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {a.firstName[0]}
-                {a.lastName[0]}
-              </Text>
+        <Pressable key={a.id} onPress={() => router.push(`/messages/${a.id}` as never)}>
+          <Card style={styles.personCard}>
+            <View style={styles.personRow}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {a.firstName[0]}
+                  {a.lastName[0]}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.personName}>
+                  {a.firstName} {a.lastName}
+                </Text>
+                <Text style={styles.personSub}>
+                  Grade {a.grade} • {a.totalHours}h total • ★ {a.rating}
+                </Text>
+              </View>
+              <PillBadge label="Approved" color={Colors.success} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.personName}>
-                {a.firstName} {a.lastName}
-              </Text>
-              <Text style={styles.personSub}>
-                Grade {a.grade} • {a.totalHours}h total • ★ {a.rating}
-              </Text>
-            </View>
-            <PillBadge label="Approved" color={Colors.success} />
-          </View>
-        </Card>
+          </Card>
+        </Pressable>
       ))}
     </ScrollView>
   );
@@ -101,23 +112,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  content: { paddingHorizontal: 20, gap: 12 },
+  content: { paddingHorizontal: Spacing.screenHorizontal, gap: Spacing.md },
   title: {
-    fontSize: 28,
-    fontWeight: '500',
+    ...Typography.title,
     color: Colors.dark.textPrimary,
-    letterSpacing: -0.3,
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   section: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: Colors.dark.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop: 8,
+    ...Typography.header,
+    marginTop: Spacing.sm,
   },
-  personCard: { padding: 16, borderRadius: 20 },
+  personCard: { padding: Spacing.lg, borderRadius: 20 },
   personRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   avatar: {
     width: 42,

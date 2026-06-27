@@ -11,7 +11,8 @@ import { PillButton } from '../../components/ui/PillButton';
 import { CauseTag } from '../../types';
 import { enterRise } from '../../lib/motion';
 import { trpc } from '../../lib/trpc';
-import { isLiveMode } from '../../lib/dataMode';
+import { isDemoMode, isLiveMode } from '../../lib/dataMode';
+import { useDemoStore } from '../../lib/demo/demoStore';
 
 const CAUSES: CauseTag[] = ['Environment', 'Education', 'Food', 'Animals', 'Seniors', 'Youth', 'Health', 'Arts'];
 
@@ -45,6 +46,7 @@ export default function CreateRoleScreen() {
   const totalSteps = 5;
 
   const createMutation = trpc.org.createOpportunity.useMutation();
+  const createOpportunityDemo = useDemoStore(s => s.createOpportunity);
 
   const toggleCause = useCallback((c: CauseTag) => {
     setCauses(prev => (prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]));
@@ -60,11 +62,6 @@ export default function CreateRoleScreen() {
   );
 
   const publish = useCallback(async () => {
-    if (!isLiveMode()) {
-      router.back();
-      return;
-    }
-
     const lat = Number.parseFloat(latStr);
     const lng = Number.parseFloat(lngStr);
     const totalSpots = Number.parseInt(totalSpotsStr, 10);
@@ -101,6 +98,37 @@ export default function CreateRoleScreen() {
       return;
     }
 
+    const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+
+    if (isDemoMode()) {
+      createOpportunityDemo({
+        title: title.trim(),
+        description: `${title.trim()} — posted from Hourly demo.`,
+        causeTags: causes,
+        date: dateStr.trim(),
+        startTime: startTimeStr.trim(),
+        endTime: endTimeStr.trim(),
+        durationHours,
+        address: address.trim(),
+        city: city.trim() || 'Austin',
+        state: state.trim() || 'TX',
+        lat,
+        lng,
+        totalSpots,
+        ageMinimum: ageMinimum !== undefined && Number.isFinite(ageMinimum) ? ageMinimum : undefined,
+        creditEligible: isCreditEligible,
+        whatToBring: whatToBringList,
+        recurring: isRecurring,
+      });
+      router.back();
+      return;
+    }
+
+    if (!isLiveMode()) {
+      router.back();
+      return;
+    }
+
     try {
       await createMutation.mutateAsync({
         title: title.trim(),
@@ -134,6 +162,7 @@ export default function CreateRoleScreen() {
     causes,
     city,
     createMutation,
+    createOpportunityDemo,
     dateStr,
     endTimeStr,
     isCreditEligible,
@@ -370,7 +399,7 @@ export default function CreateRoleScreen() {
             ) : isLiveMode() ? (
               'Publish'
             ) : (
-              'Close'
+              'Publish'
             )}
           </PillButton>
         </View>

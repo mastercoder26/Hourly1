@@ -26,6 +26,7 @@ export default function OrgDashboard() {
   const insets = useSafeAreaInsets();
   const demoOpportunities = useDemoStore(s => s.opportunities);
   const demoAttendance = useDemoStore(s => s.attendance);
+  const getPendingCount = useDemoStore(s => s.getPendingCountForOpportunity);
 
   const statsQuery = trpc.org.getStats.useQuery(undefined, { enabled: isLiveMode() });
   const opportunitiesQuery = trpc.org.listOpportunities.useQuery(undefined, { enabled: isLiveMode() });
@@ -168,7 +169,9 @@ export default function OrgDashboard() {
         {orgOpps.map((opp, index) => {
           const spotsLeft = opp.totalSpots - opp.filledSpots;
           const fillPercentage = (opp.filledSpots / opp.totalSpots) * 100;
-          const pendingApplicants = (opp as { pendingApplicants?: number }).pendingApplicants ?? 0;
+          const pendingApplicants = isDemoMode()
+            ? getPendingCount(opp.id)
+            : ((opp as { pendingApplicants?: number }).pendingApplicants ?? 0);
           
           return (
             <Animated.View 
@@ -207,7 +210,7 @@ export default function OrgDashboard() {
                       {pendingApplicants} pending applicant{pendingApplicants !== 1 ? 's' : ''}
                     </Text>
                   </View>
-                  {isLiveMode() ? (
+                  {isLiveMode() || isDemoMode() ? (
                     <Pressable
                       onPress={() => {
                         router.push(`/org/scanner?opportunityId=${opp.id}` as never);

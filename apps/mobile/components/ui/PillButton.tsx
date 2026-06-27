@@ -33,6 +33,7 @@ export function PillButton({
   onPress,
   variant = 'default',
   size = 'medium',
+  accent,
   fullWidth = false,
   disabled = false,
   hapticFeedback = true,
@@ -41,6 +42,8 @@ export function PillButton({
   icon,
   iconPosition = 'left',
 }: PillButtonProps) {
+  const accentColor = accent === 'purple' ? Colors.purple : accent === 'teal' ? Colors.teal : undefined;
+  const usesAccent = (variant === 'primary' || variant === 'accent') && Boolean(accentColor);
   const pressed = useSharedValue(0);
   const hovered = useSharedValue(0);
 
@@ -129,6 +132,7 @@ export function PillButton({
           variant === 'secondary' && styles.secondaryText,
           variant === 'ghost' && styles.ghostText,
           variant === 'accent' && styles.accentText,
+          usesAccent && styles.onAccentText,
           disabled && styles.disabledText,
           icon && iconPosition === 'left' ? { marginLeft: 8 } : undefined,
           icon && iconPosition === 'right' ? { marginRight: 8 } : undefined,
@@ -159,6 +163,7 @@ export function PillButton({
           variant === 'secondary' && styles.secondary,
           variant === 'ghost' && styles.ghost,
           variant === 'accent' && styles.accent,
+          usesAccent && { backgroundColor: accentColor },
           disabled && styles.disabled,
           Platform.OS === 'web' && styles.webCursor,
         ]}
@@ -242,6 +247,10 @@ const styles = StyleSheet.create({
   },
   accentText: {
     color: Colors.dark.base,
+    fontWeight: '600',
+  },
+  onAccentText: {
+    color: '#FFFFFF',
     fontWeight: '600',
   },
   disabledText: {

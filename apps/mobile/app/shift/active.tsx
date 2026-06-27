@@ -1,6 +1,6 @@
 // Active Shift - timer and progress during shift
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
@@ -15,6 +15,8 @@ export default function ActiveShiftScreen() {
   const router = useRouter();
   const applications = useDemoStore(s => s.applications);
   const opportunities = useDemoStore(s => s.opportunities);
+  const activeAttendanceId = useDemoStore(s => s.activeAttendanceId);
+  const completeStudentCheckOut = useDemoStore(s => s.completeStudentCheckOut);
   const app =
     applications.find(a => a.status === 'APPROVED' && a.studentId === DEMO_STUDENT_ID) ?? applications[0];
   const opp = opportunities.find(o => o.id === app?.opportunityId) ?? opportunities[0]!;
@@ -48,14 +50,11 @@ export default function ActiveShiftScreen() {
   };
 
   const handleCheckOut = () => {
-    Alert.alert(
-      'Check out early?',
-      'Your hours will be logged up to this point.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Check out', style: 'destructive', onPress: () => router.replace('/(student-tabs)/portfolio') },
-      ]
-    );
+    const hoursLogged = Math.max(0.5, Math.round((elapsed / 3600) * 10) / 10);
+    if (activeAttendanceId) {
+      completeStudentCheckOut(activeAttendanceId, hoursLogged);
+    }
+    router.replace('/(student-tabs)/portfolio');
   };
 
   return (

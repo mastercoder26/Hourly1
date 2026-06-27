@@ -4,6 +4,8 @@ import { View, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
+import { Typography } from '../../constants/typography';
+import { Spacing } from '../../constants/spacing';
 import { Card } from '../../components/ui/Card';
 import { PillBadge } from '../../components/ui/PillBadge';
 import { PillButton } from '../../components/ui/PillButton';
@@ -84,9 +86,9 @@ export default function EventsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.dark.base },
   loadingContainer: { flex: 1, backgroundColor: Colors.dark.base, alignItems: 'center', justifyContent: 'center' },
-  content: { paddingHorizontal: 20, gap: 16 },
-  title: { fontSize: 28, fontWeight: '500', color: Colors.dark.textPrimary, letterSpacing: -0.3 },
-  sectionTitle: { fontSize: 13, fontWeight: '500', color: Colors.dark.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 8 },
+  content: { paddingHorizontal: Spacing.screenHorizontal, gap: Spacing.lg },
+  title: { ...Typography.title, color: Colors.dark.textPrimary },
+  sectionTitle: { ...Typography.header, marginTop: Spacing.sm },
   eventCard: { padding: 20, borderRadius: 20, gap: 8 },
   eventTitle: { fontSize: 16, fontWeight: '500', color: Colors.dark.textPrimary },
   eventDate: { fontSize: 13, color: Colors.dark.textSecondary },
