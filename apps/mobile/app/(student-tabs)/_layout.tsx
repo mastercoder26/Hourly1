@@ -23,6 +23,7 @@ import { useAuth } from '@clerk/expo';
 import { isDemoMode } from '../../lib/dataMode';
 import { isClerkConfigured } from '../../lib/clerkConfig';
 import { useDemoAuth } from '../../context/DemoAuthContext';
+import { hasGuestTabAccess } from '../../lib/dataSource';
 
 // Types for our navigation items
 type TabName = 'feed' | 'my-shifts' | 'portfolio' | 'profile';
@@ -182,8 +183,8 @@ function StudentTabsLayoutWithClerk() {
   const { isLoaded, isSignedIn } = useAuth();
   const { demoSignedIn, isPreview } = useDemoAuth();
 
-  const previewGuest = demoSignedIn && isPreview;
-  if (isClerkConfigured() && isLoaded && !isSignedIn && !demoSignedIn && !previewGuest) {
+  const guestAllowed = hasGuestTabAccess(demoSignedIn, isPreview);
+  if (isClerkConfigured() && isLoaded && !isSignedIn && !guestAllowed) {
     return <Redirect href="/(auth)/sign-in" />;
   }
 

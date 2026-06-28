@@ -1,5 +1,5 @@
 import { isDemoMode } from './dataMode';
-import { getIsPreview, setIsPreview } from './previewStore';
+import { getIsPreview, setIsPreview, usePreviewStore } from './previewStore';
 
 /**
  * Single source of truth for "should this screen read the local demo store?".
@@ -14,6 +14,27 @@ export function shouldUseDemoData(): boolean {
 /** Convenience inverse for tRPC `enabled` flags (real API reads). */
 export function shouldUseLiveApi(): boolean {
   return !shouldUseDemoData();
+}
+
+/**
+ * Synchronous guest-tab guard for layouts. Reads the preview store directly so
+ * navigation right after `enterDemo` is not blocked by batched React state.
+ */
+export function hasGuestTabAccess(demoSignedIn: boolean, isPreview: boolean): boolean {
+  return demoSignedIn || isPreview || getIsPreview();
+}
+
+/**
+ * Reactive variant for screens/hooks — subscribes to the preview store so tRPC
+ * `enabled` flags and loading states update when guest preview toggles.
+ */
+export function useShouldUseDemoData(): boolean {
+  const isPreview = usePreviewStore(s => s.isPreview);
+  return isDemoMode() || isPreview;
+}
+
+export function useShouldUseLiveApi(): boolean {
+  return !useShouldUseDemoData();
 }
 
 /**

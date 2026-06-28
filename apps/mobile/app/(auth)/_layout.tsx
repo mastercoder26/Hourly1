@@ -1,13 +1,19 @@
 import { useAuth } from '@clerk/expo';
 import { Redirect, Stack } from 'expo-router';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { isDemoMode } from '@/lib/dataMode';
 import { isClerkConfigured } from '@/lib/clerkConfig';
+import { Colors } from '@/constants/colors';
 
 function AuthRoutesWithClerk() {
   const { isSignedIn, isLoaded } = useAuth();
 
   if (!isLoaded) {
-    return null;
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={Colors.accent} />
+      </View>
+    );
   }
 
   if (isSignedIn) {
@@ -23,3 +29,12 @@ export default function AuthRoutesLayout() {
   }
   return <AuthRoutesWithClerk />;
 }
+
+const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.dark.base,
+  },
+});

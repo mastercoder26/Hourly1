@@ -1,6 +1,8 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { useDemoStore } from '@/lib/demo/demoStore';
 import { setPreviewActive } from '@/lib/dataSource';
+import { isLiveMode } from '@/lib/dataMode';
+import { isClerkConfigured } from '@/lib/clerkConfig';
 import {
   normalizeEmail,
   PRESET_DEMO_ACCOUNTS,
@@ -72,7 +74,8 @@ export function DemoAuthProvider({ children }: { children: React.ReactNode }) {
   const enterDemo = useCallback(
     (role: DemoRole, options?: { preview?: boolean }) => {
       const preview = options?.preview ?? false;
-      if (preview) {
+      const guestBrowse = preview || (isLiveMode() && isClerkConfigured());
+      if (guestBrowse) {
         setIsPreview(true);
         setPreviewActive(true);
         setDemoRole(role);
