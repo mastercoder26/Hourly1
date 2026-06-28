@@ -151,21 +151,76 @@ export const attendanceRouter = router({
       };
     }),
 
-  checkOut: protectedProcedure
+  /** Student self check-in without GPS/QR (requires approved application). */
+  checkInSimple: protectedProcedure
     .input(z.object({ opportunityId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const student = await getOrCreateStudentUser(ctx.userId);
 
-      const record = await prisma.attendanceRecord.findFirst({
-        where: { studentId: student.id, opportunityId: input.opportunityId },
-        orderBy: { updatedAt: 'desc' },
+      const application = await prisma.application.findFirst({
+        where: {
+          studentId: student.id,
+          opportunityId: input.opportunityId,
+          status: 'APPROVED',
+        },
       });
+      if (!application) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You need an approved application to check in',
+        });
+      }
+
+      const now = new Date();
+      const record = await prisma.attendanceRecord.upsert({
+        where: { applicationId: application.id },
+        create: {
+          studentId: student.id,
+          opportunityId: input.opportunityId,
+          applicationId: application.id,
+          checkinTime: now,
+          hoursLogged: new Prisma.Decimal(0),
+          verificationStatus: 'PENDING',
+        },
+        update: { checkinTime: now },
+      });
+
+      return {
+        id: record.id,
+        attendanceRecordId: record.id,
+        opportunityId: input.opportunityId,
+        checkinTime: now.toISOString(),
+      };
+    }),
+
+  checkOut: protectedProcedure
+    .input(
+      z
+        .object({
+          opportunityId: z.string().optional(),
+          attendanceRecordId: z.string().optional(),
+        })
+        .refine(data => Boolean(data.opportunityId || data.attendanceRecordId), {
+          message: 'Provide opportunityId or attendanceRecordId',
+        })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const student = await getOrCreateStudentUser(ctx.userId);
+
+      const record = input.attendanceRecordId
+        ? await prisma.attendanceRecord.findFirst({
+            where: { id: input.attendanceRecordId, studentId: student.id },
+          })
+        : await prisma.attendanceRecord.findFirst({
+            where: { studentId: student.id, opportunityId: input.opportunityId! },
+            orderBy: { updatedAt: 'desc' },
+          });
       if (!record || !record.checkinTime) {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'No active check-in for this shift' });
       }
 
       const opportunity = await prisma.opportunity.findUniqueOrThrow({
-        where: { id: input.opportunityId },
+        where: { id: record.opportunityId },
       });
       const end = opportunity.endTime;
       const checkoutTime = new Date();
@@ -181,7 +236,14 @@ export const attendanceRouter = router({
         },
       });
 
-      return { success: true as const, checkoutTime: checkoutTime.toISOString(), hoursLogged: Number(hours) };
+      return {
+        success: true as const,
+        id: record.id,
+        attendanceRecordId: record.id,
+        opportunityId: record.opportunityId,
+        checkoutTime: checkoutTime.toISOString(),
+        hoursLogged: Number(hours),
+      };
     }),
 
   verifyHours: protectedProcedure

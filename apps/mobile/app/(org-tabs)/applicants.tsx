@@ -10,7 +10,7 @@ import { Card } from '../../components/ui/Card';
 import { PillBadge } from '../../components/ui/PillBadge';
 import { trpc } from '../../lib/trpc';
 import { DEMO_ORG_PRIMARY_ID } from '@hourly/shared';
-import { isDemoMode, isLiveMode } from '../../lib/dataMode';
+import { shouldUseDemoData, shouldUseLiveApi } from '../../lib/dataSource';
 import { useDemoStore } from '../../lib/demo/demoStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tabBarScrollContentPadding, tabScreenContentTopPadding } from '../../constants/tabBar';
@@ -18,19 +18,19 @@ import { tabBarScrollContentPadding, tabScreenContentTopPadding } from '../../co
 export default function ApplicantsTab() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const applicantsQuery = trpc.org.listAllApplicants.useQuery(undefined, { enabled: isLiveMode() });
+  const applicantsQuery = trpc.org.listAllApplicants.useQuery(undefined, { enabled: shouldUseLiveApi() });
   const demoApplicants = useDemoStore(s => s.getAllApplicantsForOrg(DEMO_ORG_PRIMARY_ID));
   const applications = useDemoStore(s => s.applications);
 
   const allApplicants = useMemo(
-    () => (isDemoMode() ? demoApplicants : (applicantsQuery.data ?? [])),
+    () => (shouldUseDemoData() ? demoApplicants : (applicantsQuery.data ?? [])),
     [applications, applicantsQuery.data, demoApplicants],
   );
 
   const pending = allApplicants.filter(a => a.status === 'PENDING');
   const approved = allApplicants.filter(a => a.status === 'APPROVED');
 
-  if (isLiveMode() && applicantsQuery.isLoading) {
+  if (shouldUseLiveApi() && applicantsQuery.isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.purple} />

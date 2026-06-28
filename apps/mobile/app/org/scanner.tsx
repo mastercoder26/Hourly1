@@ -8,7 +8,7 @@ import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';
 import { PillButton } from '../../components/ui/PillButton';
 import { trpc } from '../../lib/trpc';
-import { isDemoMode, isLiveMode } from '../../lib/dataMode';
+import { shouldUseDemoData, shouldUseLiveApi } from '../../lib/dataSource';
 import { useDemoStore } from '../../lib/demo/demoStore';
 
 export default function ScannerScreen() {
@@ -26,7 +26,7 @@ export default function ScannerScreen() {
   const demoAttendance = useDemoStore(s => s.attendance);
   const rosterQuery = trpc.attendance.listForOpportunity.useQuery(
     { opportunityId: opportunityId ?? '' },
-    { enabled: isLiveMode() && Boolean(opportunityId) },
+    { enabled: shouldUseLiveApi() && Boolean(opportunityId) },
   );
 
   const roster = rosterQuery.data ?? [];
@@ -36,7 +36,7 @@ export default function ScannerScreen() {
       const trimmed = raw.trim();
       if (!trimmed) return;
 
-      if (isDemoMode()) {
+      if (shouldUseDemoData()) {
         const record = checkInByQrPayload(trimmed, opportunityId);
         if (record) {
           setLastPayload(trimmed);
@@ -81,7 +81,7 @@ export default function ScannerScreen() {
       <Text style={styles.title}>Scan check-in</Text>
       <Text style={styles.subtitle}>Point camera at volunteer&apos;s QR code</Text>
 
-      {isLiveMode() && !opportunityId ? (
+      {shouldUseLiveApi() && !opportunityId ? (
         <Card style={styles.resultCard}>
           <Text style={styles.hint}>
             Open the scanner from an active listing (dashboard) so we know which shift this scan belongs to.
@@ -140,10 +140,10 @@ export default function ScannerScreen() {
 
       <Card style={styles.rosterCard}>
         <Text style={styles.rosterTitle}>
-          Live roster ({isLiveMode() ? roster.filter(r => r.checkinTime).length : demoAttendance.filter(a => a.opportunityId === opportunityId && a.checkinTime).length} checked in)
+          Live roster ({shouldUseLiveApi() ? roster.filter(r => r.checkinTime).length : demoAttendance.filter(a => a.opportunityId === opportunityId && a.checkinTime).length} checked in)
         </Text>
-        {isLiveMode() && roster.length === 0 && <Text style={styles.hint}>No attendance rows yet.</Text>}
-        {isLiveMode()
+        {shouldUseLiveApi() && roster.length === 0 && <Text style={styles.hint}>No attendance rows yet.</Text>}
+        {shouldUseLiveApi()
           ? roster
               .filter(r => r.checkinTime)
               .slice(0, 8)

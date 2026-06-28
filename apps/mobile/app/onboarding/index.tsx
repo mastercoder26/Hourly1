@@ -1,6 +1,6 @@
 // Onboarding Step 1 - School & Grade Selection
-import React, { useState } from 'react';
-import { View, TextInput, StyleSheet, Pressable, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, TextInput, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Animated from 'react-native-reanimated';
@@ -9,22 +9,52 @@ import { Typography } from '../../constants/typography';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { PillButton } from '../../components/ui/PillButton';
 import { enterFade, enterRise } from '../../lib/motion';
+import { trpc } from '../../lib/trpc';
+import { useDebouncedValue } from '../../lib/useDebouncedValue';
+import {
+  getOnboardingState,
+  setOnboardingGrade,
+  setOrgOnboardingDetails,
+  setSchoolQuery,
+  setSelectedSchool,
+  type OnboardingGrade,
+  type SchoolSearchResult,
+} from '../../lib/onboardingStore';
 
 export default function OnboardingIndex() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
   const isOrg = role === 'organizer';
-  const [selectedGrade, setSelectedGrade] = useState<number | 'college' | null>(null);
+  const roleParam = role || 'student';
+
+  const saved = getOnboardingState();
+  const [selectedGrade, setSelectedGrade] = useState<OnboardingGrade | null>(saved.grade);
+  const [searchText, setSearchText] = useState(saved.schoolQuery);
+  const [orgName, setOrgName] = useState(saved.orgName);
+  const [orgEin, setOrgEin] = useState(saved.orgEin);
+  const [orgMission, setOrgMission] = useState(saved.orgMission);
+
+  const debouncedQuery = useDebouncedValue(searchText.trim(), 350);
+  const schoolsQuery = trpc.public.searchSchools.useQuery(
+    { query: debouncedQuery, limit: 12 },
+    { enabled: !isOrg && debouncedQuery.length >= 2 },
+  );
+
+  useEffect(() => {
+    setSchoolQuery(searchText);
+  }, [searchText]);
+
+  const handleSelectSchool = (school: SchoolSearchResult) => {
+    setSelectedSchool(school);
+    setSearchText(school.name);
+  };
 
   const handleContinue = () => {
-    const roleParam = role || 'student';
-
-    if (!selectedGrade || isOrg) {
-      router.push(`/onboarding/school?role=${roleParam}`);
-      return;
+    setOnboardingGrade(selectedGrade);
+    if (isOrg) {
+      setOrgOnboardingDetails({ orgName, orgEin, orgMission });
     }
-
-    router.push(`/onboarding/school?role=${roleParam}&grade=${selectedGrade}`);
+    router.push(`/onboarding/school?role=${roleParam}`);
   };
 
   return (
@@ -34,7 +64,7 @@ export default function OnboardingIndex() {
         <PillButton
           variant="ghost"
           size="small"
-          onPress={() => router.push(`/onboarding/school?role=${role || 'student'}`)}
+          onPress={() => router.push(`/onboarding/school?role=${roleParam}`)}
         >
           Skip for now
         </PillButton>
@@ -58,7 +88,44 @@ export default function OnboardingIndex() {
             style={styles.input}
             placeholder={isOrg ? 'Organization name' : 'Search your school by name or ZIP'}
             placeholderTextColor={Colors.dark.textTertiary}
+            value={isOrg ? orgName : searchText}
+            onChangeText={text => {
+              if (isOrg) {
+                setOrgName(text);
+              } else {
+                setSearchText(text);
+                if (getOnboardingState().school?.name !== text) {
+                  setSelectedSchool(null);
+                }
+              }
+            }}
           />
+
+          {!isOrg && debouncedQuery.length >= 2 && (
+            <View style={styles.results}>
+              {schoolsQuery.isLoading ? (
+                <ActivityIndicator color={Colors.purple} />
+              ) : schoolsQuery.data?.length ? (
+                schoolsQuery.data.map(school => {
+                  const selected = getOnboardingState().schoolId === school.id;
+                  return (
+                    <Pressable
+                      key={school.id}
+                      onPress={() => handleSelectSchool(school)}
+                      style={[styles.resultRow, selected && styles.resultRowSelected]}
+                    >
+                      <Text style={styles.resultName}>{school.name}</Text>
+                      <Text style={styles.resultMeta}>
+                        {[school.city, school.state, school.zipCode].filter(Boolean).join(', ')}
+                      </Text>
+                    </Pressable>
+                  );
+                })
+              ) : (
+                <Text style={styles.noResults}>No schools found. Try a different search.</Text>
+              )}
+            </View>
+          )}
 
           {!isOrg && (
             <View style={styles.gradeSelector}>
@@ -107,6 +174,8 @@ export default function OnboardingIndex() {
                 style={styles.input}
                 placeholder="EIN (e.g. 12-3456789)"
                 placeholderTextColor={Colors.dark.textTertiary}
+                value={orgEin}
+                onChangeText={setOrgEin}
               />
               <TextInput
                 style={[styles.input, styles.textArea]}
@@ -115,6 +184,8 @@ export default function OnboardingIndex() {
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
+                value={orgMission}
+                onChangeText={setOrgMission}
               />
             </>
           )}
@@ -122,12 +193,7 @@ export default function OnboardingIndex() {
       </ScrollView>
 
       <Animated.View style={styles.footer} entering={enterRise(280)}>
-        <PillButton
-          variant="primary"
-          fullWidth
-          size="large"
-          onPress={handleContinue}
-        >
+        <PillButton variant="primary" fullWidth size="large" onPress={handleContinue}>
           Continue
         </PillButton>
       </Animated.View>
@@ -156,7 +222,7 @@ const styles = StyleSheet.create({
   stepLabel: {
     fontFamily: Typography.sub.fontFamily,
     fontSize: Typography.sub.fontSize,
-    fontWeight: Typography.sub.fontWeight as any,
+    fontWeight: Typography.sub.fontWeight as '600',
     color: Colors.dark.textTertiary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -194,13 +260,42 @@ const styles = StyleSheet.create({
     minHeight: 100,
     paddingTop: 16,
   },
+  results: {
+    gap: 8,
+  },
+  resultRow: {
+    backgroundColor: Colors.dark.card,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  resultRowSelected: {
+    borderColor: Colors.purple,
+    backgroundColor: Colors.purpleSoft,
+  },
+  resultName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: Colors.dark.textPrimary,
+    marginBottom: 2,
+  },
+  resultMeta: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+  },
+  noResults: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    paddingVertical: 8,
+  },
   gradeSelector: {
     gap: 12,
   },
   gradeLabel: {
     fontFamily: Typography.sub.fontFamily,
     fontSize: Typography.sub.fontSize,
-    fontWeight: Typography.sub.fontWeight as any,
+    fontWeight: Typography.sub.fontWeight as '600',
     color: Colors.dark.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,

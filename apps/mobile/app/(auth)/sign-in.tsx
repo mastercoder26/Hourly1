@@ -9,15 +9,20 @@ import { Typography } from '../../constants/typography';
 import { PillButton } from '../../components/ui/PillButton';
 import { useSignIn } from '@clerk/expo';
 import { enterFade, enterRise } from '../../lib/motion';
+import { trpc } from '../../lib/trpc';
+import { useGoogleOAuth } from '../../lib/googleOAuth';
 
 export default function SignInScreen() {
   const router = useRouter();
   const { signIn, fetchStatus } = useSignIn();
+  const syncMutation = trpc.user.syncFromClerk.useMutation();
+  const { signInWithGoogle } = useGoogleOAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const isSubmitting = fetchStatus === 'fetching';
+  const [oauthBusy, setOauthBusy] = useState(false);
+  const isSubmitting = fetchStatus === 'fetching' || oauthBusy;
 
   const getClerkError = (err: unknown) => {
     if (
@@ -33,6 +38,15 @@ export default function SignInScreen() {
     return null;
   };
 
+  const finishSignIn = async () => {
+    try {
+      await syncMutation.mutateAsync({ role: 'student' });
+      router.dismissTo('/(student-tabs)/feed');
+    } catch (err: unknown) {
+      setError(getClerkError(err) ?? 'Signed in, but profile sync failed. Try again.');
+    }
+  };
+
   const handleForgotPassword = () => {
     Alert.alert(
       'Reset password',
@@ -44,15 +58,23 @@ export default function SignInScreen() {
     );
   };
 
-  const handleGoogleSignIn = () => {
-    Alert.alert(
-      'Google sign-in',
-      'Turn on the Google OAuth provider in Clerk and complete the Expo OAuth configuration to enable this button.',
-      [
-        { text: 'Close', style: 'cancel' },
-        { text: 'View help', onPress: () => router.push('/settings/help' as never) },
-      ],
-    );
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setOauthBusy(true);
+    try {
+      const { createdSessionId, setActive, authSessionResult } = await signInWithGoogle();
+      if (authSessionResult?.type === 'cancel' || authSessionResult?.type === 'dismiss') {
+        return;
+      }
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+      }
+      await finishSignIn();
+    } catch (err: unknown) {
+      setError(getClerkError(err) ?? 'Google sign-in failed');
+    } finally {
+      setOauthBusy(false);
+    }
   };
 
   const handleSignIn = async () => {
@@ -87,8 +109,7 @@ export default function SignInScreen() {
       return;
     }
 
-    // Clear auth/welcome from history so the user cannot swipe back to sign-in
-    router.dismissTo('/(student-tabs)/feed');
+    await finishSignIn();
   };
 
   return (
@@ -172,8 +193,9 @@ export default function SignInScreen() {
             fullWidth
             size="large"
             onPress={handleGoogleSignIn}
+            disabled={isSubmitting}
           >
-            Continue with Google
+            {oauthBusy ? 'Connecting to Google...' : 'Continue with Google'}
           </PillButton>
 
           <PillButton
@@ -242,7 +264,7 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: Typography.sub.fontFamily,
     fontSize: Typography.sub.fontSize,
-    fontWeight: Typography.sub.fontWeight as any,
+    fontWeight: Typography.sub.fontWeight as '600',
     letterSpacing: Typography.sub.letterSpacing,
     textTransform: 'uppercase',
     color: Colors.dark.textSecondary,

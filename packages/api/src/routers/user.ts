@@ -1,33 +1,75 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { prisma } from 'db';
-import { mockUsers, UserProfile, mockOpportunities } from '../mock-data';
+import { mockUsers, UserProfile } from '../mock-data';
 import { findUserWithStudentByClerk, profileFromDbUser } from '../lib/user-profile-db';
+import { getOrCreateStudentUser } from '../lib/student-user';
+import { getOrCreateOrganizerUser, ensureOrgProfileForOrganizer } from '../lib/organizer-user';
 
 const users: UserProfile[] = [...mockUsers];
 
-// Mock attendance data
-const mockAttendance = [
-  { id: 'att-001', studentId: 'user-001', opportunityId: 'opp-001', checkinTime: '2026-03-01T09:02:00Z', checkoutTime: '2026-03-01T12:05:00Z', hoursLogged: 3, verificationStatus: 'VERIFIED' as const },
-  { id: 'att-002', studentId: 'user-001', opportunityId: 'opp-002', checkinTime: '2026-03-08T10:00:00Z', checkoutTime: '2026-03-08T14:10:00Z', hoursLogged: 4, verificationStatus: 'VERIFIED' as const },
-  { id: 'att-003', studentId: 'user-001', opportunityId: 'opp-003', checkinTime: '2026-03-10T15:30:00Z', checkoutTime: '2026-03-10T17:35:00Z', hoursLogged: 2, verificationStatus: 'VERIFIED' as const },
-  { id: 'att-004', studentId: 'user-001', opportunityId: 'opp-004', checkinTime: '2026-03-12T08:00:00Z', checkoutTime: '2026-03-12T11:00:00Z', hoursLogged: 3, verificationStatus: 'VERIFIED' as const },
-  { id: 'att-005', studentId: 'user-001', opportunityId: 'opp-005', checkinTime: '2026-03-14T14:00:00Z', checkoutTime: '2026-03-14T16:00:00Z', hoursLogged: 2, verificationStatus: 'VERIFIED' as const },
-  { id: 'att-006', studentId: 'user-001', opportunityId: 'opp-006', checkinTime: '2026-03-19T08:00:00Z', checkoutTime: '2026-03-19T13:00:00Z', hoursLogged: 5, verificationStatus: 'PENDING' as const },
-];
-
-// Mock badges data
-const mockBadges = [
-  { type: 'first-shift', label: 'First shift', description: 'Completed your very first volunteer shift', icon: '🌟', earnedAt: '2026-03-01', isNew: false },
-  { type: '10-hours', label: '10 hours', description: 'Logged 10 verified volunteer hours', icon: '⏱️', earnedAt: '2026-03-10', isNew: false },
-  { type: '25-hours', label: '25 hours', description: 'Logged 25 verified volunteer hours', icon: '🔥', earnedAt: '2026-03-14', isNew: true },
-  { type: '50-hours', label: '50 hours', description: 'Logged 50 verified volunteer hours', icon: '🏆', earnedAt: undefined, isNew: false },
-  { type: '100-hours', label: '100 hours', description: 'Logged 100 verified volunteer hours', icon: '💎', earnedAt: undefined, isNew: false },
-  { type: '5-orgs', label: '5 organizations', description: 'Volunteered with 5 different organizations', icon: '🤝', earnedAt: undefined, isNew: false },
-  { type: '1-year-streak', label: '1 year streak', description: 'Volunteered at least once every month for a year', icon: '👑', earnedAt: undefined, isNew: false },
-];
+const emptyPortfolioStats = {
+  totalVerifiedHours: 0,
+  totalShifts: 0,
+  earnedBadges: 0,
+  badgesEarned: 0,
+  orgsServed: 0,
+  pendingHours: 0,
+  publicSlug: null as string | null,
+};
 
 export const userRouter = router({
+  syncFromClerk: protectedProcedure
+    .input(
+      z.object({
+        role: z.enum(['student', 'organizer']).optional(),
+        firstName: z.string().optional(),
+        lastName: z.string().optional(),
+        email: z.string().email().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const desiredRole = input.role ?? 'student';
+
+      if (desiredRole === 'organizer') {
+        const user = await getOrCreateOrganizerUser(ctx.userId);
+        const updates: { firstName?: string; lastName?: string; email?: string } = {};
+        if (input.firstName !== undefined) updates.firstName = input.firstName;
+        if (input.lastName !== undefined) updates.lastName = input.lastName;
+        if (input.email !== undefined) updates.email = input.email;
+        if (Object.keys(updates).length > 0) {
+          await prisma.user.update({ where: { id: user.id }, data: updates });
+        }
+        await ensureOrgProfileForOrganizer(user.id);
+      } else {
+        const user = await getOrCreateStudentUser(ctx.userId);
+        const updates: { firstName?: string; lastName?: string; email?: string } = {};
+        if (input.firstName !== undefined) updates.firstName = input.firstName;
+        if (input.lastName !== undefined) updates.lastName = input.lastName;
+        if (input.email !== undefined) updates.email = input.email;
+        if (Object.keys(updates).length > 0) {
+          await prisma.user.update({ where: { id: user.id }, data: updates });
+        }
+        await prisma.studentProfile.upsert({
+          where: { userId: user.id },
+          create: {
+            userId: user.id,
+            schoolName: 'Unknown School',
+            grade: 0,
+            interests: [],
+            availabilityDays: [],
+          },
+          update: {},
+        });
+      }
+
+      const fresh = await findUserWithStudentByClerk(ctx.userId);
+      if (!fresh) {
+        throw new Error(`User not found after sync: ${ctx.userId}`);
+      }
+      return profileFromDbUser(fresh);
+    }),
+
   me: protectedProcedure.query(async ({ ctx }) => {
     const dbRow = await findUserWithStudentByClerk(ctx.userId);
     if (dbRow) {
@@ -72,48 +114,61 @@ export const userRouter = router({
         firstName: z.string().optional(),
         lastName: z.string().optional(),
         school: z.string().optional(),
-        grade: z.number().optional(),
+        schoolId: z.string().optional(),
+        grade: z.number().int().optional(),
         interests: z.array(z.string()).optional(),
+        availabilityDays: z.array(z.string()).optional(),
+        zipCode: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const dbRow = await findUserWithStudentByClerk(ctx.userId);
+      let dbRow = await findUserWithStudentByClerk(ctx.userId);
+      if (!dbRow) {
+        await getOrCreateStudentUser(ctx.userId);
+        dbRow = await findUserWithStudentByClerk(ctx.userId);
+      }
+
       if (dbRow) {
         const userUpdate: { firstName?: string; lastName?: string } = {};
-        if (input.firstName !== undefined) {
-          userUpdate.firstName = input.firstName;
-        }
-        if (input.lastName !== undefined) {
-          userUpdate.lastName = input.lastName;
-        }
+        if (input.firstName !== undefined) userUpdate.firstName = input.firstName;
+        if (input.lastName !== undefined) userUpdate.lastName = input.lastName;
         if (Object.keys(userUpdate).length > 0) {
-          await prisma.user.update({
-            where: { id: dbRow.id },
-            data: userUpdate,
-          });
+          await prisma.user.update({ where: { id: dbRow.id }, data: userUpdate });
         }
 
         if (dbRow.role === 'STUDENT') {
+          let schoolName = input.school;
+          if (input.schoolId) {
+            const school = await prisma.schoolLookup.findUnique({ where: { id: input.schoolId } });
+            if (school) {
+              schoolName = school.name;
+            }
+          }
+
           const profileCreate = {
             userId: dbRow.id,
-            schoolName: input.school ?? 'Unknown School',
+            schoolId: input.schoolId ?? null,
+            schoolName: schoolName ?? 'Unknown School',
             grade: input.grade ?? 0,
             interests: input.interests ?? [],
+            availabilityDays: input.availabilityDays ?? [],
+            zipCode: input.zipCode ?? null,
           };
           const profileUpdate: {
+            schoolId?: string | null;
             schoolName?: string;
             grade?: number;
             interests?: string[];
+            availabilityDays?: string[];
+            zipCode?: string | null;
           } = {};
-          if (input.school !== undefined) {
-            profileUpdate.schoolName = input.school;
-          }
-          if (input.grade !== undefined) {
-            profileUpdate.grade = input.grade;
-          }
-          if (input.interests !== undefined) {
-            profileUpdate.interests = input.interests;
-          }
+          if (input.schoolId !== undefined) profileUpdate.schoolId = input.schoolId;
+          if (schoolName !== undefined) profileUpdate.schoolName = schoolName;
+          if (input.school !== undefined && !input.schoolId) profileUpdate.schoolName = input.school;
+          if (input.grade !== undefined) profileUpdate.grade = input.grade;
+          if (input.interests !== undefined) profileUpdate.interests = input.interests;
+          if (input.availabilityDays !== undefined) profileUpdate.availabilityDays = input.availabilityDays;
+          if (input.zipCode !== undefined) profileUpdate.zipCode = input.zipCode;
 
           await prisma.studentProfile.upsert({
             where: { userId: dbRow.id },
@@ -133,7 +188,14 @@ export const userRouter = router({
       if (index === -1) {
         throw new Error(`User not found: ${ctx.userId}`);
       }
-      users[index] = { ...users[index], ...input };
+      users[index] = {
+        ...users[index],
+        ...(input.firstName !== undefined ? { firstName: input.firstName } : {}),
+        ...(input.lastName !== undefined ? { lastName: input.lastName } : {}),
+        ...(input.school !== undefined ? { school: input.school } : {}),
+        ...(input.grade !== undefined ? { grade: input.grade } : {}),
+        ...(input.interests !== undefined ? { interests: input.interests } : {}),
+      };
       return users[index];
     }),
 
@@ -159,17 +221,7 @@ export const userRouter = router({
       }));
     }
 
-    return mockAttendance
-      .filter(a => a.studentId === ctx.userId || a.studentId === 'user-001')
-      .map(record => {
-        const opp = mockOpportunities.find(o => o.id === record.opportunityId);
-        return {
-          ...record,
-          opportunityTitle: opp?.title ?? 'Unknown Shift',
-          orgName: opp?.orgName ?? 'Unknown Org',
-          orgLogo: '🌿',
-        };
-      });
+    return [];
   }),
 
   getBadges: protectedProcedure.query(async ({ ctx }) => {
@@ -190,7 +242,7 @@ export const userRouter = router({
       }));
     }
 
-    return mockBadges;
+    return [];
   }),
 
   getPortfolioStats: protectedProcedure.query(async ({ ctx }) => {
@@ -198,11 +250,12 @@ export const userRouter = router({
     if (dbRow) {
       const attendance = await prisma.attendanceRecord.findMany({
         where: { studentId: dbRow.id },
+        include: { opportunity: true },
       });
-      const verifiedHours = attendance
-        .filter(a => a.verificationStatus === 'VERIFIED')
-        .reduce((sum, a) => sum + Number(a.hoursLogged), 0);
+      const verified = attendance.filter(a => a.verificationStatus === 'VERIFIED');
+      const verifiedHours = verified.reduce((sum, a) => sum + Number(a.hoursLogged), 0);
       const uniqueShifts = new Set(attendance.map(a => a.opportunityId)).size;
+      const orgsServed = new Set(verified.map(a => a.opportunity.orgProfileId)).size;
       const earnedBadges = await prisma.badgeUnlock.count({ where: { userId: dbRow.id } });
       const pendingHours = attendance
         .filter(a => a.verificationStatus === 'PENDING')
@@ -212,26 +265,13 @@ export const userRouter = router({
         totalVerifiedHours: verifiedHours,
         totalShifts: uniqueShifts,
         earnedBadges,
+        badgesEarned: earnedBadges,
+        orgsServed,
         pendingHours,
+        publicSlug: dbRow.studentProfile?.publicSlug ?? null,
       };
     }
 
-    const attendance = mockAttendance.filter(
-      a => a.studentId === ctx.userId || a.studentId === 'user-001'
-    );
-    const verifiedHours = attendance
-      .filter(a => a.verificationStatus === 'VERIFIED')
-      .reduce((sum, a) => sum + a.hoursLogged, 0);
-    const uniqueShifts = new Set(attendance.map(a => a.opportunityId)).size;
-    const earnedBadges = mockBadges.filter(b => b.earnedAt).length;
-
-    return {
-      totalVerifiedHours: verifiedHours,
-      totalShifts: uniqueShifts,
-      earnedBadges,
-      pendingHours: attendance
-        .filter(a => a.verificationStatus === 'PENDING')
-        .reduce((sum, a) => sum + a.hoursLogged, 0),
-    };
+    return emptyPortfolioStats;
   }),
 });

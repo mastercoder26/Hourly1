@@ -11,3 +11,8 @@ export function getWebBaseUrl(): string {
 export function getDemoPortfolioShareUrl(): string {
   return portfolioPublicUrl(getWebBaseUrl(), DEMO_PORTFOLIO_SLUG);
 }
+
+/** Build a public portfolio URL for a specific user slug (live mode). */
+export function getPortfolioShareUrlForSlug(slug: string): string {
+  return portfolioPublicUrl(getWebBaseUrl(), slug);
+}

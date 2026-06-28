@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { useDemoStore } from '@/lib/demo/demoStore';
+import { setPreviewActive } from '@/lib/dataSource';
 import {
   normalizeEmail,
   PRESET_DEMO_ACCOUNTS,
@@ -17,9 +18,10 @@ export type DemoAccountIdentity = {
 
 type DemoAuthValue = {
   demoSignedIn: boolean;
+  isPreview: boolean;
   demoRole: DemoRole | null;
   currentAccount: DemoAccountIdentity | null;
-  enterDemo: (role: DemoRole) => void;
+  enterDemo: (role: DemoRole, options?: { preview?: boolean }) => void;
   signIn: (email: string, password: string) => { ok: true; role: DemoRole } | { ok: false; error: string };
   signUp: (
     name: string,
@@ -46,6 +48,7 @@ function toIdentity(account: DemoAccountRecord): DemoAccountIdentity {
 export function DemoAuthProvider({ children }: { children: React.ReactNode }) {
   const resetStore = useDemoStore(s => s.reset);
   const [demoSignedIn, setDemoSignedIn] = useState(false);
+  const [isPreview, setIsPreview] = useState(false);
   const [demoRole, setDemoRole] = useState<DemoRole | null>(null);
   const [currentAccount, setCurrentAccount] = useState<DemoAccountIdentity | null>(null);
   const [accountRegistry, setAccountRegistry] = useState<DemoAccountRecord[]>(() => [
@@ -60,12 +63,29 @@ export function DemoAuthProvider({ children }: { children: React.ReactNode }) {
       setCurrentAccount(toIdentity(account));
       setDemoRole(account.role);
       setDemoSignedIn(true);
+      setIsPreview(false);
+      setPreviewActive(false);
     },
     [resetStore],
   );
 
   const enterDemo = useCallback(
-    (role: DemoRole) => {
+    (role: DemoRole, options?: { preview?: boolean }) => {
+      const preview = options?.preview ?? false;
+      if (preview) {
+        setIsPreview(true);
+        setPreviewActive(true);
+        setDemoRole(role);
+        setDemoSignedIn(true);
+        const preset =
+          role === 'student'
+            ? PRESET_DEMO_ACCOUNTS.find(a => a.role === 'student')
+            : PRESET_DEMO_ACCOUNTS.find(a => a.role === 'organizer');
+        if (preset) {
+          setCurrentAccount(toIdentity(preset));
+        }
+        return;
+      }
       const preset =
         role === 'student'
           ? PRESET_DEMO_ACCOUNTS.find(a => a.role === 'student')
@@ -76,6 +96,8 @@ export function DemoAuthProvider({ children }: { children: React.ReactNode }) {
       }
       setDemoRole(role);
       setDemoSignedIn(true);
+      setIsPreview(false);
+      setPreviewActive(false);
     },
     [beginSession],
   );
@@ -143,11 +165,14 @@ export function DemoAuthProvider({ children }: { children: React.ReactNode }) {
     setDemoRole(null);
     setDemoSignedIn(false);
     setCurrentAccount(null);
+    setIsPreview(false);
+    setPreviewActive(false);
   }, [resetStore]);
 
   const value = useMemo(
     () => ({
       demoSignedIn,
+      isPreview,
       demoRole,
       currentAccount,
       enterDemo,
@@ -159,6 +184,7 @@ export function DemoAuthProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       demoSignedIn,
+      isPreview,
       demoRole,
       currentAccount,
       enterDemo,

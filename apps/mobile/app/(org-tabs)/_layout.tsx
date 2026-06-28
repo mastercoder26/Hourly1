@@ -127,9 +127,10 @@ function OrgTabsLayoutWithClerk() {
   const { width } = useWindowDimensions();
   const { isLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
-  const { demoSignedIn, demoRole } = useDemoAuth();
+  const { demoSignedIn, demoRole, isPreview } = useDemoAuth();
 
-  if (isClerkConfigured() && isLoaded && !isSignedIn && !demoSignedIn) {
+  const previewGuest = demoSignedIn && isPreview;
+  if (isClerkConfigured() && isLoaded && !isSignedIn && !demoSignedIn && !previewGuest) {
     return <Redirect href="/(auth)/sign-in" />;
   }
 

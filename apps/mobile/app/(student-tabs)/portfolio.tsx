@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, ScrollView, StyleSheet, Alert, ActivityIndicator, Share, Platform } from 'react-native';
 import { Text } from '@/components/Themed';
+import { useRouter } from 'expo-router';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -18,14 +19,14 @@ import { PillButton } from '../../components/ui/PillButton';
 import { HoursChart } from '../../components/HoursChart';
 import { BadgeGrid } from '../../components/BadgeGrid';
 import { trpc } from '../../lib/trpc';
-import { isDemoMode, isLiveMode } from '../../lib/dataMode';
+import { shouldUseDemoData, shouldUseLiveApi } from '../../lib/dataSource';
 import { useDemoStore } from '../../lib/demo/demoStore';
 import { Badge } from '../../types';
 import { enterRise, enterFade, stagger, MOTION } from '../../lib/motion';
 import { Feather } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { getDemoPortfolioShareUrl } from '../../lib/publicUrls';
+import { getDemoPortfolioShareUrl, getPortfolioShareUrlForSlug } from '../../lib/publicUrls';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tabBarScrollContentPadding, tabScreenContentTopPadding } from '../../constants/tabBar';
 
@@ -68,39 +69,45 @@ function AnimatedCounter({
 
 export default function PortfolioScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const demo = shouldUseDemoData();
+  const live = shouldUseLiveApi();
   const demoAttendance = useDemoStore(s => s.attendance);
   const demoBadges = useDemoStore(s => s.badges);
   const demoOpportunities = useDemoStore(s => s.opportunities);
+  const demoStudentProfile = useDemoStore(s => s.studentProfile);
 
-  const attendanceQuery = trpc.user.getAttendance.useQuery(undefined, { enabled: isLiveMode() });
-  const badgesQuery = trpc.user.getBadges.useQuery(undefined, { enabled: isLiveMode() });
-  const statsQuery = trpc.user.getPortfolioStats.useQuery(undefined, { enabled: isLiveMode() });
+  const attendanceQuery = trpc.user.getAttendance.useQuery(undefined, { enabled: live });
+  const badgesQuery = trpc.user.getBadges.useQuery(undefined, { enabled: live });
+  const statsQuery = trpc.user.getPortfolioStats.useQuery(undefined, { enabled: live });
+  const meQuery = trpc.user.me.useQuery(undefined, { enabled: live });
 
   const isLoadingRemote =
-    isLiveMode() &&
+    live &&
     (attendanceQuery.isLoading || badgesQuery.isLoading || statsQuery.isLoading);
 
-  const attendance = isDemoMode() ? demoAttendance : (attendanceQuery.data ?? []);
-  const badges: Badge[] = isDemoMode() ? demoBadges : ((badgesQuery.data ?? []) as Badge[]);
+  const attendance = demo ? demoAttendance : (attendanceQuery.data ?? []);
+  const badges: Badge[] = demo ? demoBadges : ((badgesQuery.data ?? []) as Badge[]);
 
   const totalVerified = useMemo(() => {
-    if (isDemoMode()) {
+    if (demo) {
       return demoAttendance
         .filter(a => a.verificationStatus === 'VERIFIED')
         .reduce((sum, a) => sum + a.hoursLogged, 0);
     }
     return statsQuery.data?.totalVerifiedHours ?? 0;
-  }, [demoAttendance, statsQuery.data]);
+  }, [demo, demoAttendance, statsQuery.data]);
 
   const uniqueShifts = useMemo(() => {
-    if (isDemoMode()) {
+    if (demo) {
       return new Set(demoAttendance.map(a => a.opportunityId)).size;
     }
     return statsQuery.data?.totalShifts ?? 0;
-  }, [demoAttendance, statsQuery.data]);
+  }, [demo, demoAttendance, statsQuery.data]);
 
   const handleSharePortfolio = async () => {
-    const url = getDemoPortfolioShareUrl();
+    const slug = statsQuery.data?.publicSlug;
+    const url = demo || !slug ? getDemoPortfolioShareUrl() : getPortfolioShareUrlForSlug(slug);
     try {
       await Share.share(
         Platform.select({
@@ -114,7 +121,13 @@ export default function PortfolioScreen() {
   };
 
   const handleDownloadCertificate = async () => {
-    const name = isDemoMode() ? 'Alex Rivera' : 'Volunteer';
+    const realName = [meQuery.data?.firstName, meQuery.data?.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    const name = demo
+      ? `${demoStudentProfile.firstName} ${demoStudentProfile.lastName}`
+      : realName || 'Volunteer';
     const hours = totalVerified;
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Certificate</title>
       <style>body{font-family:system-ui;padding:40px;}h1{color:#1D9E75}footer{font-size:12px;color:#666;margin-top:48px}</style>
@@ -243,7 +256,7 @@ export default function PortfolioScreen() {
             <Text style={styles.sectionCount}>{attendance.length} total</Text>
           </View>
           {attendance.slice(0, 5).map((record, index) => {
-            const opp = isDemoMode()
+            const opp = demo
               ? demoOpportunities.find(o => o.id === record.opportunityId)
               : null;
             const title = (record as { opportunityTitle?: string }).opportunityTitle ?? opp?.title ?? 'Shift';
@@ -285,7 +298,11 @@ export default function PortfolioScreen() {
             );
           })}
           {attendance.length > 5 && (
-            <PillButton variant="ghost" style={styles.viewAllButton}>
+            <PillButton
+              variant="ghost"
+              style={styles.viewAllButton}
+              onPress={() => router.push('/(student-tabs)/my-shifts')}
+            >
               View all shifts →
             </PillButton>
           )}

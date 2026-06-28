@@ -48,6 +48,47 @@ export const publicRouter = router({
     };
   }),
 
+  searchSchools: publicProcedure
+    .input(
+      z.object({
+        query: z.string().min(1),
+        zipCode: z.string().optional(),
+        state: z.string().optional(),
+        limit: z.number().int().max(50).default(20),
+      })
+    )
+    .query(async ({ input }) => {
+      const q = input.query.trim();
+      const rows = await prisma.schoolLookup.findMany({
+        where: {
+          ...(input.zipCode?.trim()
+            ? { zipCode: { equals: input.zipCode.trim(), mode: 'insensitive' } }
+            : {}),
+          ...(input.state?.trim()
+            ? { state: { equals: input.state.trim(), mode: 'insensitive' } }
+            : {}),
+          OR: [
+            { name: { contains: q, mode: 'insensitive' } },
+            { city: { contains: q, mode: 'insensitive' } },
+            { districtName: { contains: q, mode: 'insensitive' } },
+            ...(q.length >= 3 ? [{ zipCode: { contains: q, mode: 'insensitive' as const } }] : []),
+          ],
+        },
+        take: input.limit,
+        orderBy: [{ name: 'asc' }],
+      });
+
+      return rows.map(row => ({
+        id: row.id,
+        ncesId: row.ncesId,
+        name: row.name,
+        districtName: row.districtName,
+        city: row.city,
+        state: row.state,
+        zipCode: row.zipCode,
+      }));
+    }),
+
   portfolioBySlug: publicProcedure.input(z.object({ slug: z.string() })).query(async ({ input }) => {
     const slug = decodeURIComponent(input.slug.trim());
     const profile = await prisma.studentProfile.findFirst({

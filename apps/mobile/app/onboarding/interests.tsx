@@ -18,6 +18,7 @@ import { ProgressBar } from '../../components/ui/ProgressBar';
 import { PillButton } from '../../components/ui/PillButton';
 import { CauseTag } from '../../types';
 import { enterFade, enterRise, stagger, MOTION } from '../../lib/motion';
+import { getOnboardingState, setOnboardingInterests } from '../../lib/onboardingStore';
 
 const CAUSES: { tag: CauseTag; icon: keyof typeof Feather.glyphMap }[] = [
   { tag: 'Environment', icon: CauseIcons.Environment },
@@ -112,7 +113,7 @@ export default function InterestsStep() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
   const isOrg = role === 'organizer';
-  const [selected, setSelected] = useState<CauseTag[]>([]);
+  const [selected, setSelected] = useState<CauseTag[]>(getOnboardingState().interests as CauseTag[]);
 
   const toggle = (tag: CauseTag) => {
     if (selected.includes(tag)) {
@@ -169,7 +170,10 @@ export default function InterestsStep() {
           <PillButton
             variant="primary"
             size="large"
-            onPress={() => router.push(`/onboarding/availability?role=${role || 'student'}`)}
+            onPress={() => {
+              setOnboardingInterests(selected);
+              router.push(`/onboarding/availability?role=${role || 'student'}`);
+            }}
             style={{ flex: 2 }}
           >
             Continue

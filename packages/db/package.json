@@ -12,6 +12,7 @@
     "prisma:push": "prisma db push --schema prisma/schema.prisma",
     "prisma:validate": "prisma validate --schema prisma/schema.prisma",
     "prisma:seed": "node prisma/seed.cjs",
+    "import:schools": "npx ts-node --transpile-only scripts/import-schools.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "prisma": {

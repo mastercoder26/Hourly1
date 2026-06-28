@@ -22,6 +22,7 @@ const ORG_MENU: { icon: string; label: string; slug: string }[] = [
   { icon: '📊', label: 'Impact reports', slug: 'impact' },
   { icon: '👥', label: 'Team members', slug: 'team' },
   { icon: '🔔', label: 'Notifications', slug: 'notifications' },
+  { icon: '❓', label: 'Help & support', slug: 'help' },
   { icon: '⚙️', label: 'Settings', slug: 'org-settings' },
 ];
 
@@ -30,14 +31,14 @@ type OrgProfileAuthState = { authLoaded: boolean; isSignedIn: boolean };
 function OrgProfileScreenInner({ authLoaded, isSignedIn }: OrgProfileAuthState) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { switchRole, exitDemo, demoSignedIn } = useDemoAuth();
+  const { switchRole, exitDemo, demoSignedIn, isPreview } = useDemoAuth();
   const orgProfile = useDemoStore(s => s.orgProfile);
   const org = orgProfile;
   const demoBare = isDemoMode() && !isClerkConfigured();
   const browsingAsGuest = Boolean(
     demoSignedIn && isClerkConfigured() && authLoaded && !isSignedIn,
   );
-  const showLocalSessionControls = demoBare || browsingAsGuest;
+  const showLocalSessionControls = demoBare || browsingAsGuest || isPreview;
 
   return (
     <ScrollView
@@ -85,19 +86,19 @@ function OrgProfileScreenInner({ authLoaded, isSignedIn }: OrgProfileAuthState) 
         ))}
       </Card>
 
-      <PillButton
-        variant="default"
-        fullWidth
-        size="medium"
-        onPress={() => {
-          if (showLocalSessionControls) {
+      {showLocalSessionControls ? (
+        <PillButton
+          variant="default"
+          fullWidth
+          size="medium"
+          onPress={() => {
             switchRole('student');
-          }
-          router.dismissTo('/(student-tabs)/feed');
-        }}
-      >
-        Switch to student view
-      </PillButton>
+            router.dismissTo('/(student-tabs)/feed');
+          }}
+        >
+          Switch to student view
+        </PillButton>
+      ) : null}
       {showLocalSessionControls ? (
         <PillButton
           variant="ghost"

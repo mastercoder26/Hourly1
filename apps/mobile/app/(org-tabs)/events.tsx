@@ -11,7 +11,7 @@ import { PillBadge } from '../../components/ui/PillBadge';
 import { PillButton } from '../../components/ui/PillButton';
 import { trpc } from '../../lib/trpc';
 import { ApiOpportunityLike, toMobileOpportunity } from '../../lib/opportunity-adapter';
-import { isDemoMode, isLiveMode } from '../../lib/dataMode';
+import { shouldUseDemoData, shouldUseLiveApi } from '../../lib/dataSource';
 import { useDemoStore } from '../../lib/demo/demoStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tabBarScrollContentPadding, tabScreenContentTopPadding } from '../../constants/tabBar';
@@ -21,10 +21,10 @@ export default function EventsScreen() {
   const insets = useSafeAreaInsets();
   const demoOpportunities = useDemoStore(s => s.opportunities);
 
-  const opportunitiesQuery = trpc.org.listOpportunities.useQuery(undefined, { enabled: isLiveMode() });
+  const opportunitiesQuery = trpc.org.listOpportunities.useQuery(undefined, { enabled: shouldUseLiveApi() });
 
   const orgOpps = useMemo(() => {
-    if (isDemoMode()) {
+    if (shouldUseDemoData()) {
       return demoOpportunities.filter(o => o.orgId === 'org-001');
     }
     return (opportunitiesQuery.data ?? []).map(item =>
@@ -32,7 +32,7 @@ export default function EventsScreen() {
     );
   }, [demoOpportunities, opportunitiesQuery.data]);
 
-  if (isLiveMode() && opportunitiesQuery.isLoading) {
+  if (shouldUseLiveApi() && opportunitiesQuery.isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.purple} />

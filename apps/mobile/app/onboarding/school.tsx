@@ -9,17 +9,31 @@ import { Typography } from '../../constants/typography';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { PillButton } from '../../components/ui/PillButton';
 import { enterFade, enterRise } from '../../lib/motion';
+import { getOnboardingState } from '../../lib/onboardingStore';
 
 export default function SchoolStep() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
   const isOrg = role === 'organizer';
+  const roleParam = role || 'student';
+  const { school, orgName } = getOnboardingState();
+
+  const displayName = isOrg ? orgName || 'Your organization' : school?.name ?? 'School not selected';
+  const displayAddress = isOrg
+    ? 'We will use your profile to help volunteers find you.'
+    : school
+      ? [school.city, school.state, school.zipCode].filter(Boolean).join(', ')
+      : 'You can add your school later from profile settings.';
 
   return (
     <View style={styles.container}>
       <Animated.View style={styles.header} entering={enterFade(40)}>
         <ProgressBar steps={4} currentStep={1} accent="purple" />
-        <PillButton variant="ghost" size="small" onPress={() => router.push(`/onboarding/interests?role=${role || 'student'}`)}>
+        <PillButton
+          variant="ghost"
+          size="small"
+          onPress={() => router.push(`/onboarding/interests?role=${roleParam}`)}
+        >
           Skip for now
         </PillButton>
       </Animated.View>
@@ -33,17 +47,19 @@ export default function SchoolStep() {
           <Text style={styles.subtitle}>
             {isOrg
               ? 'Help volunteers find opportunities near them'
-              : 'We\'ll use this to find nearby opportunities'}
+              : "We'll use this to find nearby opportunities"}
           </Text>
         </Animated.View>
 
-        {/* Mock school cards */}
         <Animated.View entering={enterRise(200)}>
           <View style={styles.schoolCard}>
-            <Text style={styles.schoolEmoji}>🏫</Text>
-            <View>
-              <Text style={styles.schoolName}>Austin High School</Text>
-              <Text style={styles.schoolAddress}>1715 W Cesar Chavez St, Austin, TX 78703</Text>
+            <Text style={styles.schoolEmoji}>{isOrg ? '🏢' : '🏫'}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.schoolName}>{displayName}</Text>
+              <Text style={styles.schoolAddress}>{displayAddress}</Text>
+              {!isOrg && school?.districtName ? (
+                <Text style={styles.schoolDistrict}>{school.districtName}</Text>
+              ) : null}
             </View>
           </View>
         </Animated.View>
@@ -57,7 +73,7 @@ export default function SchoolStep() {
           <PillButton
             variant="primary"
             size="large"
-            onPress={() => router.push(`/onboarding/interests?role=${role || 'student'}`)}
+            onPress={() => router.push(`/onboarding/interests?role=${roleParam}`)}
             style={{ flex: 2 }}
           >
             Continue
@@ -87,7 +103,7 @@ const styles = StyleSheet.create({
   stepLabel: {
     fontFamily: Typography.sub.fontFamily,
     fontSize: Typography.sub.fontSize,
-    fontWeight: Typography.sub.fontWeight as any,
+    fontWeight: Typography.sub.fontWeight as '600',
     color: Colors.dark.textTertiary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -131,6 +147,12 @@ const styles = StyleSheet.create({
     fontFamily: Typography.caption.fontFamily,
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.textSecondary,
+  },
+  schoolDistrict: {
+    fontFamily: Typography.caption.fontFamily,
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textTertiary,
+    marginTop: 4,
   },
   footer: {
     paddingHorizontal: 24,

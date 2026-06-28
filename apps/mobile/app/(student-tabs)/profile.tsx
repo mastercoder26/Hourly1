@@ -11,7 +11,8 @@ import { PillBadge } from '../../components/ui/PillBadge';
 import { PillButton } from '../../components/ui/PillButton';
 import { ClerkSignOutButton } from '../../components/ClerkSignOutButton';
 import { trpc } from '../../lib/trpc';
-import { isDemoMode, isLiveMode } from '../../lib/dataMode';
+import { isDemoMode } from '../../lib/dataMode';
+import { shouldUseDemoData, shouldUseLiveApi } from '../../lib/dataSource';
 import { isClerkConfigured } from '../../lib/clerkConfig';
 import { useDemoAuth } from '../../context/DemoAuthContext';
 import { useDemoStore } from '../../lib/demo/demoStore';
@@ -35,21 +36,29 @@ function ProfileScreenInner({
 }: ProfileAuthState) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { switchRole, exitDemo, demoSignedIn } = useDemoAuth();
+  const { switchRole, exitDemo, demoSignedIn, isPreview } = useDemoAuth();
   const browsingAsGuest = Boolean(
     demoSignedIn && isClerkConfigured() && authLoaded && !isSignedIn,
   );
-  const preferLocalStudentProfile = isDemoMode() || browsingAsGuest;
+  const preferLocalStudentProfile = shouldUseDemoData() || browsingAsGuest;
   const studentProfile = useDemoStore(s => s.studentProfile);
   const profileQuery = trpc.user.me.useQuery(undefined, {
-    enabled: isLiveMode() && !preferLocalStudentProfile,
+    enabled: shouldUseLiveApi() && !preferLocalStudentProfile,
+  });
+  const statsQuery = trpc.user.getPortfolioStats.useQuery(undefined, {
+    enabled: shouldUseLiveApi() && !preferLocalStudentProfile,
   });
 
   const profile = preferLocalStudentProfile ? studentProfile : profileQuery.data;
   const demoBare = isDemoMode() && !isClerkConfigured();
-  const showLocalSessionControls = demoBare || browsingAsGuest;
+  const showLocalSessionControls = demoBare || browsingAsGuest || isPreview;
+  const badgesEarned = preferLocalStudentProfile ? 3 : (statsQuery.data?.badgesEarned ?? 0);
+  const orgsServed = preferLocalStudentProfile ? 5 : (statsQuery.data?.orgsServed ?? 0);
+  const totalHours = preferLocalStudentProfile
+    ? profile?.totalHours ?? 0
+    : (statsQuery.data?.totalVerifiedHours ?? 0);
 
-  if (isLiveMode() && !preferLocalStudentProfile && profileQuery.isLoading) {
+  if (shouldUseLiveApi() && !preferLocalStudentProfile && profileQuery.isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.teal} />
@@ -105,15 +114,15 @@ function ProfileScreenInner({
       {/* Quick stats */}
       <View style={styles.statsRow}>
         <Card style={styles.statCard}>
-          <Text style={styles.statValue}>{profile.totalHours}</Text>
+          <Text style={styles.statValue}>{totalHours}</Text>
           <Text style={styles.statLabel}>Total hours</Text>
         </Card>
         <Card style={styles.statCard}>
-          <Text style={styles.statValue}>3</Text>
+          <Text style={styles.statValue}>{badgesEarned}</Text>
           <Text style={styles.statLabel}>Badges earned</Text>
         </Card>
         <Card style={styles.statCard}>
-          <Text style={styles.statValue}>5</Text>
+          <Text style={styles.statValue}>{orgsServed}</Text>
           <Text style={styles.statLabel}>Orgs served</Text>
         </Card>
       </View>
@@ -145,19 +154,19 @@ function ProfileScreenInner({
       </Card>
 
       {/* Switch role & Sign out */}
-      <PillButton
-        variant="default"
-        fullWidth
-        size="medium"
-        onPress={() => {
-          if (showLocalSessionControls) {
+      {showLocalSessionControls ? (
+        <PillButton
+          variant="default"
+          fullWidth
+          size="medium"
+          onPress={() => {
             switchRole('organizer');
-          }
-          router.dismissTo('/(org-tabs)/dashboard');
-        }}
-      >
-        Switch to organizer view
-      </PillButton>
+            router.dismissTo('/(org-tabs)/dashboard');
+          }}
+        >
+          Switch to organizer view
+        </PillButton>
+      ) : null}
       {showLocalSessionControls ? (
         <PillButton
           variant="ghost"

@@ -13,7 +13,7 @@ import { Feather } from '@expo/vector-icons';
 import { trpc } from '../../lib/trpc';
 import { ApiOpportunityLike, toMobileOpportunity } from '../../lib/opportunity-adapter';
 import { enterFade, enterRise, exitDrop, exitFade, MOTION } from '../../lib/motion';
-import { isDemoMode, isLiveMode } from '../../lib/dataMode';
+import { shouldUseDemoData, shouldUseLiveApi } from '../../lib/dataSource';
 import { applicationForStudentOnOpportunity, useDemoStore } from '../../lib/demo/demoStore';
 import { DEMO_STUDENT_ID } from '@hourly/shared';
 
@@ -32,7 +32,7 @@ export default function OpportunityDetailScreen() {
 
   const { data: rawOpportunity, isLoading, error } = trpc.opportunity.getById.useQuery(
     { id: opportunityId ?? '' },
-    { enabled: isLiveMode() && Boolean(opportunityId) },
+    { enabled: shouldUseLiveApi() && Boolean(opportunityId) },
   );
   const utils = trpc.useUtils();
   const applyMutation = trpc.application.apply.useMutation({
@@ -41,14 +41,14 @@ export default function OpportunityDetailScreen() {
     },
   });
   const listMineQuery = trpc.application.listMine.useQuery(undefined, {
-    enabled: isLiveMode() && Boolean(opportunityId),
+    enabled: shouldUseLiveApi() && Boolean(opportunityId),
   });
 
   const opportunity = useMemo(() => {
     if (!opportunityId) {
       return null;
     }
-    if (isDemoMode()) {
+    if (shouldUseDemoData()) {
       return demoOpportunities.find(o => o.id === opportunityId) ?? null;
     }
     if (rawOpportunity) {
@@ -58,7 +58,7 @@ export default function OpportunityDetailScreen() {
   }, [demoOpportunities, opportunityId, rawOpportunity]);
 
   const existingApplication = useMemo(() => {
-    if (isLiveMode() && opportunityId && listMineQuery.data) {
+    if (shouldUseLiveApi() && opportunityId && listMineQuery.data) {
       return listMineQuery.data.find(a => a.opportunityId === opportunityId);
     }
     if (!opportunityId) {
@@ -81,7 +81,7 @@ export default function OpportunityDetailScreen() {
     checkOpacity.value = 0;
   }, [opportunityId, checkScale, checkOpacity]);
 
-  if (isLiveMode() && (isLoading || listMineQuery.isLoading)) {
+  if (shouldUseLiveApi() && (isLoading || listMineQuery.isLoading)) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.teal} />
@@ -89,7 +89,7 @@ export default function OpportunityDetailScreen() {
     );
   }
 
-  if ((isLiveMode() && error) || !opportunity) {
+  if ((shouldUseLiveApi() && error) || !opportunity) {
     return (
       <View style={styles.container}>
         <Text style={styles.errorText}>Opportunity not found</Text>
@@ -115,7 +115,7 @@ export default function OpportunityDetailScreen() {
   const handleApply = async () => {
     if (!opportunityId) return;
 
-    if (isDemoMode()) {
+    if (shouldUseDemoData()) {
       applyToOpportunity(opportunityId);
       setJustApplied(true);
       playSuccessAnimation();
@@ -301,9 +301,9 @@ export default function OpportunityDetailScreen() {
               fullWidth
               size="large"
               onPress={handleApply}
-              disabled={isLiveMode() && applyMutation.isPending}
+              disabled={shouldUseLiveApi() && applyMutation.isPending}
             >
-              {isLiveMode() && applyMutation.isPending ? 'Submitting...' : 'Confirm, apply now'}
+              {shouldUseLiveApi() && applyMutation.isPending ? 'Submitting...' : 'Confirm, apply now'}
             </PillButton>
             <PillButton variant="ghost" fullWidth size="medium" onPress={() => setShowApplySheet(false)}>
               Cancel

@@ -13,28 +13,39 @@ import { PillButton } from '../../components/ui/PillButton';
 import { trpc } from '../../lib/trpc';
 import { ApiOpportunityLike, toMobileOpportunity } from '../../lib/opportunity-adapter';
 import { enterRise } from '../../lib/motion';
-import { isDemoMode, isLiveMode } from '../../lib/dataMode';
+import { shouldUseDemoData, shouldUseLiveApi } from '../../lib/dataSource';
 import { useDemoStore } from '../../lib/demo/demoStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tabBarScrollContentPadding, tabScreenContentTopPadding } from '../../constants/tabBar';
 
+function formatElapsed(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return `${h}:${m.toString().padStart(2, '0')}`;
+}
+
 export default function MyShiftsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const demo = isDemoMode();
+  const useDemo = shouldUseDemoData();
   const demoApplications = useDemoStore(s => s.applications);
   const demoOpportunities = useDemoStore(s => s.opportunities);
+  const demoAttendance = useDemoStore(s => s.attendance);
+  const activeAttendanceId = useDemoStore(s => s.activeAttendanceId);
 
-  const applicationsQuery = trpc.application.listMine.useQuery(undefined, { enabled: isLiveMode() });
-  const opportunitiesQuery = trpc.opportunity.list.useQuery({}, { enabled: isLiveMode() });
+  const applicationsQuery = trpc.application.listMine.useQuery(undefined, { enabled: shouldUseLiveApi() });
+  const opportunitiesQuery = trpc.opportunity.list.useQuery({}, { enabled: shouldUseLiveApi() });
+  const attendanceQuery = trpc.user.getAttendance.useQuery(undefined, { enabled: shouldUseLiveApi() });
 
   const isLoadingRemote =
-    isLiveMode() && (applicationsQuery.isLoading || opportunitiesQuery.isLoading);
+    shouldUseLiveApi() &&
+    (applicationsQuery.isLoading || opportunitiesQuery.isLoading || attendanceQuery.isLoading);
 
-  const applications = demo ? demoApplications : (applicationsQuery.data ?? []);
+  const applications = useDemo ? demoApplications : (applicationsQuery.data ?? []);
+  const liveAttendance = attendanceQuery.data ?? [];
 
   const opportunitiesById = useMemo(() => {
-    if (demo) {
+    if (useDemo) {
       return new Map(demoOpportunities.map(item => [item.id, item] as const));
     }
     const entries = (opportunitiesQuery.data ?? []).map(item => {
@@ -42,11 +53,41 @@ export default function MyShiftsScreen() {
       return [mapped.id, mapped] as const;
     });
     return new Map(entries);
-  }, [demo, demoOpportunities, opportunitiesQuery.data]);
+  }, [useDemo, demoOpportunities, opportunitiesQuery.data]);
+
+  const activeLiveRecord = useMemo(() => {
+    if (useDemo) {
+      if (!activeAttendanceId) {
+        return null;
+      }
+      return demoAttendance.find(a => a.id === activeAttendanceId) ?? null;
+    }
+    return (
+      liveAttendance.find(record => record.checkinTime && !record.checkoutTime) ?? null
+    );
+  }, [useDemo, activeAttendanceId, demoAttendance, liveAttendance]);
+
+  const activeOpportunity = useMemo(() => {
+    if (!activeLiveRecord) {
+      return null;
+    }
+    if (useDemo) {
+      return opportunitiesById.get(activeLiveRecord.opportunityId) ?? null;
+    }
+    const oppId = activeLiveRecord.opportunityId;
+    return opportunitiesById.get(oppId) ?? null;
+  }, [activeLiveRecord, opportunitiesById, useDemo]);
+
+  const activeElapsedSeconds = useMemo(() => {
+    if (!activeLiveRecord?.checkinTime) {
+      return 0;
+    }
+    const start = new Date(activeLiveRecord.checkinTime).getTime();
+    return Math.max(0, Math.floor((Date.now() - start) / 1000));
+  }, [activeLiveRecord?.checkinTime]);
 
   const upcomingApps = applications.filter(a => a.status === 'APPROVED');
   const pendingApps = applications.filter(a => a.status === 'PENDING');
-  const activeOpportunity = upcomingApps[0] ? opportunitiesById.get(upcomingApps[0].opportunityId) : null;
 
   if (isLoadingRemote) {
     return (
@@ -71,7 +112,7 @@ export default function MyShiftsScreen() {
         <Text style={styles.title}>My shifts</Text>
       </Animated.View>
 
-      {activeOpportunity && (
+      {activeOpportunity && activeLiveRecord && (
         <Animated.View entering={enterRise(120)}>
           <Card style={styles.activeCard}>
             <View style={styles.activeHeader}>
@@ -81,18 +122,30 @@ export default function MyShiftsScreen() {
             <Text style={styles.activeTitle}>{activeOpportunity.title}</Text>
             <Text style={styles.activeOrg}>{activeOpportunity.orgName}</Text>
             <View style={styles.timerContainer}>
-              <Text style={styles.timerText}>Ready</Text>
-              <Text style={styles.timerSub}>to check in</Text>
+              <Text style={styles.timerText}>{formatElapsed(activeElapsedSeconds)}</Text>
+              <Text style={styles.timerSub}>elapsed</Text>
             </View>
             <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: '20%' }]} />
+              <View
+                style={[
+                  styles.progressFill,
+                  {
+                    width: `${Math.min(
+                      100,
+                      (activeElapsedSeconds / Math.max(activeOpportunity.durationHours * 3600, 1)) * 100,
+                    )}%`,
+                  },
+                ]}
+              />
             </View>
             <PillButton
               variant="primary"
               accent="teal"
               fullWidth
               size="medium"
-              onPress={() => router.push('/shift/active')}
+              onPress={() =>
+                router.push(`/shift/active?opportunityId=${activeLiveRecord.opportunityId}` as never)
+              }
             >
               View shift
             </PillButton>
@@ -113,10 +166,13 @@ export default function MyShiftsScreen() {
       {upcomingApps.map((app, index) => {
         const opp = opportunitiesById.get(app.opportunityId);
         if (!opp) return null;
+        const isActive = activeLiveRecord?.opportunityId === app.opportunityId;
         return (
           <Animated.View key={app.id} entering={enterRise(220 + index * 40)}>
             <Pressable
-              onPress={() => router.push('/shift/checkin')}
+              onPress={() =>
+                router.push(`/shift/checkin?opportunityId=${app.opportunityId}` as never)
+              }
               style={({ pressed }) => [pressed && styles.shiftPressed]}
             >
               <Card style={styles.shiftCard}>
@@ -128,7 +184,7 @@ export default function MyShiftsScreen() {
                     <Text style={styles.shiftTitle}>{opp.title}</Text>
                     <Text style={styles.shiftOrg}>{opp.orgName}</Text>
                   </View>
-                  <PillBadge label="Approved" color={Colors.success} />
+                  <PillBadge label={isActive ? 'Active' : 'Approved'} color={isActive ? Colors.success : Colors.success} />
                 </View>
                 <View style={styles.shiftDetails}>
                   <Text style={styles.shiftDetail}>
@@ -171,7 +227,7 @@ export default function MyShiftsScreen() {
                     </View>
                     <PillBadge label="Pending" color={Colors.warning} />
                   </View>
-                  {demo ? (
+                  {useDemo ? (
                     <PillButton
                       variant="default"
                       size="small"

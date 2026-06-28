@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { trpc } from '../lib/trpc';
 import { ApiOpportunityLike, toMobileOpportunity } from '../lib/opportunity-adapter';
-import { isDemoMode, isLiveMode } from '../lib/dataMode';
+import { shouldUseDemoData, shouldUseLiveApi } from '../lib/dataSource';
 import { filterDemoOpportunities, useDemoStore } from '../lib/demo/demoStore';
 import { Opportunity } from '../types';
 
@@ -25,7 +25,7 @@ export function useOpportunities(filters?: {
       creditEligible: filters?.creditEligible,
       maxDistance: filters?.maxDistance,
     },
-    { enabled: isLiveMode() },
+    { enabled: shouldUseLiveApi() },
   );
 
   const demoData = useMemo(
@@ -38,7 +38,7 @@ export function useOpportunities(filters?: {
     [query.data],
   );
 
-  if (isDemoMode()) {
+  if (shouldUseDemoData()) {
     return {
       data: demoData,
       loading: false,

@@ -16,7 +16,7 @@ import { Typography } from '../../../constants/typography';
 import { Card } from '../../../components/ui/Card';
 import { PillButton } from '../../../components/ui/PillButton';
 import { useDemoStore } from '../../../lib/demo/demoStore';
-import { isDemoMode, isLiveMode } from '../../../lib/dataMode';
+import { shouldUseDemoData, shouldUseLiveApi } from '../../../lib/dataSource';
 import { trpc } from '../../../lib/trpc';
 
 type DemoAttendance = {
@@ -82,7 +82,7 @@ export default function VerifyHoursDetailScreen() {
 
   const liveRecordQuery = trpc.org.getAttendanceRecord.useQuery(
     { attendanceRecordId: id ?? '' },
-    { enabled: isLiveMode() && Boolean(id) },
+    { enabled: shouldUseLiveApi() && Boolean(id) },
   );
 
   const utils = trpc.useUtils();
@@ -97,7 +97,7 @@ export default function VerifyHoursDetailScreen() {
   });
 
   const record: DemoAttendance | undefined = useMemo(() => {
-    if (isLiveMode() && liveRecordQuery.data) {
+    if (shouldUseLiveApi() && liveRecordQuery.data) {
       const r = liveRecordQuery.data;
       return {
         id: r.id,
@@ -121,15 +121,15 @@ export default function VerifyHoursDetailScreen() {
     return opportunities.find(o => o.id === record.opportunityId);
   }, [opportunities, record]);
 
-  const orgValid = isLiveMode() ? true : opportunity?.orgId === DEMO_ORG_PRIMARY_ID;
+  const orgValid = shouldUseLiveApi() ? true : opportunity?.orgId === DEMO_ORG_PRIMARY_ID;
   const canAct =
     record &&
     orgValid &&
     record.verificationStatus === 'PENDING' &&
-    (isDemoMode() || isLiveMode());
+    (shouldUseDemoData() || shouldUseLiveApi());
 
   const name = record
-    ? isLiveMode() && liveRecordQuery.data
+    ? shouldUseLiveApi() && liveRecordQuery.data
       ? liveRecordQuery.data.studentName
       : volunteerName(record.studentId)
     : '';
@@ -144,7 +144,7 @@ export default function VerifyHoursDetailScreen() {
         {
           text: 'Approve',
           onPress: () => {
-            if (isLiveMode()) {
+            if (shouldUseLiveApi()) {
               verifyMutation.mutate(
                 { attendanceRecordId: record.id },
                 {
@@ -168,7 +168,7 @@ export default function VerifyHoursDetailScreen() {
     );
   }, [canAct, name, record, router, verifyAttendance, verifyMutation]);
 
-  if (isLiveMode() && liveRecordQuery.isLoading) {
+  if (shouldUseLiveApi() && liveRecordQuery.isLoading) {
     return (
       <View style={styles.miss}>
         <ActivityIndicator size="large" color={Colors.accent} />

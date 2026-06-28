@@ -10,6 +10,7 @@ import { ProgressBar } from '../../components/ui/ProgressBar';
 import { PillButton } from '../../components/ui/PillButton';
 import { DayOfWeek } from '../../types';
 import { enterFade, enterRise, stagger } from '../../lib/motion';
+import { getOnboardingState, setOnboardingAvailability } from '../../lib/onboardingStore';
 
 const DAYS: DayOfWeek[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const SHIFT_LENGTHS = [1, 2, 3, 4, 5, 6];
@@ -18,7 +19,9 @@ export default function AvailabilityStep() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
   const isOrg = role === 'organizer';
-  const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>([]);
+  const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>(
+    getOnboardingState().availabilityDays as DayOfWeek[],
+  );
   const [shiftLength, setShiftLength] = useState(3);
 
   const toggleDay = (day: DayOfWeek) => {
@@ -30,6 +33,7 @@ export default function AvailabilityStep() {
   const accentColor = Colors.dark.textPrimary; // Changed from teal/purple to use high contrast
 
   const handleComplete = () => {
+    setOnboardingAvailability(selectedDays);
     router.push(`/onboarding/complete?role=${role || 'student'}`);
   };
 

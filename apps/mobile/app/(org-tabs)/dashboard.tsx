@@ -16,10 +16,18 @@ import { ApiOpportunityLike, toMobileOpportunity } from '../../lib/opportunity-a
 import { demoOrgStats } from '@hourly/shared';
 import { enterRise, enterRiseSnappy, enterFade, stagger } from '../../lib/motion';
 import { Feather } from '@expo/vector-icons';
-import { isDemoMode, isLiveMode } from '../../lib/dataMode';
+import { shouldUseDemoData, shouldUseLiveApi } from '../../lib/dataSource';
 import { useDemoStore } from '../../lib/demo/demoStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tabBarScrollContentPadding, tabScreenContentTopPadding } from '../../constants/tabBar';
+
+const emptyOrgStats = {
+  volunteersThisMonth: 0,
+  totalHours: 0,
+  retentionRate: 0,
+  avgRating: 0,
+  activeListings: 0,
+};
 
 export default function OrgDashboard() {
   const router = useRouter();
@@ -28,16 +36,16 @@ export default function OrgDashboard() {
   const demoAttendance = useDemoStore(s => s.attendance);
   const getPendingCount = useDemoStore(s => s.getPendingCountForOpportunity);
 
-  const statsQuery = trpc.org.getStats.useQuery(undefined, { enabled: isLiveMode() });
-  const opportunitiesQuery = trpc.org.listOpportunities.useQuery(undefined, { enabled: isLiveMode() });
-  const pendingLiveQuery = trpc.org.listPendingAttendance.useQuery(undefined, { enabled: isLiveMode() });
+  const statsQuery = trpc.org.getStats.useQuery(undefined, { enabled: shouldUseLiveApi() });
+  const opportunitiesQuery = trpc.org.listOpportunities.useQuery(undefined, { enabled: shouldUseLiveApi() });
+  const pendingLiveQuery = trpc.org.listPendingAttendance.useQuery(undefined, { enabled: shouldUseLiveApi() });
 
   const isLoadingRemote =
-    isLiveMode() && (statsQuery.isLoading || opportunitiesQuery.isLoading || pendingLiveQuery.isLoading);
+    shouldUseLiveApi() && (statsQuery.isLoading || opportunitiesQuery.isLoading || pendingLiveQuery.isLoading);
 
-  const stats = isDemoMode() ? demoOrgStats : (statsQuery.data ?? demoOrgStats);
+  const stats = shouldUseDemoData() ? demoOrgStats : (statsQuery.data ?? emptyOrgStats);
   const orgOpps = useMemo(() => {
-    if (isDemoMode()) {
+    if (shouldUseDemoData()) {
       return demoOpportunities.filter(o => o.orgId === 'org-001');
     }
     return (opportunitiesQuery.data ?? []).map(item =>
@@ -46,14 +54,14 @@ export default function OrgDashboard() {
   }, [demoOpportunities, opportunitiesQuery.data]);
 
   const pendingHoursVerification = useMemo(() => {
-    if (isLiveMode()) {
+    if (shouldUseLiveApi()) {
       return pendingLiveQuery.data?.length ?? 0;
     }
     const orgOppIds = new Set(orgOpps.map(o => o.id));
     return demoAttendance.filter(
       a => orgOppIds.has(a.opportunityId) && a.verificationStatus === 'PENDING',
     ).length;
-  }, [demoAttendance, isLiveMode, orgOpps, pendingLiveQuery.data?.length]);
+  }, [demoAttendance, shouldUseLiveApi, orgOpps, pendingLiveQuery.data?.length]);
 
   if (isLoadingRemote) {
     return (
@@ -118,7 +126,7 @@ export default function OrgDashboard() {
         />
       </Animated.View>
 
-      {(isDemoMode() || isLiveMode()) && (
+      {(shouldUseDemoData() || shouldUseLiveApi()) && (
         <Animated.View entering={enterRiseSnappy(240)}>
           <Pressable
             style={styles.verifyHoursCard}
@@ -169,7 +177,7 @@ export default function OrgDashboard() {
         {orgOpps.map((opp, index) => {
           const spotsLeft = opp.totalSpots - opp.filledSpots;
           const fillPercentage = (opp.filledSpots / opp.totalSpots) * 100;
-          const pendingApplicants = isDemoMode()
+          const pendingApplicants = shouldUseDemoData()
             ? getPendingCount(opp.id)
             : ((opp as { pendingApplicants?: number }).pendingApplicants ?? 0);
           
@@ -210,7 +218,7 @@ export default function OrgDashboard() {
                       {pendingApplicants} pending applicant{pendingApplicants !== 1 ? 's' : ''}
                     </Text>
                   </View>
-                  {isLiveMode() || isDemoMode() ? (
+                  {shouldUseLiveApi() || shouldUseDemoData() ? (
                     <Pressable
                       onPress={() => {
                         router.push(`/org/scanner?opportunityId=${opp.id}` as never);

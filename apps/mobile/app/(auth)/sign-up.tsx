@@ -1,6 +1,6 @@
 // Auth - Sign Up Screen
 import React, { useState } from 'react';
-import { View, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Pressable, ScrollView, Alert } from 'react-native';
+import { View, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Pressable, ScrollView } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Animated from 'react-native-reanimated';
@@ -9,22 +9,27 @@ import { Typography } from '../../constants/typography';
 import { PillButton } from '../../components/ui/PillButton';
 import { useSignUp } from '@clerk/expo';
 import { enterFade, enterRise } from '../../lib/motion';
+import { trpc } from '../../lib/trpc';
+import { useGoogleOAuth } from '../../lib/googleOAuth';
 
 export default function SignUpScreen() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role: string }>();
   const { signUp, fetchStatus } = useSignUp();
+  const syncMutation = trpc.user.syncFromClerk.useMutation();
+  const { signInWithGoogle } = useGoogleOAuth();
 
   const selectedRole = role === 'organizer' ? 'organizer' : 'student';
   const onboardingRoute = `/onboarding?role=${selectedRole}`;
-  
+
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
-  const isSubmitting = fetchStatus === 'fetching';
+  const [oauthBusy, setOauthBusy] = useState(false);
+  const isSubmitting = fetchStatus === 'fetching' || oauthBusy;
   const pendingVerification =
     signUp.status === 'missing_requirements' &&
     signUp.unverifiedFields.includes('email_address') &&
@@ -41,6 +46,16 @@ export default function SignUpScreen() {
       return first?.longMessage ?? first?.message;
     }
     return null;
+  };
+
+  const finishSignUp = async () => {
+    await syncMutation.mutateAsync({
+      role: selectedRole,
+      firstName: firstName.trim() || undefined,
+      lastName: lastName.trim() || undefined,
+      email: email.trim() || undefined,
+    });
+    router.replace(onboardingRoute as never);
   };
 
   const handleSignUp = async () => {
@@ -113,14 +128,32 @@ export default function SignUpScreen() {
       return;
     }
 
-    router.replace(onboardingRoute as never);
+    try {
+      await finishSignUp();
+    } catch (err: unknown) {
+      setError(getClerkError(err) ?? 'Account created, but profile sync failed.');
+    }
   };
 
-  const handleGoogleSignUp = () => {
-    Alert.alert(
-      'Google sign-up',
-      'Google sign-up is coming soon. Use email/password to create your account right now.',
-    );
+  const handleGoogleSignUp = async () => {
+    setError('');
+    setOauthBusy(true);
+    try {
+      const { createdSessionId, setActive, authSessionResult } = await signInWithGoogle({
+        role: selectedRole,
+      });
+      if (authSessionResult?.type === 'cancel' || authSessionResult?.type === 'dismiss') {
+        return;
+      }
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+      }
+      await finishSignUp();
+    } catch (err: unknown) {
+      setError(getClerkError(err) ?? 'Google sign-up failed');
+    } finally {
+      setOauthBusy(false);
+    }
   };
 
   const isStudent = selectedRole !== 'organizer';
@@ -174,14 +207,14 @@ export default function SignUpScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email</Text>
             <TextInput
-                style={styles.input}
-                placeholder="you@school.edu"
-                placeholderTextColor={Colors.dark.textTertiary}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
+              style={styles.input}
+              placeholder="you@school.edu"
+              placeholderTextColor={Colors.dark.textTertiary}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
           </View>
 
           <View style={styles.inputGroup}>
@@ -216,8 +249,14 @@ export default function SignUpScreen() {
                 <View style={styles.dividerLine} />
               </View>
 
-              <PillButton variant="default" fullWidth size="large" onPress={handleGoogleSignUp}>
-                Sign up with Google
+              <PillButton
+                variant="default"
+                fullWidth
+                size="large"
+                onPress={handleGoogleSignUp}
+                disabled={isSubmitting}
+              >
+                {oauthBusy ? 'Connecting to Google...' : 'Sign up with Google'}
               </PillButton>
 
               <PillButton
@@ -230,7 +269,14 @@ export default function SignUpScreen() {
               </PillButton>
 
               <Text style={styles.terms}>
-                By creating an account, you agree to our Terms of Service and Privacy Policy
+                By creating an account, you agree to our{' '}
+                <Text style={styles.termsLink} onPress={() => router.push('/settings/terms' as never)}>
+                  Terms of Service
+                </Text>{' '}
+                and{' '}
+                <Text style={styles.termsLink} onPress={() => router.push('/settings/privacy' as never)}>
+                  Privacy Policy
+                </Text>
               </Text>
             </>
           ) : (
@@ -334,7 +380,7 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: Typography.sub.fontFamily,
     fontSize: Typography.sub.fontSize,
-    fontWeight: Typography.sub.fontWeight as any,
+    fontWeight: Typography.sub.fontWeight as '600',
     letterSpacing: Typography.sub.letterSpacing,
     textTransform: 'uppercase',
     color: Colors.dark.textSecondary,
@@ -384,5 +430,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
     marginTop: 16,
+  },
+  termsLink: {
+    color: Colors.dark.textSecondary,
+    textDecorationLine: 'underline',
   },
 });

@@ -1,8 +1,8 @@
 // Active Shift - timer and progress during shift
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Text } from '@/components/Themed';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
 import { Card } from '../../components/ui/Card';
@@ -10,24 +10,71 @@ import { PillButton } from '../../components/ui/PillButton';
 import { useDemoStore } from '../../lib/demo/demoStore';
 import { DEMO_STUDENT_ID } from '@hourly/shared';
 import { enterFade, enterRise, MOTION } from '../../lib/motion';
+import { shouldUseDemoData, shouldUseLiveApi } from '../../lib/dataSource';
+import { trpc } from '../../lib/trpc';
+import { ApiOpportunityLike, toMobileOpportunity } from '../../lib/opportunity-adapter';
 
 export default function ActiveShiftScreen() {
   const router = useRouter();
+  const { opportunityId: opportunityIdParam } = useLocalSearchParams<{ opportunityId?: string }>();
+  const opportunityId = Array.isArray(opportunityIdParam) ? opportunityIdParam[0] : opportunityIdParam;
+  const useDemo = shouldUseDemoData();
+
   const applications = useDemoStore(s => s.applications);
   const opportunities = useDemoStore(s => s.opportunities);
+  const demoAttendance = useDemoStore(s => s.attendance);
   const activeAttendanceId = useDemoStore(s => s.activeAttendanceId);
   const completeStudentCheckOut = useDemoStore(s => s.completeStudentCheckOut);
-  const app =
+
+  const attendanceQuery = trpc.user.getAttendance.useQuery(undefined, { enabled: shouldUseLiveApi() });
+  const checkOutMutation = trpc.attendance.checkOut.useMutation();
+  const utils = trpc.useUtils();
+
+  const liveRecord = useMemo(() => {
+    if (useDemo) {
+      if (activeAttendanceId) {
+        return demoAttendance.find(a => a.id === activeAttendanceId) ?? null;
+      }
+      return null;
+    }
+    const records = attendanceQuery.data ?? [];
+    if (opportunityId) {
+      return records.find(r => r.opportunityId === opportunityId && r.checkinTime && !r.checkoutTime) ?? null;
+    }
+    return records.find(r => r.checkinTime && !r.checkoutTime) ?? null;
+  }, [useDemo, activeAttendanceId, demoAttendance, attendanceQuery.data, opportunityId]);
+
+  const liveOppQuery = trpc.opportunity.getById.useQuery(
+    { id: liveRecord?.opportunityId ?? opportunityId ?? '' },
+    { enabled: shouldUseLiveApi() && Boolean(liveRecord?.opportunityId ?? opportunityId) },
+  );
+
+  const demoApp =
     applications.find(a => a.status === 'APPROVED' && a.studentId === DEMO_STUDENT_ID) ?? applications[0];
-  const opp = opportunities.find(o => o.id === app?.opportunityId) ?? opportunities[0]!;
-  const [elapsed, setElapsed] = useState(4980); // Mock: 1h 23m in seconds
-  const totalDuration = Math.max(opp.durationHours, 0.25) * 3600;
+  const resolvedOppId = liveRecord?.opportunityId ?? opportunityId ?? demoApp?.opportunityId;
+
+  const opp = useMemo(() => {
+    if (useDemo) {
+      return opportunities.find(o => o.id === resolvedOppId) ?? opportunities[0] ?? null;
+    }
+    if (liveOppQuery.data) {
+      return toMobileOpportunity(liveOppQuery.data as ApiOpportunityLike);
+    }
+    return null;
+  }, [useDemo, opportunities, resolvedOppId, liveOppQuery.data]);
+
+  const checkinMs = liveRecord?.checkinTime ? new Date(liveRecord.checkinTime).getTime() : Date.now();
+  const totalDuration = Math.max(opp?.durationHours ?? 1, 0.25) * 3600;
+  const [elapsed, setElapsed] = useState(() =>
+    Math.max(0, Math.floor((Date.now() - checkinMs) / 1000)),
+  );
   const progress = useSharedValue(elapsed / totalDuration);
+  const [checkingOut, setCheckingOut] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setElapsed(prev => {
-        const next = prev + 1;
+      setElapsed(() => {
+        const next = Math.max(0, Math.floor((Date.now() - checkinMs) / 1000));
         progress.value = withTiming(next / totalDuration, {
           duration: 850,
           easing: MOTION.easeInOut,
@@ -36,7 +83,7 @@ export default function ActiveShiftScreen() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [progress, totalDuration]);
+  }, [progress, totalDuration, checkinMs]);
 
   const progressStyle = useAnimatedStyle(() => ({
     width: `${Math.min(progress.value * 100, 100)}%`,
@@ -49,13 +96,52 @@ export default function ActiveShiftScreen() {
     return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleCheckOut = () => {
-    const hoursLogged = Math.max(0.5, Math.round((elapsed / 3600) * 10) / 10);
-    if (activeAttendanceId) {
-      completeStudentCheckOut(activeAttendanceId, hoursLogged);
+  const handleCheckOut = async () => {
+    if (!opp) {
+      return;
     }
-    router.replace('/(student-tabs)/portfolio');
+    setCheckingOut(true);
+    try {
+      if (useDemo) {
+        const hoursLogged = Math.max(0.5, Math.round((elapsed / 3600) * 10) / 10);
+        if (activeAttendanceId) {
+          completeStudentCheckOut(activeAttendanceId, hoursLogged);
+        }
+      } else if (liveRecord?.id) {
+        await checkOutMutation.mutateAsync({ attendanceRecordId: liveRecord.id });
+        await utils.user.getAttendance.invalidate();
+        await utils.user.getPortfolioStats.invalidate();
+      }
+      router.replace('/(student-tabs)/portfolio');
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as Error).message)
+          : 'Check-out failed';
+      Alert.alert('Check-out failed', message);
+    } finally {
+      setCheckingOut(false);
+    }
   };
+
+  if (shouldUseLiveApi() && (attendanceQuery.isLoading || liveOppQuery.isLoading)) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color={Colors.teal} />
+      </View>
+    );
+  }
+
+  if (!opp) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text style={styles.missing}>No active shift found.</Text>
+        <PillButton variant="primary" accent="teal" onPress={() => router.back()}>
+          Go back
+        </PillButton>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -95,8 +181,14 @@ export default function ActiveShiftScreen() {
       </Animated.View>
 
       <Animated.View style={styles.actions} entering={enterRise(280)}>
-        <PillButton variant="default" fullWidth size="large" onPress={handleCheckOut}>
-          Check out early
+        <PillButton
+          variant="default"
+          fullWidth
+          size="large"
+          onPress={handleCheckOut}
+          disabled={checkingOut || checkOutMutation.isPending}
+        >
+          {checkingOut || checkOutMutation.isPending ? 'Checking out…' : 'Check out early'}
         </PillButton>
       </Animated.View>
     </View>
@@ -109,6 +201,16 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.base,
     paddingTop: 80,
     paddingHorizontal: 24,
+  },
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  missing: {
+    color: Colors.dark.textSecondary,
+    textAlign: 'center',
+    marginBottom: 8,
   },
   header: {
     flexDirection: 'row',

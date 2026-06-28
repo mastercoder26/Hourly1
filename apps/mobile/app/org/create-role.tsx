@@ -11,7 +11,7 @@ import { PillButton } from '../../components/ui/PillButton';
 import { CauseTag } from '../../types';
 import { enterRise } from '../../lib/motion';
 import { trpc } from '../../lib/trpc';
-import { isDemoMode, isLiveMode } from '../../lib/dataMode';
+import { shouldUseDemoData, shouldUseLiveApi } from '../../lib/dataSource';
 import { useDemoStore } from '../../lib/demo/demoStore';
 
 const CAUSES: CauseTag[] = ['Environment', 'Education', 'Food', 'Animals', 'Seniors', 'Youth', 'Health', 'Arts'];
@@ -100,7 +100,7 @@ export default function CreateRoleScreen() {
 
     const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
 
-    if (isDemoMode()) {
+    if (shouldUseDemoData()) {
       createOpportunityDemo({
         title: title.trim(),
         description: `${title.trim()} — posted from Hourly demo.`,
@@ -124,7 +124,7 @@ export default function CreateRoleScreen() {
       return;
     }
 
-    if (!isLiveMode()) {
+    if (!shouldUseLiveApi()) {
       router.back();
       return;
     }
@@ -396,7 +396,7 @@ export default function CreateRoleScreen() {
               'Continue'
             ) : createMutation.isPending ? (
               <ActivityIndicator color="#fff" />
-            ) : isLiveMode() ? (
+            ) : shouldUseLiveApi() ? (
               'Publish'
             ) : (
               'Publish'

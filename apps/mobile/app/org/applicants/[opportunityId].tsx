@@ -12,7 +12,7 @@ import { PillButton } from '../../../components/ui/PillButton';
 import { ScreenHeader } from '../../../components/ui/ScreenHeader';
 import { getOpportunityById } from '@hourly/shared';
 import { useDemoStore } from '../../../lib/demo/demoStore';
-import { isDemoMode, isLiveMode } from '../../../lib/dataMode';
+import { shouldUseDemoData, shouldUseLiveApi } from '../../../lib/dataSource';
 import { trpc } from '../../../lib/trpc';
 
 type ApplicantRow = {
@@ -40,7 +40,7 @@ export default function ApplicantManagement() {
 
   const liveApplicantsQuery = trpc.org.getApplicants.useQuery(
     { opportunityId: oppId ?? '' },
-    { enabled: isLiveMode() && Boolean(oppId) },
+    { enabled: shouldUseLiveApi() && Boolean(oppId) },
   );
 
   const reviewMutation = trpc.org.reviewApplication.useMutation({
@@ -50,7 +50,7 @@ export default function ApplicantManagement() {
   });
 
   const applicants: ApplicantRow[] = useMemo(() => {
-    if (isLiveMode() && liveApplicantsQuery.data) {
+    if (shouldUseLiveApi() && liveApplicantsQuery.data) {
       return liveApplicantsQuery.data.map(a => {
         const parts = a.studentName.split(' ');
         return {
@@ -81,12 +81,12 @@ export default function ApplicantManagement() {
     (applicationId: string, decision: 'APPROVED' | 'DECLINED' | 'WAITLISTED') => {
       if (!oppId) return;
 
-      if (isDemoMode()) {
+      if (shouldUseDemoData()) {
         setApplicationStatus(applicationId, decision === 'DECLINED' ? 'DECLINED' : decision);
         return;
       }
 
-      if (isLiveMode()) {
+      if (shouldUseLiveApi()) {
         reviewMutation.mutate({ applicationId, decision: decision === 'DECLINED' ? 'DECLINED' : decision });
       }
     },
@@ -100,7 +100,7 @@ export default function ApplicantManagement() {
     DECLINED: Colors.error,
   };
 
-  if (isLiveMode() && liveApplicantsQuery.isLoading) {
+  if (shouldUseLiveApi() && liveApplicantsQuery.isLoading) {
     return (
       <View style={[styles.container, styles.center]}>
         <ActivityIndicator size="large" color={Colors.purple} />

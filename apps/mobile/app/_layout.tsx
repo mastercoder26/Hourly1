@@ -8,6 +8,7 @@ import { StyleSheet } from 'react-native';
 import { Colors } from '@/constants/colors';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
+import * as WebBrowser from 'expo-web-browser';
 import { TRPCProvider } from '@/lib/TRPCProvider';
 import { ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
@@ -16,6 +17,7 @@ import { isDemoMode, isLiveMode } from '@/lib/dataMode';
 import { isClerkConfigured, getClerkPublishableKey } from '@/lib/clerkConfig';
 
 SplashScreen.preventAutoHideAsync();
+WebBrowser.maybeCompleteAuthSession();
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({

@@ -15,7 +15,7 @@ import { Typography } from '../../../constants/typography';
 import { Card } from '../../../components/ui/Card';
 import { PillButton } from '../../../components/ui/PillButton';
 import { useDemoStore } from '../../../lib/demo/demoStore';
-import { isDemoMode, isLiveMode } from '../../../lib/dataMode';
+import { shouldUseDemoData, shouldUseLiveApi } from '../../../lib/dataSource';
 import { trpc } from '../../../lib/trpc';
 
 function volunteerName(studentId: string): string {
@@ -45,7 +45,7 @@ export default function VerifyHoursListScreen() {
   const attendance = useDemoStore(s => s.attendance);
 
   const livePendingQuery = trpc.org.listPendingAttendance.useQuery(undefined, {
-    enabled: isLiveMode(),
+    enabled: shouldUseLiveApi(),
   });
 
   const orgOppIds = useMemo(() => {
@@ -80,8 +80,8 @@ export default function VerifyHoursListScreen() {
     }));
   }, [livePendingQuery.data]);
 
-  const rows = isLiveMode() ? liveRows : demoPendingRows;
-  const loading = isLiveMode() && livePendingQuery.isLoading;
+  const rows = shouldUseLiveApi() ? liveRows : demoPendingRows;
+  const loading = shouldUseLiveApi() && livePendingQuery.isLoading;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -161,7 +161,7 @@ export default function VerifyHoursListScreen() {
           );
         })}
 
-      {isDemoMode() && (
+      {shouldUseDemoData() && (
         <Card style={styles.hintCard}>
           <Text style={styles.hintTitle}>Need to approve a new volunteer?</Text>
           <Text style={styles.hintBody}>

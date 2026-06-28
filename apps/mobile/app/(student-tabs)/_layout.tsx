@@ -180,9 +180,10 @@ function StudentTabsWebShell({ children }: { children: React.ReactNode }) {
 function StudentTabsLayoutWithClerk() {
   const { width } = useWindowDimensions();
   const { isLoaded, isSignedIn } = useAuth();
-  const { demoSignedIn } = useDemoAuth();
+  const { demoSignedIn, isPreview } = useDemoAuth();
 
-  if (isClerkConfigured() && isLoaded && !isSignedIn && !demoSignedIn) {
+  const previewGuest = demoSignedIn && isPreview;
+  if (isClerkConfigured() && isLoaded && !isSignedIn && !demoSignedIn && !previewGuest) {
     return <Redirect href="/(auth)/sign-in" />;
   }
 

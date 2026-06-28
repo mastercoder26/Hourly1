@@ -133,7 +133,7 @@ function WelcomeWithClerk() {
   const router = useRouter();
   const { isLoaded: authLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
-  const { exitDemo } = useDemoAuth();
+  const { exitDemo, enterDemo } = useDemoAuth();
 
   useEffect(() => {
     if (!authLoaded || !isSignedIn) {
@@ -159,6 +159,28 @@ function WelcomeWithClerk() {
         <>
           <PillButton variant="primary" fullWidth size="large" onPress={() => router.push('/role-selection')}>
             Get Started
+          </PillButton>
+          <PillButton
+            variant="secondary"
+            fullWidth
+            size="large"
+            onPress={() => {
+              enterDemo('student', { preview: true });
+              router.dismissTo('/(student-tabs)/feed');
+            }}
+          >
+            Explore as student
+          </PillButton>
+          <PillButton
+            variant="secondary"
+            fullWidth
+            size="large"
+            onPress={() => {
+              enterDemo('organizer', { preview: true });
+              router.replace('/(org-tabs)/dashboard');
+            }}
+          >
+            Explore as organizer
           </PillButton>
           <PillButton variant="secondary" fullWidth size="large" onPress={() => router.push('/(auth)/sign-up?role=student')}>
             Create Account

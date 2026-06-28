@@ -9,6 +9,7 @@ import {
   Platform,
   TextInput,
   Alert,
+  Pressable,
 } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,6 +26,16 @@ import Constants from 'expo-constants';
 const PRIVACY_URL =
   (Constants.expoConfig?.extra as { privacyPolicyUrl?: string } | undefined)?.privacyPolicyUrl ??
   'https://hourly.app/privacy';
+
+const SUPPORT_EMAIL = 'support@hourly.app';
+
+async function copySupportEmail(): Promise<boolean> {
+  if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+    await navigator.clipboard.writeText(SUPPORT_EMAIL);
+    return true;
+  }
+  return false;
+}
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -134,10 +145,36 @@ export default function SettingsScreen() {
 
         {key === 'help' && (
           <Card style={styles.card}>
-            <Text style={styles.para}>For account help, email support@hourly.app.</Text>
-            <PillButton variant="secondary" fullWidth onPress={() => Linking.openURL('mailto:support@hourly.app')}>
-              Email support
-            </PillButton>
+            <Text style={styles.para}>
+              For account help, email us at{' '}
+              <Text style={styles.email}>{SUPPORT_EMAIL}</Text>
+            </Text>
+            <Pressable
+              onPress={async () => {
+                const copied = await copySupportEmail();
+                if (copied) {
+                  Alert.alert('Copied', `${SUPPORT_EMAIL} copied to clipboard.`);
+                  return;
+                }
+                if (Platform.OS === 'web') {
+                  Alert.alert('Support email', SUPPORT_EMAIL);
+                  return;
+                }
+                Linking.openURL(`mailto:${SUPPORT_EMAIL}`);
+              }}
+              style={styles.copyRow}
+            >
+              <Text style={styles.copyLabel}>Copy email address</Text>
+            </Pressable>
+            {Platform.OS !== 'web' ? (
+              <PillButton
+                variant="secondary"
+                fullWidth
+                onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
+              >
+                Email support
+              </PillButton>
+            ) : null}
           </Card>
         )}
 
@@ -324,6 +361,15 @@ const styles = StyleSheet.create({
   rowLabel: { flex: 1, fontSize: 15, color: Colors.dark.textPrimary },
   hint: { ...Typography.bodySmall, color: Colors.dark.textSecondary },
   para: { ...Typography.body, color: Colors.dark.textSecondary },
+  email: { color: Colors.dark.textPrimary, fontWeight: '600' },
+  copyRow: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.element,
+    alignItems: 'center',
+  },
+  copyLabel: { fontSize: 15, fontWeight: '600', color: Colors.dark.textPrimary },
   label: { ...Typography.header },
   input: {
     backgroundColor: Colors.dark.element,

@@ -1,6 +1,6 @@
-// Onboarding Complete - animated success screen
-import React, { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+// Onboarding Complete - sync profile then navigate
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Animated, {
@@ -14,17 +14,29 @@ import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { PillButton } from '../../components/ui/PillButton';
 import { enterRise, MOTION } from '../../lib/motion';
+import { trpc } from '../../lib/trpc';
+import {
+  getOnboardingState,
+  gradeToApiValue,
+  resetOnboardingState,
+} from '../../lib/onboardingStore';
 
 export default function OnboardingComplete() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
   const isOrg = role === 'organizer';
-  const accentColor = Colors.dark.textPrimary; // Premium black and white
+  const accentColor = Colors.dark.textPrimary;
+  const [syncError, setSyncError] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const [synced, setSynced] = useState(false);
+
+  const syncMutation = trpc.user.syncFromClerk.useMutation();
+  const updateProfileMutation = trpc.user.updateProfile.useMutation();
 
   const checkScale = useSharedValue(0.92);
   const textOpacity = useSharedValue(0);
   const textTransY = useSharedValue(24);
-  
+
   useEffect(() => {
     checkScale.value = withDelay(
       120,
@@ -46,7 +58,7 @@ export default function OnboardingComplete() {
         mass: MOTION.spring.mass,
       }),
     );
-  }, []);
+  }, [checkScale, textOpacity, textTransY]);
 
   const checkStyle = useAnimatedStyle(() => ({
     transform: [{ scale: checkScale.value }],
@@ -57,7 +69,46 @@ export default function OnboardingComplete() {
     transform: [{ translateY: textTransY.value }],
   }));
 
-  const handleContinue = () => {
+  const persistOnboarding = async () => {
+    if (synced || syncing) {
+      return true;
+    }
+    setSyncing(true);
+    setSyncError('');
+    const onboarding = getOnboardingState();
+    const selectedRole = isOrg ? 'organizer' : 'student';
+
+    try {
+      await syncMutation.mutateAsync({ role: selectedRole });
+      if (!isOrg) {
+        await updateProfileMutation.mutateAsync({
+          school: (onboarding.school?.name || onboarding.schoolQuery) || undefined,
+          schoolId: onboarding.schoolId ?? undefined,
+          grade: gradeToApiValue(onboarding.grade),
+          interests: onboarding.interests,
+          availabilityDays: onboarding.availabilityDays,
+        });
+      }
+      resetOnboardingState();
+      setSynced(true);
+      return true;
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as Error).message)
+          : 'Could not save your profile.';
+      setSyncError(message);
+      return false;
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleContinue = async () => {
+    const ok = await persistOnboarding();
+    if (!ok) {
+      return;
+    }
     if (isOrg) {
       router.dismissTo('/(org-tabs)/dashboard');
     } else {
@@ -77,8 +128,9 @@ export default function OnboardingComplete() {
           <Text style={styles.subtitle}>
             {isOrg
               ? 'Your dashboard is ready. Start posting volunteer opportunities.'
-              : 'Let\'s find some amazing volunteer opportunities for you.'}
+              : "Let's find some amazing volunteer opportunities for you."}
           </Text>
+          {syncError ? <Text style={styles.errorText}>{syncError}</Text> : null}
         </Animated.View>
       </View>
 
@@ -88,8 +140,18 @@ export default function OnboardingComplete() {
           fullWidth
           size="large"
           onPress={handleContinue}
+          disabled={syncing}
         >
-          {isOrg ? 'Go to dashboard' : 'Explore opportunities'}
+          {syncing ? (
+            <View style={styles.buttonRow}>
+              <ActivityIndicator color={Colors.dark.base} />
+              <Text style={styles.buttonText}>Saving profile…</Text>
+            </View>
+          ) : isOrg ? (
+            'Go to dashboard'
+          ) : (
+            'Explore opportunities'
+          )}
         </PillButton>
       </Animated.View>
     </View>
@@ -111,7 +173,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    borderWidth: 2, // slightly thinner for premium look
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 32,
@@ -120,7 +182,7 @@ const styles = StyleSheet.create({
   checkmark: {
     fontSize: 48,
     color: Colors.dark.textPrimary,
-    fontWeight: '300', // Lightweight look
+    fontWeight: '300',
   },
   title: {
     fontFamily: Typography.valueHuge.fontFamily,
@@ -137,8 +199,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
   },
+  errorText: {
+    marginTop: 16,
+    fontSize: 14,
+    color: Colors.error,
+    textAlign: 'center',
+  },
   footer: {
     paddingHorizontal: 24,
     paddingBottom: 40,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  buttonText: {
+    color: Colors.dark.base,
+    fontWeight: '600',
   },
 });

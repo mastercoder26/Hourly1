@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/Themed';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated from 'react-native-reanimated';
 import QRCode from 'react-native-qrcode-svg';
 import * as Location from 'expo-location';
@@ -13,49 +13,68 @@ import { enterFade, enterRise } from '../../lib/motion';
 import { useDemoStore } from '../../lib/demo/demoStore';
 import { DEMO_STUDENT_ID } from '@hourly/shared';
 import { trpc } from '../../lib/trpc';
-import { isDemoMode, isLiveMode } from '../../lib/dataMode';
+import { shouldUseDemoData, shouldUseLiveApi } from '../../lib/dataSource';
 import { ApiOpportunityLike, toMobileOpportunity } from '../../lib/opportunity-adapter';
 
 export default function CheckInScreen() {
   const router = useRouter();
+  const { opportunityId: opportunityIdParam } = useLocalSearchParams<{ opportunityId?: string }>();
+  const opportunityId = Array.isArray(opportunityIdParam) ? opportunityIdParam[0] : opportunityIdParam;
+  const useDemo = shouldUseDemoData();
+
   const applications = useDemoStore(s => s.applications);
   const opportunities = useDemoStore(s => s.opportunities);
   const startStudentCheckIn = useDemoStore(s => s.startStudentCheckIn);
 
-  const listMineQuery = trpc.application.listMine.useQuery(undefined, { enabled: isLiveMode() });
+  const listMineQuery = trpc.application.listMine.useQuery(undefined, { enabled: shouldUseLiveApi() });
   const gpsCheckIn = trpc.attendance.checkInByGps.useMutation();
+  const checkInSimple = trpc.attendance.checkInSimple.useMutation();
+  const utils = trpc.useUtils();
 
   const liveApp = useMemo(() => {
-    if (!isLiveMode() || !listMineQuery.data) return undefined;
+    if (!shouldUseLiveApi() || !listMineQuery.data) return undefined;
+    if (opportunityId) {
+      return listMineQuery.data.find(a => a.opportunityId === opportunityId && a.status === 'APPROVED');
+    }
     const approved = listMineQuery.data.find(a => a.status === 'APPROVED');
     return approved ?? listMineQuery.data[0];
-  }, [listMineQuery.data]);
+  }, [listMineQuery.data, opportunityId]);
 
   const liveOppQuery = trpc.opportunity.getById.useQuery(
-    { id: liveApp?.opportunityId ?? '' },
-    { enabled: isLiveMode() && Boolean(liveApp?.opportunityId) },
+    { id: liveApp?.opportunityId ?? opportunityId ?? '' },
+    { enabled: shouldUseLiveApi() && Boolean(liveApp?.opportunityId ?? opportunityId) },
   );
 
   const demoApp = useMemo(
-    () =>
-      applications.find(a => a.status === 'APPROVED' && a.studentId === DEMO_STUDENT_ID) ??
-      applications[0],
-    [applications],
+    () => {
+      if (opportunityId) {
+        return (
+          applications.find(a => a.opportunityId === opportunityId && a.status === 'APPROVED') ??
+          applications.find(a => a.opportunityId === opportunityId)
+        );
+      }
+      return (
+        applications.find(a => a.status === 'APPROVED' && a.studentId === DEMO_STUDENT_ID) ??
+        applications[0]
+      );
+    },
+    [applications, opportunityId],
   );
 
-  const app = isLiveMode() ? liveApp : demoApp;
+  const app = shouldUseLiveApi() ? liveApp : demoApp;
 
   const opp = useMemo(() => {
-    if (isLiveMode() && liveOppQuery.data) {
+    if (shouldUseLiveApi() && liveOppQuery.data) {
       return toMobileOpportunity(liveOppQuery.data as ApiOpportunityLike);
     }
-    return opportunities.find(o => o.id === app?.opportunityId);
-  }, [app?.opportunityId, liveOppQuery.data, opportunities]);
+    return opportunities.find(o => o.id === (app?.opportunityId ?? opportunityId));
+  }, [app?.opportunityId, liveOppQuery.data, opportunities, opportunityId]);
 
   const [locBusy, setLocBusy] = useState(false);
+  const [checkInBusy, setCheckInBusy] = useState(false);
 
   const onGpsCheckIn = useCallback(async () => {
-    if (!isLiveMode() || !app?.opportunityId) {
+    if (!shouldUseLiveApi() || !app?.opportunityId) {
       Alert.alert('GPS check-in', 'Available in live mode with an active application.');
       return;
     }
@@ -72,6 +91,7 @@ export default function CheckInScreen() {
         lat: pos.coords.latitude,
         lng: pos.coords.longitude,
       });
+      await utils.user.getAttendance.invalidate();
       Alert.alert('Checked in', 'Your GPS location matched the event. Coordinator can still scan your QR if needed.');
     } catch (e: unknown) {
       const msg = e && typeof e === 'object' && 'message' in e ? String((e as Error).message) : 'Unknown error';
@@ -79,9 +99,32 @@ export default function CheckInScreen() {
     } finally {
       setLocBusy(false);
     }
-  }, [app?.opportunityId, gpsCheckIn]);
+  }, [app?.opportunityId, gpsCheckIn, utils.user.getAttendance]);
 
-  if (isLiveMode() && listMineQuery.isLoading) {
+  const handleContinue = async () => {
+    if (useDemo && app) {
+      startStudentCheckIn(app.id);
+      router.replace(`/shift/active?opportunityId=${app.opportunityId}` as never);
+      return;
+    }
+    if (!app?.opportunityId) {
+      router.back();
+      return;
+    }
+    setCheckInBusy(true);
+    try {
+      await checkInSimple.mutateAsync({ opportunityId: app.opportunityId });
+      await utils.user.getAttendance.invalidate();
+      router.replace(`/shift/active?opportunityId=${app.opportunityId}` as never);
+    } catch (e: unknown) {
+      const msg = e && typeof e === 'object' && 'message' in e ? String((e as Error).message) : 'Check-in failed';
+      Alert.alert('Check-in failed', msg);
+    } finally {
+      setCheckInBusy(false);
+    }
+  };
+
+  if (shouldUseLiveApi() && listMineQuery.isLoading) {
     return (
       <View style={[styles.container, styles.center]}>
         <ActivityIndicator size="large" color={Colors.teal} />
@@ -123,7 +166,7 @@ export default function CheckInScreen() {
           <Text style={styles.qrHint}>Your QR code works offline</Text>
         </Card>
 
-        {isLiveMode() && (
+        {shouldUseLiveApi() && (
           <PillButton
             variant="primary"
             accent="teal"
@@ -173,14 +216,10 @@ export default function CheckInScreen() {
           accent="teal"
           fullWidth
           size="large"
-          onPress={() => {
-            if (isDemoMode() && app) {
-              startStudentCheckIn(app.id);
-            }
-            router.replace('/shift/active');
-          }}
+          onPress={handleContinue}
+          disabled={checkInBusy || checkInSimple.isPending}
         >
-          {isDemoMode() ? 'Simulate check-in →' : 'Done'}
+          {useDemo ? 'Simulate check-in →' : checkInBusy ? 'Checking in…' : 'Start shift'}
         </PillButton>
       </Animated.View>
     </View>

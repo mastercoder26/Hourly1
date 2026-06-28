@@ -92,6 +92,7 @@ export async function ensureOrgProfileForOrganizer(userId: string): Promise<OrgP
     slug = `${baseSlug}-${attempt}`;
   }
 
+  const now = new Date();
   return prisma.orgProfile.create({
     data: {
       userId: user.id,
@@ -99,6 +100,8 @@ export async function ensureOrgProfileForOrganizer(userId: string): Promise<OrgP
       slug,
       causeTags: [],
       mission: null,
+      isVerified: true,
+      verificationApprovedAt: now,
     },
   });
 }
