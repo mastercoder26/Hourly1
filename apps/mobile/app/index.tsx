@@ -108,9 +108,17 @@ function WelcomeDemoBare() {
             variant="ghost"
             fullWidth
             size="medium"
-            onPress={() => router.push('/demo-auth')}
+            onPress={() => router.push('/demo-auth?mode=sign-up')}
           >
-            Create account / Sign in
+            Create account
+          </PillButton>
+          <PillButton
+            variant="ghost"
+            fullWidth
+            size="medium"
+            onPress={() => router.push('/demo-auth?mode=sign-in')}
+          >
+            Sign In
           </PillButton>
           <PillButton variant="ghost" fullWidth size="medium" onPress={() => router.push('/admin/login' as never)}>
             Admin Portal
@@ -151,6 +159,9 @@ function WelcomeWithClerk() {
         <>
           <PillButton variant="primary" fullWidth size="large" onPress={() => router.push('/role-selection')}>
             Get Started
+          </PillButton>
+          <PillButton variant="secondary" fullWidth size="large" onPress={() => router.push('/(auth)/sign-up?role=student')}>
+            Create Account
           </PillButton>
           <PillButton variant="secondary" fullWidth size="large" onPress={() => router.push('/(auth)/sign-in')}>
             Sign In
