@@ -4,10 +4,10 @@ export type SchoolSearchResult = {
   id: string;
   ncesId?: string | null;
   name: string;
-  districtName: string | null;
-  city: string;
-  state: string;
-  zipCode: string;
+  districtName?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zipCode?: string | null;
 };
 
 type OnboardingState = {
