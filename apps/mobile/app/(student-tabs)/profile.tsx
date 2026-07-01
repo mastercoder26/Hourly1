@@ -36,7 +36,7 @@ function ProfileScreenInner({
 }: ProfileAuthState) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { switchRole, exitDemo, demoSignedIn, isPreview } = useDemoAuth();
+  const { switchRole, demoSignedIn, isPreview } = useDemoAuth();
   const browsingAsGuest = Boolean(
     demoSignedIn && isClerkConfigured() && authLoaded && !isSignedIn,
   );
@@ -165,19 +165,6 @@ function ProfileScreenInner({
           }}
         >
           Switch to organizer view
-        </PillButton>
-      ) : null}
-      {showLocalSessionControls ? (
-        <PillButton
-          variant="ghost"
-          fullWidth
-          size="medium"
-          onPress={() => {
-            exitDemo();
-            router.dismissTo('/');
-          }}
-        >
-          {browsingAsGuest ? 'Exit guest mode' : 'Sign out'}
         </PillButton>
       ) : (
         <ClerkSignOutButton />

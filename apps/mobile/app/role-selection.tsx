@@ -10,6 +10,7 @@ import { enterFade, enterRise } from '../lib/motion';
 import { isDemoMode } from '../lib/dataMode';
 import { isClerkConfigured } from '../lib/clerkConfig';
 import { useDemoAuth } from '../context/DemoAuthContext';
+import { exitToWelcome } from '../lib/navigation';
 
 export default function RoleSelectionScreen() {
   const router = useRouter();
@@ -22,8 +23,10 @@ export default function RoleSelectionScreen() {
     <View style={styles.container}>
       <Animated.View style={styles.header} entering={enterFade(40)}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => exitToWelcome(router)}
           style={({ pressed }) => [styles.backButton, pressed && styles.pressablePressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Back to welcome"
         >
           <Text style={styles.backText}>← Back</Text>
         </Pressable>

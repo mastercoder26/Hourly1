@@ -11,6 +11,7 @@ import { useSignIn } from '@clerk/expo';
 import { enterFade, enterRise } from '../../lib/motion';
 import { trpc } from '../../lib/trpc';
 import { useGoogleOAuth } from '../../lib/googleOAuth';
+import { exitToWelcome } from '../../lib/navigation';
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -120,8 +121,11 @@ export default function SignInScreen() {
       <View style={styles.content}>
         <Animated.View entering={enterFade(40)}>
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => exitToWelcome(router)}
             style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            hitSlop={8}
           >
             <Text style={styles.closeText}>✕</Text>
           </Pressable>

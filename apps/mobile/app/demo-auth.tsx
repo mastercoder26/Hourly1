@@ -8,6 +8,7 @@ import { Spacing } from '@/constants/spacing';
 import { PillButton } from '@/components/ui/PillButton';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useDemoAuth, type DemoRole } from '@/context/DemoAuthContext';
+import { exitToWelcome } from '@/lib/navigation';
 import {
   isValidEmail,
   isValidPassword,
@@ -78,7 +79,7 @@ export default function DemoAuthScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.top}>
-        <ScreenHeader variant="back" accent="teal" onPress={() => router.back()} />
+        <ScreenHeader variant="close" accent="teal" onPress={() => exitToWelcome(router)} />
         <Text style={styles.title}>{mode === 'sign-in' ? 'Sign in' : 'Create account'}</Text>
         <Text style={styles.subtitle}>Demo mode — saved only for this session</Text>
       </View>

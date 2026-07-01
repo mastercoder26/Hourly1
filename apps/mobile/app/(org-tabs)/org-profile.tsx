@@ -31,7 +31,7 @@ type OrgProfileAuthState = { authLoaded: boolean; isSignedIn: boolean };
 function OrgProfileScreenInner({ authLoaded, isSignedIn }: OrgProfileAuthState) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { switchRole, exitDemo, demoSignedIn, isPreview } = useDemoAuth();
+  const { switchRole, demoSignedIn, isPreview } = useDemoAuth();
   const orgProfile = useDemoStore(s => s.orgProfile);
   const org = orgProfile;
   const demoBare = isDemoMode() && !isClerkConfigured();
@@ -97,19 +97,6 @@ function OrgProfileScreenInner({ authLoaded, isSignedIn }: OrgProfileAuthState) 
           }}
         >
           Switch to student view
-        </PillButton>
-      ) : null}
-      {showLocalSessionControls ? (
-        <PillButton
-          variant="ghost"
-          fullWidth
-          size="medium"
-          onPress={() => {
-            exitDemo();
-            router.dismissTo('/');
-          }}
-        >
-          {browsingAsGuest ? 'Exit guest mode' : 'Sign out'}
         </PillButton>
       ) : (
         <ClerkSignOutButton />

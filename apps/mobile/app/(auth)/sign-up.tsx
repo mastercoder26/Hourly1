@@ -11,6 +11,7 @@ import { useSignUp } from '@clerk/expo';
 import { enterFade, enterRise } from '../../lib/motion';
 import { trpc } from '../../lib/trpc';
 import { useGoogleOAuth } from '../../lib/googleOAuth';
+import { exitToWelcome } from '../../lib/navigation';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -166,8 +167,11 @@ export default function SignUpScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Animated.View entering={enterFade(40)}>
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => exitToWelcome(router)}
             style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            hitSlop={8}
           >
             <Text style={styles.closeText}>✕</Text>
           </Pressable>
