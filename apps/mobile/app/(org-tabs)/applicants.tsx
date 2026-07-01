@@ -10,27 +10,38 @@ import { Card } from '../../components/ui/Card';
 import { PillBadge } from '../../components/ui/PillBadge';
 import { trpc } from '../../lib/trpc';
 import { DEMO_ORG_PRIMARY_ID } from '@hourly/shared';
-import { shouldUseDemoData, shouldUseLiveApi } from '../../lib/dataSource';
+import { useShouldUseDemoData, useShouldUseLiveApi } from '../../lib/dataSource';
 import { useDemoStore } from '../../lib/demo/demoStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tabBarScrollContentPadding, tabScreenContentTopPadding } from '../../constants/tabBar';
 
+function applicantInitials(firstName: string, lastName: string): string {
+  const first = firstName?.trim()?.[0] ?? '?';
+  const last = lastName?.trim()?.[0] ?? '';
+  return `${first}${last}`;
+}
+
 export default function ApplicantsTab() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const applicantsQuery = trpc.org.listAllApplicants.useQuery(undefined, { enabled: shouldUseLiveApi() });
-  const demoApplicants = useDemoStore(s => s.getAllApplicantsForOrg(DEMO_ORG_PRIMARY_ID));
+  const demo = useShouldUseDemoData();
+  const live = useShouldUseLiveApi();
   const applications = useDemoStore(s => s.applications);
+  const opportunities = useDemoStore(s => s.opportunities);
+  const getAllApplicantsForOrg = useDemoStore(s => s.getAllApplicantsForOrg);
+  const applicantsQuery = trpc.org.listAllApplicants.useQuery(undefined, { enabled: live });
 
-  const allApplicants = useMemo(
-    () => (shouldUseDemoData() ? demoApplicants : (applicantsQuery.data ?? [])),
-    [applications, applicantsQuery.data, demoApplicants],
-  );
+  const allApplicants = useMemo(() => {
+    if (demo) {
+      return getAllApplicantsForOrg(DEMO_ORG_PRIMARY_ID);
+    }
+    return applicantsQuery.data ?? [];
+  }, [demo, applications, opportunities, getAllApplicantsForOrg, applicantsQuery.data]);
 
   const pending = allApplicants.filter(a => a.status === 'PENDING');
   const approved = allApplicants.filter(a => a.status === 'APPROVED');
 
-  if (shouldUseLiveApi() && applicantsQuery.isLoading) {
+  if (live && applicantsQuery.isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.purple} />
@@ -58,8 +69,7 @@ export default function ApplicantsTab() {
             <View style={styles.personRow}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>
-                  {a.firstName[0]}
-                  {a.lastName[0]}
+                  {applicantInitials(a.firstName, a.lastName)}
                 </Text>
               </View>
               <View style={{ flex: 1 }}>
@@ -83,8 +93,7 @@ export default function ApplicantsTab() {
             <View style={styles.personRow}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>
-                  {a.firstName[0]}
-                  {a.lastName[0]}
+                  {applicantInitials(a.firstName, a.lastName)}
                 </Text>
               </View>
               <View style={{ flex: 1 }}>

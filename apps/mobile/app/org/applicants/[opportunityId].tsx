@@ -34,8 +34,8 @@ export default function ApplicantManagement() {
     oppId ? s.opportunities.find(o => o.id === oppId) : undefined,
   );
   const opp = opportunityFromStore ?? (oppId ? getOpportunityById(oppId) : undefined);
-  const demoApplicants = useDemoStore(s => (oppId ? s.getApplicantsForOpportunity(oppId) : []));
   const applications = useDemoStore(s => s.applications);
+  const getApplicantsForOpportunity = useDemoStore(s => s.getApplicantsForOpportunity);
   const setApplicationStatus = useDemoStore(s => s.setApplicationStatus);
 
   const liveApplicantsQuery = trpc.org.getApplicants.useQuery(
@@ -64,8 +64,8 @@ export default function ApplicantManagement() {
         };
       });
     }
-    return demoApplicants;
-  }, [applications, demoApplicants, liveApplicantsQuery.data]);
+    return oppId ? getApplicantsForOpportunity(oppId) : [];
+  }, [applications, getApplicantsForOpportunity, liveApplicantsQuery.data, oppId]);
 
   const statusGroups = useMemo(
     () => ({
