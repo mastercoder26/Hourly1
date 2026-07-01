@@ -15,6 +15,7 @@ import { Colors } from '@/constants/colors';
 import { Typography } from '@/constants/typography';
 import { PillButton } from '@/components/ui/PillButton';
 import { trpc } from '@/lib/trpc';
+import { fetchApiHealth, isApiVersionCurrent } from '@/lib/apiHealth';
 
 function getWebStorageItem(key: string) {
   if (typeof window === 'undefined') {
@@ -40,14 +41,66 @@ function setWebStorageItem(key: string, value: string) {
   }
 }
 
+function deleteWebStorageItem(key: string) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore storage delete failures in demo flows.
+  }
+}
+
 export default function AdminLoginScreen() {
   const router = useRouter();
   const loginMutation = trpc.admin.login.useMutation();
+  const configQuery = trpc.admin.checkConfig.useQuery(undefined, {
+    retry: 1,
+    staleTime: 60_000,
+  });
 
   const [checkingExistingSession, setCheckingExistingSession] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [apiHealthWarning, setApiHealthWarning] = useState('');
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadHealth() {
+      const health = await fetchApiHealth();
+      if (!active) {
+        return;
+      }
+
+      if (!health) {
+        setApiHealthWarning('Could not reach the API server. It may be waking up — wait a moment and try again.');
+        return;
+      }
+
+      if (!isApiVersionCurrent(health)) {
+        setApiHealthWarning(
+          'The live API is running an older build. Redeploy hourly1-api on Render from the latest main branch, then retry admin login.',
+        );
+        return;
+      }
+
+      if (health.adminConfigured === false) {
+        setApiHealthWarning(
+          'Admin password is not set on the API. Add ADMIN_DASHBOARD_PASSWORD in Render environment variables and redeploy.',
+        );
+      }
+    }
+
+    loadHealth();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isActive = true;
@@ -65,8 +118,22 @@ export default function AdminLoginScreen() {
         existingToken = getWebStorageItem('hourly_admin_token');
       }
 
-      if (existingToken) {
+      const expiresAt =
+        (await SecureStore.getItemAsync('hourly_admin_expires_at').catch(() => null)) ??
+        getWebStorageItem('hourly_admin_expires_at');
+      const sessionExpired = expiresAt ? Date.parse(expiresAt) <= Date.now() : false;
+
+      if (existingToken && !sessionExpired) {
         router.replace('/admin/dashboard' as never);
+      } else if (existingToken && sessionExpired) {
+        await Promise.all([
+          SecureStore.deleteItemAsync('hourly_admin_token').catch(() => undefined),
+          SecureStore.deleteItemAsync('hourly_admin_email').catch(() => undefined),
+          SecureStore.deleteItemAsync('hourly_admin_expires_at').catch(() => undefined),
+        ]);
+        deleteWebStorageItem('hourly_admin_token');
+        deleteWebStorageItem('hourly_admin_email');
+        deleteWebStorageItem('hourly_admin_expires_at');
       }
 
       if (isActive) {
@@ -108,6 +175,15 @@ export default function AdminLoginScreen() {
         typeof (err as { message?: unknown }).message === 'string'
           ? (err as { message: string }).message
           : 'Admin sign in failed';
+
+      if (message.toLowerCase().includes('invalid admin credentials')) {
+        setError(
+          configQuery.data?.passwordConfigured === false
+            ? 'Admin password is not configured on the API server. Set ADMIN_DASHBOARD_PASSWORD in Render, redeploy, then try again.'
+            : 'Invalid admin credentials. Use the email and password configured in Render (ADMIN_DASHBOARD_EMAIL / ADMIN_DASHBOARD_PASSWORD).',
+        );
+        return;
+      }
 
       setError(message);
     }
@@ -162,6 +238,14 @@ export default function AdminLoginScreen() {
           </View>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          {apiHealthWarning ? <Text style={styles.warningText}>{apiHealthWarning}</Text> : null}
+
+          {configQuery.data?.passwordConfigured === false && !apiHealthWarning ? (
+            <Text style={styles.warningText}>
+              API admin login is not configured yet. Add ADMIN_DASHBOARD_PASSWORD on Render and redeploy the API.
+            </Text>
+          ) : null}
 
           <PillButton
             variant="primary"
@@ -245,6 +329,12 @@ const styles = StyleSheet.create({
     color: Colors.error,
     fontFamily: Typography.body.fontFamily,
     fontSize: 13,
+  },
+  warningText: {
+    color: Colors.warning,
+    fontFamily: Typography.body.fontFamily,
+    fontSize: 13,
+    lineHeight: 18,
   },
   note: {
     color: Colors.dark.textTertiary,

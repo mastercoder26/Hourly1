@@ -19,13 +19,13 @@ import { PillButton } from '../../components/ui/PillButton';
 import { HoursChart } from '../../components/HoursChart';
 import { BadgeGrid } from '../../components/BadgeGrid';
 import { trpc } from '../../lib/trpc';
-import { shouldUseDemoData, shouldUseLiveApi } from '../../lib/dataSource';
+import { useShouldUseDemoData, useShouldUseLiveApi } from '../../lib/dataSource';
 import { useDemoStore } from '../../lib/demo/demoStore';
 import { Badge } from '../../types';
+import type { AttendanceRecord } from '../../types';
 import { enterRise, enterFade, stagger, MOTION } from '../../lib/motion';
 import { Feather } from '@expo/vector-icons';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
+import { exportVolunteerCertificate } from '../../lib/certificateExport';
 import { getDemoPortfolioShareUrl, getPortfolioShareUrlForSlug } from '../../lib/publicUrls';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tabBarScrollContentPadding, tabScreenContentTopPadding } from '../../constants/tabBar';
@@ -70,8 +70,8 @@ function AnimatedCounter({
 export default function PortfolioScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const demo = shouldUseDemoData();
-  const live = shouldUseLiveApi();
+  const demo = useShouldUseDemoData();
+  const live = useShouldUseLiveApi();
   const demoAttendance = useDemoStore(s => s.attendance);
   const demoBadges = useDemoStore(s => s.badges);
   const demoOpportunities = useDemoStore(s => s.opportunities);
@@ -86,7 +86,9 @@ export default function PortfolioScreen() {
     live &&
     (attendanceQuery.isLoading || badgesQuery.isLoading || statsQuery.isLoading);
 
-  const attendance = demo ? demoAttendance : (attendanceQuery.data ?? []);
+  const attendance: AttendanceRecord[] = demo
+    ? demoAttendance
+    : ((attendanceQuery.data ?? []) as AttendanceRecord[]);
   const badges: Badge[] = demo ? demoBadges : ((badgesQuery.data ?? []) as Badge[]);
 
   const totalVerified = useMemo(() => {
@@ -109,6 +111,12 @@ export default function PortfolioScreen() {
     const slug = statsQuery.data?.publicSlug;
     const url = demo || !slug ? getDemoPortfolioShareUrl() : getPortfolioShareUrlForSlug(slug);
     try {
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        Alert.alert('Link copied', 'Your portfolio link was copied to the clipboard.');
+        return;
+      }
+
       await Share.share(
         Platform.select({
           ios: { url },
@@ -116,7 +124,7 @@ export default function PortfolioScreen() {
         }) ?? { message: url },
       );
     } catch {
-      Alert.alert('Share', url);
+      Alert.alert('Share portfolio', url);
     }
   };
 
@@ -128,23 +136,17 @@ export default function PortfolioScreen() {
     const name = demo
       ? `${demoStudentProfile.firstName} ${demoStudentProfile.lastName}`
       : realName || 'Volunteer';
-    const hours = totalVerified;
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Certificate</title>
-      <style>body{font-family:system-ui;padding:40px;}h1{color:#1D9E75}footer{font-size:12px;color:#666;margin-top:48px}</style>
-      </head><body><h1>Verified volunteer hours</h1><p><strong>${name}</strong></p><p>Total verified hours: <strong>${hours}</strong></p>
-      <p>Sample certificate. Replace with a server PDF in production.</p>
-      <footer>Hourly, verified digital record</footer></body></html>`;
-    try {
-      const { uri } = await Print.printToFileAsync({ html });
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Certificate' });
-      } else {
-        Alert.alert('Certificate', 'Saved PDF; sharing is not available on this device.');
-      }
-    } catch (e) {
-      Alert.alert('Certificate', 'Could not generate PDF in this environment.');
-    }
+
+    await exportVolunteerCertificate({
+      name,
+      hours: totalVerified,
+      shifts: uniqueShifts,
+      issuedDate: new Date().toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+    });
   };
 
   if (isLoadingRemote) {

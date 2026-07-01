@@ -4,6 +4,7 @@ import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import { appRouter } from './router';
 import { createContext } from './trpc';
 import { clerkMiddleware } from '@clerk/express';
+import { API_VERSION } from './version';
 
 export const app = express();
 
@@ -18,7 +19,13 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
+  const adminPasswordConfigured = Boolean(process.env.ADMIN_DASHBOARD_PASSWORD?.trim());
+  res.json({
+    status: 'ok',
+    version: API_VERSION,
+    adminConfigured: adminPasswordConfigured,
+    gitCommit: process.env.RENDER_GIT_COMMIT ?? null,
+  });
 });
 
 const trpcStack: express.RequestHandler[] = [];

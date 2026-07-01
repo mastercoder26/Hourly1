@@ -58,6 +58,16 @@ function mapOrgToAdminRow(org: OrgWithUserAndOpps) {
 }
 
 export const adminRouter = router({
+  checkConfig: publicProcedure.query(() => {
+    const email = process.env.ADMIN_DASHBOARD_EMAIL ?? 'admin@hourly.app';
+    const passwordConfigured = Boolean(process.env.ADMIN_DASHBOARD_PASSWORD?.trim());
+
+    return {
+      emailHint: email,
+      passwordConfigured,
+    };
+  }),
+
   login: publicProcedure
     .input(
       z.object({

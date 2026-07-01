@@ -17,3 +17,7 @@ services:
         sync: false
       - key: CLERK_PUBLISHABLE_KEY
         sync: false
+      - key: ADMIN_DASHBOARD_EMAIL
+        sync: false
+      - key: ADMIN_DASHBOARD_PASSWORD
+        sync: false
